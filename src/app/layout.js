@@ -1,7 +1,7 @@
-import "./globals.css";
-import Header from "@/components/layout/Header";
-import Footer from "@/components/layout/Footer";
-import { APP_CONFIG } from "@/constants";
+import "@/styles/globals.css";
+import Header from "@/components/CommonComponents/layout/Header";
+import Footer from "@/components/CommonComponents/layout/Footer";
+import { APP_CONFIG } from "@/components/config";
 
 export const metadata = {
   title: APP_CONFIG.name,

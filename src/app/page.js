@@ -1,6 +1,7 @@
 import Link from "next/link";
-import Button from "@/components/ui/Button";
-import { APP_CONFIG } from "@/constants";
+import Button from "@/components/CommonComponents/ui/Button";
+import { APP_CONFIG } from "@/components/config";
+import { ROLE_HIERARCHY, getRoleConfig } from "@/components/config/roles";
 
 export default function Home() {
   return (
@@ -16,17 +17,49 @@ export default function Home() {
             A production-grade Next.js application with modern tooling, 
             beautiful UI components, and best practices built-in.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/register">
-              <Button size="lg" className="text-base px-8 w-full sm:w-auto">
-                Get Started
-              </Button>
-            </Link>
-            <Link href="/login">
-              <Button variant="outline" size="lg" className="text-base px-8 w-full sm:w-auto">
-                Sign In
-              </Button>
-            </Link>
+          <div className="text-center">
+            <h3 className="text-xl font-semibold text-gray-800 mb-6">Choose Your Role to Access</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl mx-auto">
+              {ROLE_HIERARCHY.map((role) => {
+                const config = getRoleConfig(role.key);
+                return (
+                  <Link key={role.key} href={role.path}>
+                    <div className="group bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-200 hover:border-blue-300 cursor-pointer">
+                      <div 
+                        className="w-12 h-12 rounded-lg flex items-center justify-center mb-4 mx-auto transition-colors duration-300"
+                        style={{ backgroundColor: `${config.primaryColor}20` }}
+                      >
+                        <div 
+                          className="w-6 h-6"
+                          style={{ color: config.primaryColor }}
+                        >
+                          {/* Role icon placeholder */}
+                          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" className="w-full h-full">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                        </div>
+                      </div>
+                      <h4 className="text-lg font-semibold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
+                        {config.title}
+                      </h4>
+                      <p className="text-sm text-gray-600 mb-3">
+                        {config.subtitle}
+                      </p>
+                      <Button 
+                        size="sm" 
+                        className="w-full text-sm"
+                        style={{ 
+                          backgroundColor: config.primaryColor,
+                          borderColor: config.primaryColor 
+                        }}
+                      >
+                        Access {role.label} Portal
+                      </Button>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
           </div>
         </div>
       </section>
@@ -100,11 +133,18 @@ export default function Home() {
             <p className="text-blue-100 mb-8 text-lg">
               Start building your next project with this production-ready template.
             </p>
-            <Link href="/register">
-              <Button variant="outline" size="lg" className="bg-white text-blue-600 hover:bg-gray-50 border-white">
-                Get Started Now
-              </Button>
-            </Link>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Link href="/admin">
+                <Button variant="outline" size="lg" className="bg-white text-blue-600 hover:bg-gray-50 border-white">
+                  Admin Access
+                </Button>
+              </Link>
+              <Link href="/manager">
+                <Button variant="outline" size="lg" className="bg-white text-blue-600 hover:bg-gray-50 border-white">
+                  Manager Access
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
       </section>
