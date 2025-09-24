@@ -13,10 +13,10 @@ export default function Home() {
             Welcome to{" "}
             <span className="text-blue-600">{APP_CONFIG.name}</span>
           </h1>
-          <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
+          {/* <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
             A production-grade Next.js application with modern tooling, 
             beautiful UI components, and best practices built-in.
-          </p>
+          </p> */}
           <div className="text-center">
             <h3 className="text-xl font-semibold text-gray-800 mb-6">Choose Your Role to Access</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl mx-auto">
@@ -65,7 +65,7 @@ export default function Home() {
       </section>
 
       {/* Features Section */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+      {/* <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
         <div className="text-center mb-16">
           <h2 className="text-3xl font-bold text-gray-900 mb-4">
             Built for Production
@@ -76,7 +76,7 @@ export default function Home() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {/* Feature 1 */}
+          {/* Feature 1 
           <div className="bg-white rounded-lg p-6 shadow-sm border">
             <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
               <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -91,7 +91,7 @@ export default function Home() {
             </p>
           </div>
 
-          {/* Feature 2 */}
+          {/* Feature 2 
           <div className="bg-white rounded-lg p-6 shadow-sm border">
             <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
               <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -106,7 +106,7 @@ export default function Home() {
             </p>
           </div>
 
-          {/* Feature 3 */}
+          {/* Feature 3 
           <div className="bg-white rounded-lg p-6 shadow-sm border">
             <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
               <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -123,7 +123,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* CTA Section */}
+      {/* CTA Section 
       <section className="bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <div className="bg-blue-600 rounded-2xl px-8 py-12 text-center">
@@ -147,7 +147,7 @@ export default function Home() {
             </div>
           </div>
         </div>
-      </section>
+      </section>*/}
     </div>
   );
 }

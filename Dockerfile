@@ -10,7 +10,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 
 # Install dependencies (including dev dependencies for build)
 COPY package.json package-lock.json* ./
-RUN npm ci && npm cache clean --force
+RUN npm ci --include=dev && npm cache clean --force
 
 # Copy source code
 COPY . .

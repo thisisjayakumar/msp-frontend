@@ -2,13 +2,13 @@
 // This file can be used to store application-wide configuration settings
 
 export const APP_CONFIG = {
-  name: 'Microspring',
+  name: 'MSP ERP Lite',
   version: '1.0.0',
   description: 'Precision, Performance, Perfection',
   
   // API Configuration
   api: {
-    baseUrl: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001/api',
+    baseUrl: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000/api',
     timeout: 30000, // 30 seconds
     retryAttempts: 3,
   },

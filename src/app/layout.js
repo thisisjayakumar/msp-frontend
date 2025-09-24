@@ -1,6 +1,6 @@
 import "@/styles/globals.css";
-import Header from "@/components/CommonComponents/layout/Header";
-import Footer from "@/components/CommonComponents/layout/Footer";
+import ConditionalHeader from "@/components/CommonComponents/layout/ConditionalHeader";
+import ConditionalFooter from "@/components/CommonComponents/layout/ConditionalFooter";
 import { APP_CONFIG } from "@/components/config";
 
 export const metadata = {
@@ -12,11 +12,11 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body className="antialiased min-h-screen flex flex-col font-sans">
-        <Header />
+        <ConditionalHeader />
         <main className="flex-1">
           {children}
         </main>
-        <Footer />
+        <ConditionalFooter />
       </body>
     </html>
   );
