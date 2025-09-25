@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import manufacturingAPI from '@/components/API_Service/manufacturing-api';
 
 export default function OrdersList({ type }) {
+  const router = useRouter();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
@@ -63,6 +65,12 @@ export default function OrdersList({ type }) {
     } catch (error) {
       console.error('Error changing status:', error);
       alert('Failed to change status');
+    }
+  };
+
+  const handleMOClick = (order) => {
+    if (isMO) {
+      router.push(`/manager/mo-detail/${order.id}`);
     }
   };
 
@@ -208,12 +216,23 @@ export default function OrdersList({ type }) {
           </div>
         ) : (
           orders.map((order) => (
-            <div key={order.id} className="bg-white/80 backdrop-blur-sm rounded-xl shadow-lg shadow-slate-200/50 border border-slate-200/60 p-6 hover:shadow-xl hover:shadow-slate-300/50 transition-all">
+            <div 
+              key={order.id} 
+              className={`bg-white/80 backdrop-blur-sm rounded-xl shadow-lg shadow-slate-200/50 border border-slate-200/60 p-6 hover:shadow-xl hover:shadow-slate-300/50 transition-all ${
+                isMO ? 'cursor-pointer hover:bg-white/90' : ''
+              }`}
+              onClick={() => handleMOClick(order)}
+            >
               <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-4">
                 <div className="flex-1">
                   <div className="flex items-center space-x-3 mb-2">
-                    <h3 className="text-lg font-bold text-slate-800">
-                      {isMO ? order.mo_id : order.po_id}
+                    <h3 className="text-lg font-bold text-slate-800 flex items-center space-x-2">
+                      <span>{isMO ? order.mo_id : order.po_id}</span>
+                      {isMO && (
+                        <span className="text-xs text-blue-600 font-normal">
+                          → View Details
+                        </span>
+                      )}
                     </h3>
                     <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
                       {order.status_display}

@@ -9,6 +9,7 @@ import DashboardStats from '@/components/manager/DashboardStats';
 import ManufacturingOrderForm from '@/components/manager/ManufacturingOrderForm';
 import PurchaseOrderForm from '@/components/manager/PurchaseOrderForm';
 import OrdersList from '@/components/manager/OrdersList';
+import ProcessTrackingSummary from '@/components/manager/ProcessTrackingSummary';
 import LoadingSpinner from '@/components/CommonComponents/ui/LoadingSpinner';
 
 export default function ManagerDashboard() {
@@ -66,7 +67,8 @@ export default function ManagerDashboard() {
 
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: '📊' },
-    { id: 'create-mo', label: 'Create MO', icon: '🏭' },
+    { id: 'process-tracking', label: 'Process Tracking', icon: '🏭' },
+    { id: 'create-mo', label: 'Create MO', icon: '➕' },
     { id: 'create-po', label: 'Create PO', icon: '📦' },
     { id: 'mo-list', label: 'MO List', icon: '📋' },
     { id: 'po-list', label: 'PO List', icon: '📄' },
@@ -139,7 +141,26 @@ export default function ManagerDashboard() {
         <div className="space-y-6">
           {/* Dashboard Tab */}
           {activeTab === 'dashboard' && (
-            <DashboardStats stats={dashboardStats} />
+            <div className="space-y-6">
+              <DashboardStats stats={dashboardStats} />
+              <ProcessTrackingSummary />
+            </div>
+          )}
+
+          {/* Process Tracking Tab */}
+          {activeTab === 'process-tracking' && (
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200/60">
+              <div className="p-6 border-b border-slate-200/60">
+                <h2 className="text-2xl font-bold text-slate-800 flex items-center space-x-2">
+                  <span>🏭</span>
+                  <span>Process Tracking Overview</span>
+                </h2>
+                <p className="text-slate-600 mt-1">Monitor manufacturing processes and production flow</p>
+              </div>
+              <div className="p-6">
+                <ProcessTrackingSummary />
+              </div>
+            </div>
           )}
 
           {/* Create MO Tab */}
