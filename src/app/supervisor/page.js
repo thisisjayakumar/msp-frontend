@@ -1,25 +1,30 @@
 "use client";
 
 import RoleLoginLayout from "@/components/CommonComponents/layout/RoleLoginLayout";
+import { roleAuthService } from "@/components/API_Service/role-auth";
 
 export default function SupervisorLoginPage() {
   const handleSupervisorLogin = async (loginData) => {
     try {
-      // Supervisor-specific login logic
+      // Supervisor-specific login logic using actual backend API
       console.log("Supervisor login attempt:", loginData);
       
-      // Here you would make an API call to your supervisor authentication endpoint
-      // Example: await supervisorAuthAPI.login(loginData);
+      // Use the actual backend authentication
+      const response = await roleAuthService.supervisorLogin({
+        email: loginData.email,
+        password: loginData.password
+      });
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // On successful login, redirect to supervisor dashboard
-      window?.location?.replace('/supervisor/dashboard');
+      if (response.success) {
+        // On successful login, redirect to supervisor dashboard
+        window?.location?.replace('/supervisor/dashboard');
+      } else {
+        throw new Error(response.error || "Login failed");
+      }
       
     } catch (error) {
       console.error("Supervisor login failed:", error);
-      throw new Error("Invalid supervisor credentials");
+      throw new Error(error.message || "Invalid supervisor credentials");
     }
   };
 

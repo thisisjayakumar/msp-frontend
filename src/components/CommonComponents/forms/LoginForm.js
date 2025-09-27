@@ -14,7 +14,7 @@ export default function LoginForm({
   className = ""
 }) {
   const [formData, setFormData] = useState({
-    username: "",
+    email: "",
     password: "",
   });
   const [errors, setErrors] = useState({});
@@ -40,8 +40,10 @@ export default function LoginForm({
   const validateForm = () => {
     const newErrors = {};
     
-    if (!formData.username.trim()) {
-      newErrors.username = "Username is required";
+    if (!formData.email.trim()) {
+      newErrors.email = "Email is required";
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      newErrors.email = "Please enter a valid email address";
     }
     
     if (!formData.password) {
@@ -136,17 +138,17 @@ export default function LoginForm({
             
             <div className="space-y-4">
               <div>
-                <label htmlFor="username" className="block text-sm font-medium text-white/90 mb-2">
-                  Username
+                <label htmlFor="email" className="block text-sm font-medium text-white/90 mb-2">
+                  Email Address
                 </label>
                 <Input
-                  id="username"
-                  name="username"
-                  type="text"
-                  placeholder="Enter your username"
-                  value={formData.username}
+                  id="email"
+                  name="email"
+                  type="email"
+                  placeholder="Enter your email address"
+                  value={formData.email}
                   onChange={handleInputChange}
-                  error={errors.username}
+                  error={errors.email}
                   disabled={isLoading}
                   className="backdrop-blur-sm bg-white/10 border-white/20 text-white placeholder-white/50 focus:border-blue-400 focus:ring-blue-400/20"
                 />

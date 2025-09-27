@@ -1,87 +1,81 @@
 import { apiPost } from './api-utils';
 import { AUTH_APIS } from './api-list';
 
+// Generic login function that works for all roles
+const performLogin = async (credentials, expectedRole = null) => {
+  const response = await apiPost(AUTH_APIS.LOGIN, {
+    email: credentials.email,
+    password: credentials.password
+  });
+  
+  if (response.success) {
+    const { access, refresh, user } = response.data;
+    
+    // Validate role if specified
+    if (expectedRole && user.primary_role?.name !== expectedRole) {
+      const userRoleName = user.primary_role?.name || 'unknown';
+      return {
+        success: false,
+        error: `Access denied. Only ${expectedRole}s are allowed to login here. You are logged in as a ${userRoleName}.`
+      };
+    }
+    
+    // Store authentication data
+    localStorage.setItem('authToken', access);
+    localStorage.setItem('refreshToken', refresh);
+    localStorage.setItem('userRole', user.primary_role?.name || 'unknown');
+    localStorage.setItem('userData', JSON.stringify(user));
+    
+    // Store role-specific permissions if available
+    if (user.primary_role?.name) {
+      const permissionsKey = `${user.primary_role.name}Permissions`;
+      localStorage.setItem(permissionsKey, JSON.stringify(user.permissions || []));
+    }
+    
+    return {
+      success: true,
+      data: {
+        token: access,
+        refreshToken: refresh,
+        user: user,
+        role: user.primary_role?.name
+      }
+    };
+  }
+  
+  return response;
+};
+
 // Role-specific login functions
 export const roleAuthService = {
   // Admin login
   adminLogin: async (credentials) => {
-    const response = await apiPost(AUTH_APIS.ADMIN_LOGIN, {
-      ...credentials,
-      role: 'admin'
-    });
-    
-    if (response.success) {
-      // Store admin-specific token and role info
-      localStorage.setItem('userRole', 'admin');
-      localStorage.setItem('authToken', response.data.token);
-      localStorage.setItem('adminPermissions', JSON.stringify(response.data.permissions || []));
-    }
-    
-    return response;
+    return await performLogin(credentials, 'admin');
   },
 
   // Manager login
   managerLogin: async (credentials) => {
-    const response = await apiPost(AUTH_APIS.MANAGER_LOGIN, {
-      ...credentials,
-      role: 'manager'
-    });
-    
-    if (response.success) {
-      localStorage.setItem('userRole', 'manager');
-      localStorage.setItem('authToken', response.data.token);
-      localStorage.setItem('managerPermissions', JSON.stringify(response.data.permissions || []));
-    }
-    
-    return response;
+    return await performLogin(credentials, 'manager');
   },
 
   // Supervisor login
   supervisorLogin: async (credentials) => {
-    const response = await apiPost(AUTH_APIS.SUPERVISOR_LOGIN, {
-      ...credentials,
-      role: 'supervisor'
-    });
-    
-    if (response.success) {
-      localStorage.setItem('userRole', 'supervisor');
-      localStorage.setItem('authToken', response.data.token);
-      localStorage.setItem('supervisorPermissions', JSON.stringify(response.data.permissions || []));
-    }
-    
-    return response;
+    return await performLogin(credentials, 'supervisor');
   },
 
   // Store Manager login
   storeManagerLogin: async (credentials) => {
-    const response = await apiPost(AUTH_APIS.STORE_MANAGER_LOGIN, {
-      ...credentials,
-      role: 'store_manager'
-    });
-    
-    if (response.success) {
-      localStorage.setItem('userRole', 'store_manager');
-      localStorage.setItem('authToken', response.data.token);
-      localStorage.setItem('storeManagerPermissions', JSON.stringify(response.data.permissions || []));
-    }
-    
-    return response;
+    return await performLogin(credentials, 'store_manager');
   },
 
   // Operator login
   operatorLogin: async (credentials) => {
-    const response = await apiPost(AUTH_APIS.OPERATOR_LOGIN, {
-      ...credentials,
-      role: 'operator'
-    });
-    
-    if (response.success) {
-      localStorage.setItem('userRole', 'operator');
-      localStorage.setItem('authToken', response.data.token);
-      localStorage.setItem('operatorPermissions', JSON.stringify(response.data.permissions || []));
-    }
-    
-    return response;
+    return await performLogin(credentials, 'operator');
+  },
+
+  // Generic login (no role validation)
+  login: async (credentials) => {
+    return await performLogin(credentials);
   },
 
   // Generic role login (determines endpoint based on role)

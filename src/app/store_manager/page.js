@@ -1,25 +1,30 @@
 "use client";
 
 import RoleLoginLayout from "@/components/CommonComponents/layout/RoleLoginLayout";
+import { roleAuthService } from "@/components/API_Service/role-auth";
 
 export default function StoreManagerLoginPage() {
   const handleStoreManagerLogin = async (loginData) => {
     try {
-      // Store Manager-specific login logic
+      // Store Manager-specific login logic using actual backend API
       console.log("Store Manager login attempt:", loginData);
       
-      // Here you would make an API call to your store manager authentication endpoint
-      // Example: await storeManagerAuthAPI.login(loginData);
+      // Use the actual backend authentication
+      const response = await roleAuthService.storeManagerLogin({
+        email: loginData.email,
+        password: loginData.password
+      });
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // On successful login, redirect to store manager dashboard
-      window?.location?.replace('/store_manager/dashboard');
+      if (response.success) {
+        // On successful login, redirect to store manager dashboard
+        window?.location?.replace('/store_manager/dashboard');
+      } else {
+        throw new Error(response.error || "Login failed");
+      }
       
     } catch (error) {
       console.error("Store Manager login failed:", error);
-      throw new Error("Invalid store manager credentials");
+      throw new Error(error.message || "Invalid store manager credentials");
     }
   };
 

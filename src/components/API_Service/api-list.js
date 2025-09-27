@@ -5,19 +5,15 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8
 
 // Authentication APIs
 export const AUTH_APIS = {
-  LOGIN: `${API_BASE_URL}/auth/login`,
-  LOGOUT: `${API_BASE_URL}/auth/logout`,
-  REFRESH_TOKEN: `${API_BASE_URL}/auth/refresh`,
-  FORGOT_PASSWORD: `${API_BASE_URL}/auth/forgot-password`,
-  RESET_PASSWORD: `${API_BASE_URL}/auth/reset-password`,
-  VERIFY_EMAIL: `${API_BASE_URL}/auth/verify-email`,
-  
-  // Role-specific authentication endpoints
-  ADMIN_LOGIN: `${API_BASE_URL}/auth/admin/login`,
-  MANAGER_LOGIN: `${API_BASE_URL}/auth/manager/login`,
-  SUPERVISOR_LOGIN: `${API_BASE_URL}/auth/supervisor/login`,
-  STORE_MANAGER_LOGIN: `${API_BASE_URL}/auth/store-manager/login`,
-  OPERATOR_LOGIN: `${API_BASE_URL}/auth/operator/login`,
+  LOGIN: `${API_BASE_URL}/auth/login/`,
+  LOGOUT: `${API_BASE_URL}/auth/logout/`,
+  REFRESH_TOKEN: `${API_BASE_URL}/auth/token/refresh/`,
+  FORGOT_PASSWORD: `${API_BASE_URL}/auth/forgot-password/`,
+  RESET_PASSWORD: `${API_BASE_URL}/auth/reset-password/`,
+  VERIFY_EMAIL: `${API_BASE_URL}/auth/verify-email/`,
+  PROFILE: `${API_BASE_URL}/auth/profile/`,
+  CHANGE_PASSWORD: `${API_BASE_URL}/auth/change-password/`,
+  PERMISSIONS: `${API_BASE_URL}/auth/permissions/`,
 };
 
 // User APIs

@@ -1,15 +1,38 @@
+"use client";
+
+import RoleLoginLayout from "@/components/CommonComponents/layout/RoleLoginLayout";
+import { roleAuthService } from "@/components/API_Service/role-auth";
+
 export default function AdminLoginPage() {
+  const handleAdminLogin = async (loginData) => {
+    try {
+      // Admin-specific login logic using actual backend API
+      console.log("Admin login attempt:", loginData);
+      
+      // Use the actual backend authentication
+      const response = await roleAuthService.adminLogin({
+        email: loginData.email,
+        password: loginData.password
+      });
+      
+      if (response.success) {
+        // On successful login, redirect to admin dashboard
+        window?.location?.replace('/admin/dashboard');
+      } else {
+        throw new Error(response.error || "Login failed");
+      }
+      
+    } catch (error) {
+      console.error("Admin login failed:", error);
+      throw new Error(error.message || "Invalid admin credentials");
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-red-50 flex items-center justify-center">
-      <div className="bg-white p-8 rounded-lg shadow-lg">
-        <h1 className="text-2xl font-bold text-red-600 mb-4">Admin Portal</h1>
-        <p className="text-gray-600">Admin login page is working!</p>
-        <div className="mt-4">
-          <button className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">
-            Test Button
-          </button>
-        </div>
-      </div>
-    </div>
+    <RoleLoginLayout 
+      role="admin"
+      onLogin={handleAdminLogin}
+      showForgotPassword={true}
+    />
   );
 }

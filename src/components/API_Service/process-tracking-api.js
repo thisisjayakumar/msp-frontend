@@ -3,11 +3,11 @@
  * Handles all process execution, step tracking, and alert management
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000/api';
 
 class ProcessTrackingAPI {
   constructor() {
-    this.baseURL = `${API_BASE_URL}/api/manufacturing`;
+    this.baseURL = `${API_BASE_URL}/manufacturing/api`;
   }
 
   // Helper method to get auth headers
