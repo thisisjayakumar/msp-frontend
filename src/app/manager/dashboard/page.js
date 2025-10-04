@@ -11,6 +11,7 @@ import PurchaseOrderForm from '@/components/manager/PurchaseOrderForm';
 import OrdersList from '@/components/manager/OrdersList';
 import ProcessTrackingSummary from '@/components/manager/ProcessTrackingSummary';
 import LoadingSpinner from '@/components/CommonComponents/ui/LoadingSpinner';
+import SimplifiedManufacturingOrderForm from '@/components/manager/SimplifiedManufacturingOrderForm';
 
 export default function ManagerDashboard() {
   const router = useRouter();
@@ -174,7 +175,7 @@ export default function ManagerDashboard() {
                 <p className="text-slate-600 mt-1">Create a new manufacturing order for production</p>
               </div>
               <div className="p-6">
-                <ManufacturingOrderForm onSuccess={() => setActiveTab('mo-list')} />
+                <SimplifiedManufacturingOrderForm onSuccess={() => setActiveTab('mo-list')} />
               </div>
             </div>
           )}

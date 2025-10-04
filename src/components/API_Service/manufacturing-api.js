@@ -2,23 +2,14 @@
 // Centralized API calls for Manufacturing Orders and Purchase Orders
 
 import { MANUFACTURING_APIS } from './api-list';
+import { apiRequest } from './api-utils';
 
-// Helper function to get auth headers
-const getAuthHeaders = () => {
-  const token = localStorage.getItem('authToken');
-  return {
-    'Content-Type': 'application/json',
-    'Authorization': token ? `Bearer ${token}` : '',
-  };
-};
-
-// Helper function to handle API responses
+// Helper function to handle API responses (for backward compatibility)
 const handleResponse = async (response) => {
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+  if (response.success) {
+    return response.data;
   }
-  return response.json();
+  throw new Error(response.error || 'API request failed');
 };
 
 // Manufacturing Orders API Service
@@ -36,9 +27,8 @@ export const manufacturingOrdersAPI = {
       ? `${MANUFACTURING_APIS.MO_LIST}?${queryParams}`
       : MANUFACTURING_APIS.MO_LIST;
     
-    const response = await fetch(url, {
+    const response = await apiRequest(url, {
       method: 'GET',
-      headers: getAuthHeaders(),
     });
     
     return handleResponse(response);
@@ -46,9 +36,8 @@ export const manufacturingOrdersAPI = {
 
   // Get MO by ID
   getById: async (id) => {
-    const response = await fetch(MANUFACTURING_APIS.MO_DETAIL(id), {
+    const response = await apiRequest(MANUFACTURING_APIS.MO_DETAIL(id), {
       method: 'GET',
-      headers: getAuthHeaders(),
     });
     
     return handleResponse(response);
@@ -56,10 +45,9 @@ export const manufacturingOrdersAPI = {
 
   // Create new MO
   create: async (moData) => {
-    const response = await fetch(MANUFACTURING_APIS.MO_CREATE, {
+    const response = await apiRequest(MANUFACTURING_APIS.MO_CREATE, {
       method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify(moData),
+      body: moData,
     });
     
     return handleResponse(response);
@@ -67,10 +55,9 @@ export const manufacturingOrdersAPI = {
 
   // Update MO
   update: async (id, moData) => {
-    const response = await fetch(MANUFACTURING_APIS.MO_UPDATE(id), {
+    const response = await apiRequest(MANUFACTURING_APIS.MO_UPDATE(id), {
       method: 'PATCH',
-      headers: getAuthHeaders(),
-      body: JSON.stringify(moData),
+      body: moData,
     });
     
     return handleResponse(response);
@@ -78,12 +65,11 @@ export const manufacturingOrdersAPI = {
 
   // Delete MO
   delete: async (id) => {
-    const response = await fetch(MANUFACTURING_APIS.MO_DELETE(id), {
+    const response = await apiRequest(MANUFACTURING_APIS.MO_DELETE(id), {
       method: 'DELETE',
-      headers: getAuthHeaders(),
     });
     
-    if (!response.ok) {
+    if (!response.success) {
       throw new Error(`Failed to delete MO: ${response.status}`);
     }
     
@@ -92,10 +78,9 @@ export const manufacturingOrdersAPI = {
 
   // Change MO status
   changeStatus: async (id, statusData) => {
-    const response = await fetch(MANUFACTURING_APIS.MO_CHANGE_STATUS(id), {
+    const response = await apiRequest(MANUFACTURING_APIS.MO_CHANGE_STATUS(id), {
       method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify(statusData),
+      body: statusData,
     });
     
     return handleResponse(response);
@@ -103,9 +88,8 @@ export const manufacturingOrdersAPI = {
 
   // Get dashboard statistics
   getDashboardStats: async () => {
-    const response = await fetch(MANUFACTURING_APIS.MO_DASHBOARD_STATS, {
+    const response = await apiRequest(MANUFACTURING_APIS.MO_DASHBOARD_STATS, {
       method: 'GET',
-      headers: getAuthHeaders(),
     });
     
     return handleResponse(response);
@@ -113,9 +97,8 @@ export const manufacturingOrdersAPI = {
 
   // Get products for dropdown
   getProducts: async () => {
-    const response = await fetch(MANUFACTURING_APIS.MO_PRODUCTS, {
+    const response = await apiRequest(MANUFACTURING_APIS.MO_PRODUCTS, {
       method: 'GET',
-      headers: getAuthHeaders(),
     });
     
     return handleResponse(response);
@@ -123,9 +106,65 @@ export const manufacturingOrdersAPI = {
 
   // Get supervisors for dropdown
   getSupervisors: async () => {
-    const response = await fetch(MANUFACTURING_APIS.MO_SUPERVISORS, {
+    const response = await apiRequest(MANUFACTURING_APIS.MO_SUPERVISORS, {
       method: 'GET',
-      headers: getAuthHeaders(),
+    });
+    
+    return handleResponse(response);
+  },
+
+  // Get customers for dropdown
+  getCustomers: async () => {
+    const response = await apiRequest(MANUFACTURING_APIS.MO_CUSTOMERS, {
+      method: 'GET',
+    });
+    
+    return handleResponse(response);
+  },
+
+  // Get product details with BOM and materials
+  getProductDetails: async (productCode) => {
+    const response = await apiRequest(`${MANUFACTURING_APIS.MO_PRODUCT_DETAILS}?product_code=${productCode}`, {
+      method: 'GET',
+    });
+    
+    return handleResponse(response);
+  },
+
+  // Update MO details (supervisor, shift) - Manager only
+  updateMODetails: async (id, updateData) => {
+    const response = await apiRequest(MANUFACTURING_APIS.MO_UPDATE_DETAILS(id), {
+      method: 'PATCH',
+      body: updateData,
+    });
+    
+    return handleResponse(response);
+  },
+
+  // Approve MO - Manager only
+  approveMO: async (id, approvalData) => {
+    const response = await apiRequest(MANUFACTURING_APIS.MO_APPROVE(id), {
+      method: 'POST',
+      body: approvalData,
+    });
+    
+    return handleResponse(response);
+  },
+
+  // Get supervisor dashboard - Supervisor only
+  getSupervisorDashboard: async () => {
+    const response = await apiRequest(MANUFACTURING_APIS.MO_SUPERVISOR_DASHBOARD, {
+      method: 'GET',
+    });
+    
+    return handleResponse(response);
+  },
+
+  // Start MO - Supervisor only
+  startMO: async (id, startData) => {
+    const response = await apiRequest(MANUFACTURING_APIS.MO_START(id), {
+      method: 'POST',
+      body: startData,
     });
     
     return handleResponse(response);
@@ -147,9 +186,8 @@ export const purchaseOrdersAPI = {
       ? `${MANUFACTURING_APIS.PO_LIST}?${queryParams}`
       : MANUFACTURING_APIS.PO_LIST;
     
-    const response = await fetch(url, {
+    const response = await apiRequest(url, {
       method: 'GET',
-      headers: getAuthHeaders(),
     });
     
     return handleResponse(response);
@@ -157,9 +195,8 @@ export const purchaseOrdersAPI = {
 
   // Get PO by ID
   getById: async (id) => {
-    const response = await fetch(MANUFACTURING_APIS.PO_DETAIL(id), {
+    const response = await apiRequest(MANUFACTURING_APIS.PO_DETAIL(id), {
       method: 'GET',
-      headers: getAuthHeaders(),
     });
     
     return handleResponse(response);
@@ -167,10 +204,9 @@ export const purchaseOrdersAPI = {
 
   // Create new PO
   create: async (poData) => {
-    const response = await fetch(MANUFACTURING_APIS.PO_CREATE, {
+    const response = await apiRequest(MANUFACTURING_APIS.PO_CREATE, {
       method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify(poData),
+      body: poData,
     });
     
     return handleResponse(response);
@@ -178,10 +214,9 @@ export const purchaseOrdersAPI = {
 
   // Update PO
   update: async (id, poData) => {
-    const response = await fetch(MANUFACTURING_APIS.PO_UPDATE(id), {
+    const response = await apiRequest(MANUFACTURING_APIS.PO_UPDATE(id), {
       method: 'PATCH',
-      headers: getAuthHeaders(),
-      body: JSON.stringify(poData),
+      body: poData,
     });
     
     return handleResponse(response);
@@ -189,12 +224,11 @@ export const purchaseOrdersAPI = {
 
   // Delete PO
   delete: async (id) => {
-    const response = await fetch(MANUFACTURING_APIS.PO_DELETE(id), {
+    const response = await apiRequest(MANUFACTURING_APIS.PO_DELETE(id), {
       method: 'DELETE',
-      headers: getAuthHeaders(),
     });
     
-    if (!response.ok) {
+    if (!response.success) {
       throw new Error(`Failed to delete PO: ${response.status}`);
     }
     
@@ -203,10 +237,9 @@ export const purchaseOrdersAPI = {
 
   // Change PO status
   changeStatus: async (id, statusData) => {
-    const response = await fetch(MANUFACTURING_APIS.PO_CHANGE_STATUS(id), {
+    const response = await apiRequest(MANUFACTURING_APIS.PO_CHANGE_STATUS(id), {
       method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify(statusData),
+      body: statusData,
     });
     
     return handleResponse(response);
@@ -214,9 +247,8 @@ export const purchaseOrdersAPI = {
 
   // Get dashboard statistics
   getDashboardStats: async () => {
-    const response = await fetch(MANUFACTURING_APIS.PO_DASHBOARD_STATS, {
+    const response = await apiRequest(MANUFACTURING_APIS.PO_DASHBOARD_STATS, {
       method: 'GET',
-      headers: getAuthHeaders(),
     });
     
     return handleResponse(response);
@@ -224,9 +256,8 @@ export const purchaseOrdersAPI = {
 
   // Get raw materials for dropdown
   getRawMaterials: async () => {
-    const response = await fetch(MANUFACTURING_APIS.PO_RAW_MATERIALS, {
+    const response = await apiRequest(MANUFACTURING_APIS.PO_RAW_MATERIALS, {
       method: 'GET',
-      headers: getAuthHeaders(),
     });
     
     return handleResponse(response);
@@ -238,9 +269,8 @@ export const purchaseOrdersAPI = {
       ? `${MANUFACTURING_APIS.PO_VENDORS}?vendor_type=${vendorType}`
       : MANUFACTURING_APIS.PO_VENDORS;
     
-    const response = await fetch(url, {
+    const response = await apiRequest(url, {
       method: 'GET',
-      headers: getAuthHeaders(),
     });
     
     return handleResponse(response);
@@ -248,9 +278,8 @@ export const purchaseOrdersAPI = {
 
   // Get material details for auto-population
   getMaterialDetails: async (materialId) => {
-    const response = await fetch(`${MANUFACTURING_APIS.PO_MATERIAL_DETAILS}?material_id=${materialId}`, {
+    const response = await apiRequest(`${MANUFACTURING_APIS.PO_MATERIAL_DETAILS}?material_id=${materialId}`, {
       method: 'GET',
-      headers: getAuthHeaders(),
     });
     
     return handleResponse(response);
@@ -258,9 +287,8 @@ export const purchaseOrdersAPI = {
 
   // Get vendor details for auto-population
   getVendorDetails: async (vendorId) => {
-    const response = await fetch(`${MANUFACTURING_APIS.PO_VENDOR_DETAILS}?vendor_id=${vendorId}`, {
+    const response = await apiRequest(`${MANUFACTURING_APIS.PO_VENDOR_DETAILS}?vendor_id=${vendorId}`, {
       method: 'GET',
-      headers: getAuthHeaders(),
     });
     
     return handleResponse(response);

@@ -58,19 +58,24 @@ export const roleAuthService = {
     return await performLogin(credentials, 'manager');
   },
 
+  // Production Head login
+  productionHeadLogin: async (credentials) => {
+    return await performLogin(credentials, 'production_head');
+  },
+
   // Supervisor login
   supervisorLogin: async (credentials) => {
     return await performLogin(credentials, 'supervisor');
   },
 
-  // Store Manager login
-  storeManagerLogin: async (credentials) => {
-    return await performLogin(credentials, 'store_manager');
+  // RM Store login
+  rmStoreLogin: async (credentials) => {
+    return await performLogin(credentials, 'rm_store');
   },
 
-  // Operator login
-  operatorLogin: async (credentials) => {
-    return await performLogin(credentials, 'operator');
+  // FG Store login
+  fgStoreLogin: async (credentials) => {
+    return await performLogin(credentials, 'fg_store');
   },
 
   // Generic login (no role validation)
@@ -83,9 +88,10 @@ export const roleAuthService = {
     const loginMethods = {
       admin: roleAuthService.adminLogin,
       manager: roleAuthService.managerLogin,
+      production_head: roleAuthService.productionHeadLogin,
       supervisor: roleAuthService.supervisorLogin,
-      store_manager: roleAuthService.storeManagerLogin,
-      operator: roleAuthService.operatorLogin
+      rm_store: roleAuthService.rmStoreLogin,
+      fg_store: roleAuthService.fgStoreLogin
     };
 
     const loginMethod = loginMethods[role];
@@ -130,9 +136,10 @@ export const roleAuthService = {
       localStorage.removeItem('authToken');
       localStorage.removeItem('adminPermissions');
       localStorage.removeItem('managerPermissions');
+      localStorage.removeItem('production_headPermissions');
       localStorage.removeItem('supervisorPermissions');
-      localStorage.removeItem('storeManagerPermissions');
-      localStorage.removeItem('operatorPermissions');
+      localStorage.removeItem('rm_storePermissions');
+      localStorage.removeItem('fg_storePermissions');
     }
   },
 

@@ -11,6 +11,8 @@ import LoadingSpinner from '@/components/CommonComponents/ui/LoadingSpinner';
 // API Services
 import manufacturingAPI from '@/components/API_Service/manufacturing-api';
 import processTrackingAPI from '@/components/API_Service/process-tracking-api';
+import { apiRequest } from '@/components/API_Service/api-utils';
+import { AUTH_APIS } from '@/components/API_Service/api-list';
 
 export default function MODetailPage() {
   const router = useRouter();
@@ -23,25 +25,88 @@ export default function MODetailPage() {
   const [activeTab, setActiveTab] = useState('overview');
   const [alerts, setAlerts] = useState([]);
   const [pollingCleanup, setPollingCleanup] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editData, setEditData] = useState({});
+  const [supervisorsList, setSupervisorsList] = useState([]);
+  const [userRole, setUserRole] = useState(null);
+
+  // Fetch user profile to get role
+  const fetchUserProfile = useCallback(async () => {
+    try {
+      const response = await apiRequest(AUTH_APIS.PROFILE, { method: 'GET' });
+      
+      if (response.success) {
+        const role = response.data.primary_role?.name;
+        
+        if (role) {
+          console.log('Fetched user role from profile:', role);
+          localStorage.setItem('userRole', role);
+          setUserRole(role);
+        }
+        
+        return role;
+      } else {
+        console.error('Profile API error:', response.error);
+        return null;
+      }
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+      return null;
+    }
+  }, []);
 
   // Check authentication
   useEffect(() => {
     const token = localStorage.getItem('authToken');
-    const userRole = localStorage.getItem('userRole');
+    let role = localStorage.getItem('userRole');
     
-    if (!token || userRole !== 'manager') {
+    if (!token) {
       router.push('/manager');
       return;
     }
-  }, [router]);
+    
+    // If role is not available, fetch it from profile
+    if (!role) {
+      fetchUserProfile().then((fetchedRole) => {
+        if (fetchedRole !== 'manager') {
+          router.push('/manager');
+        }
+      });
+    } else if (role !== 'manager') {
+      router.push('/manager');
+      return;
+    } else {
+      console.log('Using stored user role:', role);
+      setUserRole(role);
+    }
+  }, [router, fetchUserProfile]);
+
+  // Fetch supervisors list
+  const fetchSupervisors = useCallback(async () => {
+    try {
+      const supervisors = await manufacturingAPI.manufacturingOrders.getSupervisors();
+      setSupervisorsList(supervisors);
+    } catch (error) {
+      console.error('Error fetching supervisors:', error);
+    }
+  }, []);
 
   // Fetch MO data with process tracking
   const fetchMOData = useCallback(async () => {
     try {
       setLoading(true);
       const data = await processTrackingAPI.getMOWithProcesses(moId);
+      console.log('MO Data:', data);
+      console.log('MO Status:', data.status);
+      console.log('Product Code Value:', data.product_code_value);
       setMO(data);
       setProcessesInitialized(data.process_executions && data.process_executions.length > 0);
+      
+      // Set edit data
+      setEditData({
+        assigned_supervisor: data.assigned_supervisor || '',
+        shift: data.shift || ''
+      });
       
       // Fetch alerts
       const alertsData = await processTrackingAPI.getActiveAlerts(moId);
@@ -58,21 +123,29 @@ export default function MODetailPage() {
 
   // Initialize data and polling
   useEffect(() => {
-    fetchMOData();
+    let cleanupFunction = null;
 
-    // Set up real-time polling for updates
-    const cleanup = processTrackingAPI.pollProcessUpdates(moId, (data) => {
-      setMO(data);
-      setProcessesInitialized(data.process_executions && data.process_executions.length > 0);
-    }, 10000); // Poll every 10 seconds
+    const initializePolling = async () => {
+      await Promise.all([fetchMOData(), fetchSupervisors()]);
 
-    setPollingCleanup(() => cleanup);
+      // Set up real-time polling for updates
+      cleanupFunction = await processTrackingAPI.pollProcessUpdates(moId, (data) => {
+        setMO(data);
+        setProcessesInitialized(data.process_executions && data.process_executions.length > 0);
+      }, 10000); // Poll every 10 seconds
+
+      setPollingCleanup(() => cleanupFunction);
+    };
+
+    initializePolling();
 
     // Cleanup on unmount
     return () => {
-      if (cleanup) cleanup();
+      if (cleanupFunction && typeof cleanupFunction === 'function') {
+        cleanupFunction();
+      }
     };
-  }, [fetchMOData, moId]);
+  }, [fetchMOData, fetchSupervisors, moId]);
 
   // Initialize processes for the MO
   const handleInitializeProcesses = async () => {
@@ -98,6 +171,82 @@ export default function MODetailPage() {
   const handleStepClick = (stepExecution) => {
     console.log('Step clicked:', stepExecution);
     // You can add step-specific actions here
+  };
+
+  // Handle edit MO details
+  const handleEditMO = () => {
+    setIsEditing(true);
+  };
+
+  // Handle cancel edit
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setEditData({
+      assigned_supervisor: mo.assigned_supervisor || '',
+      shift: mo.shift || ''
+    });
+  };
+
+  // Handle save MO details
+  const handleSaveMO = async () => {
+    try {
+      setLoading(true);
+      const response = await manufacturingAPI.manufacturingOrders.updateMODetails(moId, editData);
+      
+      if (response.success) {
+        setMO(response.data.mo);
+        setIsEditing(false);
+        alert('MO details updated successfully!');
+      } else {
+        alert('Failed to update MO details: ' + response.error);
+      }
+    } catch (error) {
+      console.error('Error updating MO:', error);
+      alert('Failed to update MO details: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle approve MO
+  const handleApproveMO = async () => {
+    if (!mo.assigned_supervisor) {
+      alert('Please assign a supervisor before approving the MO.');
+      return;
+    }
+
+    const confirmApproval = window.confirm(
+      `Are you sure you want to approve MO ${mo.mo_id}? This will notify the assigned supervisor.`
+    );
+
+    if (!confirmApproval) return;
+
+    try {
+      setLoading(true);
+      const response = await manufacturingAPI.manufacturingOrders.approveMO(moId, {
+        notes: 'MO approved by manager'
+      });
+      
+      if (response.success) {
+        setMO(response.data.mo);
+        alert('MO approved successfully! Supervisor has been notified.');
+      } else {
+        alert('Failed to approve MO: ' + response.error);
+      }
+    } catch (error) {
+      console.error('Error approving MO:', error);
+      alert('Failed to approve MO: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle input changes for edit form
+  const handleEditInputChange = (field, value) => {
+    setEditData(prev => ({
+      ...prev,
+      [field]: value
+    }));
   };
 
   // Get status color
@@ -222,11 +371,21 @@ export default function MODetailPage() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* Basic Information */}
                 <div>
-                  <h3 className="text-lg font-semibold text-slate-800 mb-4">Order Information</h3>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-slate-800">Order Information</h3>
+                    {userRole === 'manager' && ['submitted', 'mo_approved'].includes(mo.status) && !isEditing && (
+                      <button
+                        onClick={handleEditMO}
+                        className="px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                      >
+                        Edit Details
+                      </button>
+                    )}
+                  </div>
                   <div className="space-y-3">
                     <div className="flex justify-between">
-                      <span className="text-slate-600">Product:</span>
-                      <span className="font-medium text-slate-800">{mo.product_code_display}</span>
+                      <span className="text-slate-600">Product Code:</span>
+                      <span className="font-medium text-slate-800">{mo.product_code_value || mo.product_code_display || 'N/A'}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-600">Quantity:</span>
@@ -242,13 +401,60 @@ export default function MODetailPage() {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-600">Supervisor:</span>
-                      <span className="font-medium text-slate-800">{mo.assigned_supervisor_name}</span>
+                      {isEditing ? (
+                        <select
+                          value={editData.assigned_supervisor}
+                          onChange={(e) => handleEditInputChange('assigned_supervisor', e.target.value)}
+                          className="px-2 py-1 border border-slate-300 rounded text-sm"
+                        >
+                          <option value="">Select Supervisor</option>
+                          {supervisorsList.map(supervisor => (
+                            <option key={supervisor.id} value={supervisor.id}>
+                              {supervisor.display_name}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="font-medium text-slate-800">{mo.assigned_supervisor_name || 'Not Assigned'}</span>
+                      )}
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-600">Shift:</span>
-                      <span className="font-medium text-slate-800">{mo.shift_display}</span>
+                      {isEditing ? (
+                        <select
+                          value={editData.shift}
+                          onChange={(e) => handleEditInputChange('shift', e.target.value)}
+                          className="px-2 py-1 border border-slate-300 rounded text-sm"
+                        >
+                          <option value="">Select Shift</option>
+                          <option value="I">I (9AM-5PM)</option>
+                          <option value="II">II (5PM-2AM)</option>
+                          <option value="III">III (2AM-9AM)</option>
+                        </select>
+                      ) : (
+                        <span className="font-medium text-slate-800">{mo.shift_display || 'Not Assigned'}</span>
+                      )}
                     </div>
                   </div>
+                  
+                  {/* Edit Controls */}
+                  {isEditing && (
+                    <div className="flex justify-end space-x-2 mt-4 pt-4 border-t border-slate-200">
+                      <button
+                        onClick={handleCancelEdit}
+                        className="px-3 py-1 text-sm bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleSaveMO}
+                        disabled={loading}
+                        className="px-3 py-1 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                      >
+                        {loading ? 'Saving...' : 'Save'}
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Timeline */}
@@ -337,6 +543,31 @@ export default function MODetailPage() {
                 </div>
               )}
             </div>
+
+            {/* Manager Actions */}
+            {userRole === 'manager' && mo.status === 'submitted' && (
+              <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200/60 p-6 text-center">
+                <div className="mb-4">
+                  <CheckCircleIcon className="h-12 w-12 text-green-600 mx-auto mb-2" />
+                  <h3 className="text-lg font-semibold text-slate-800">Ready for Approval</h3>
+                  <p className="text-slate-600">
+                    Review the MO details and approve to notify the assigned supervisor.
+                  </p>
+                  {!mo.assigned_supervisor && (
+                    <p className="text-amber-600 text-sm mt-2">
+                      ⚠️ Please assign a supervisor before approving
+                    </p>
+                  )}
+                </div>
+                <button
+                  onClick={handleApproveMO}
+                  disabled={loading || !mo.assigned_supervisor}
+                  className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loading ? 'Approving...' : 'Approve MO'}
+                </button>
+              </div>
+            )}
 
             {/* Initialize Processes Button */}
             {!processesInitialized && mo.status === 'rm_allocated' && (

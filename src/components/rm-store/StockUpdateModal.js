@@ -1,0 +1,224 @@
+"use client";
+
+import { useState } from 'react';
+import Card from '../CommonComponents/ui/Card';
+import Button from '../CommonComponents/ui/Button';
+import Input from '../CommonComponents/ui/Input';
+import LoadingSpinner from '../CommonComponents/ui/LoadingSpinner';
+
+export default function StockUpdateModal({ product, onSave, onCancel }) {
+  const [quantity, setQuantity] = useState(
+    product.stock_info?.available_quantity?.toString() || '0'
+  );
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  // Handle form submission
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    const quantityNum = parseInt(quantity);
+    
+    // Validate quantity
+    if (isNaN(quantityNum) || quantityNum < 0) {
+      setError('Please enter a valid quantity (0 or greater)');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+      await onSave(product.internal_product_code, quantityNum);
+    } catch (err) {
+      console.error('Error updating stock:', err);
+      setError(err.message || 'Failed to update stock balance');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle quantity change
+  const handleQuantityChange = (e) => {
+    const value = e.target.value;
+    // Allow empty string or valid numbers
+    if (value === '' || /^\d+$/.test(value)) {
+      setQuantity(value);
+      setError(null);
+    }
+  };
+
+  // Get current stock status
+  const getCurrentStockStatus = () => {
+    if (!product.stock_info) return 'No stock record';
+    
+    switch (product.stock_info.stock_status) {
+      case 'in_stock':
+        return `In Stock (${product.stock_info.available_quantity})`;
+      case 'out_of_stock':
+        return 'Out of Stock';
+      case 'no_stock_record':
+        return 'No Stock Record';
+      default:
+        return 'Unknown';
+    }
+  };
+
+  // Get stock status color
+  const getStockStatusColor = () => {
+    if (!product.stock_info) return 'text-gray-600';
+    
+    switch (product.stock_info.stock_status) {
+      case 'in_stock':
+        return 'text-green-600';
+      case 'out_of_stock':
+        return 'text-red-600';
+      case 'no_stock_record':
+        return 'text-yellow-600';
+      default:
+        return 'text-gray-600';
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <Card className="w-full max-w-md">
+        <div className="p-6">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-semibold text-gray-900">
+              Update Stock Balance
+            </h2>
+            <button
+              onClick={onCancel}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Product Info */}
+          <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-medium text-gray-900">
+                {product.internal_product_code}
+              </h3>
+              <span className={`text-sm font-medium ${getStockStatusColor()}`}>
+                {getCurrentStockStatus()}
+              </span>
+            </div>
+            <p className="text-sm text-gray-600 mb-1">
+              {product.product_code}
+            </p>
+            <p className="text-sm text-gray-500">
+              {product.material_name} • {product.material_type_display}
+            </p>
+            {product.stock_info?.last_updated && (
+              <p className="text-xs text-gray-400 mt-2">
+                Last updated: {new Date(product.stock_info.last_updated).toLocaleString()}
+              </p>
+            )}
+          </div>
+
+          {/* Error Message */}
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <div className="flex">
+                <svg className="w-5 h-5 text-red-400 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+                <p className="text-sm text-red-700">{error}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <label htmlFor="quantity" className="block text-sm font-medium text-gray-700 mb-2">
+                Available Quantity *
+              </label>
+              <Input
+                id="quantity"
+                name="quantity"
+                type="text"
+                value={quantity}
+                onChange={handleQuantityChange}
+                placeholder="Enter quantity"
+                disabled={loading}
+                className="text-lg"
+              />
+              <p className="mt-1 text-sm text-gray-500">
+                Enter the current available quantity for this product
+              </p>
+            </div>
+
+            {/* Quick Actions */}
+            <div className="grid grid-cols-4 gap-2">
+              <button
+                type="button"
+                onClick={() => setQuantity('0')}
+                disabled={loading}
+                className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                0
+              </button>
+              <button
+                type="button"
+                onClick={() => setQuantity('10')}
+                disabled={loading}
+                className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                10
+              </button>
+              <button
+                type="button"
+                onClick={() => setQuantity('50')}
+                disabled={loading}
+                className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                50
+              </button>
+              <button
+                type="button"
+                onClick={() => setQuantity('100')}
+                disabled={loading}
+                className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                100
+              </button>
+            </div>
+
+            {/* Actions */}
+            <div className="flex justify-end gap-3 pt-6 border-t border-gray-200">
+              <Button
+                type="button"
+                onClick={onCancel}
+                variant="secondary"
+                disabled={loading}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="primary"
+                disabled={loading || quantity === ''}
+                className="bg-cyan-600 hover:bg-cyan-700"
+              >
+                {loading ? (
+                  <>
+                    <LoadingSpinner size="sm" className="mr-2" />
+                    Updating...
+                  </>
+                ) : (
+                  'Update Stock'
+                )}
+              </Button>
+            </div>
+          </form>
+        </div>
+      </Card>
+    </div>
+  );
+}

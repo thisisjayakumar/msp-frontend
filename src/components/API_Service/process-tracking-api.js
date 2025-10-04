@@ -3,6 +3,8 @@
  * Handles all process execution, step tracking, and alert management
  */
 
+import { apiRequest } from './api-utils';
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000/api';
 
 class ProcessTrackingAPI {
@@ -10,37 +12,25 @@ class ProcessTrackingAPI {
     this.baseURL = `${API_BASE_URL}/manufacturing/api`;
   }
 
-  // Helper method to get auth headers
-  getAuthHeaders() {
-    const token = localStorage.getItem('authToken');
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': token ? `Bearer ${token}` : '',
-    };
-  }
-
-  // Helper method to handle API responses
+  // Helper method to handle API responses (for backward compatibility)
   async handleResponse(response) {
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Network error' }));
-      throw new Error(errorData.error || errorData.message || `HTTP ${response.status}`);
+    if (response.success) {
+      return response.data;
     }
-    return response.json();
+    throw new Error(response.error || 'API request failed');
   }
 
   // Manufacturing Order Process Tracking
   async getMOWithProcesses(moId) {
-    const response = await fetch(`${this.baseURL}/manufacturing-orders/${moId}/process_tracking/`, {
+    const response = await apiRequest(`${this.baseURL}/manufacturing-orders/${moId}/process_tracking/`, {
       method: 'GET',
-      headers: this.getAuthHeaders(),
     });
     return this.handleResponse(response);
   }
 
   async initializeMOProcesses(moId) {
-    const response = await fetch(`${this.baseURL}/manufacturing-orders/${moId}/initialize_processes/`, {
+    const response = await apiRequest(`${this.baseURL}/manufacturing-orders/${moId}/initialize_processes/`, {
       method: 'POST',
-      headers: this.getAuthHeaders(),
     });
     return this.handleResponse(response);
   }
@@ -54,50 +44,44 @@ class ProcessTrackingAPI {
       }
     });
 
-    const response = await fetch(`${this.baseURL}/process-executions/?${queryParams}`, {
+    const response = await apiRequest(`${this.baseURL}/process-executions/?${queryParams}`, {
       method: 'GET',
-      headers: this.getAuthHeaders(),
     });
     return this.handleResponse(response);
   }
 
   async getProcessExecution(executionId) {
-    const response = await fetch(`${this.baseURL}/process-executions/${executionId}/`, {
+    const response = await apiRequest(`${this.baseURL}/process-executions/${executionId}/`, {
       method: 'GET',
-      headers: this.getAuthHeaders(),
     });
     return this.handleResponse(response);
   }
 
   async startProcess(executionId) {
-    const response = await fetch(`${this.baseURL}/process-executions/${executionId}/start_process/`, {
+    const response = await apiRequest(`${this.baseURL}/process-executions/${executionId}/start_process/`, {
       method: 'POST',
-      headers: this.getAuthHeaders(),
     });
     return this.handleResponse(response);
   }
 
   async completeProcess(executionId) {
-    const response = await fetch(`${this.baseURL}/process-executions/${executionId}/complete_process/`, {
+    const response = await apiRequest(`${this.baseURL}/process-executions/${executionId}/complete_process/`, {
       method: 'POST',
-      headers: this.getAuthHeaders(),
     });
     return this.handleResponse(response);
   }
 
   async updateProcessProgress(executionId, progressData) {
-    const response = await fetch(`${this.baseURL}/process-executions/${executionId}/update_progress/`, {
+    const response = await apiRequest(`${this.baseURL}/process-executions/${executionId}/update_progress/`, {
       method: 'POST',
-      headers: this.getAuthHeaders(),
-      body: JSON.stringify(progressData),
+      body: progressData,
     });
     return this.handleResponse(response);
   }
 
   async getProcessExecutionsByMO(moId) {
-    const response = await fetch(`${this.baseURL}/process-executions/by_mo/?mo_id=${moId}`, {
+    const response = await apiRequest(`${this.baseURL}/process-executions/by_mo/?mo_id=${moId}`, {
       method: 'GET',
-      headers: this.getAuthHeaders(),
     });
     return this.handleResponse(response);
   }
@@ -111,43 +95,38 @@ class ProcessTrackingAPI {
       }
     });
 
-    const response = await fetch(`${this.baseURL}/step-executions/?${queryParams}`, {
+    const response = await apiRequest(`${this.baseURL}/step-executions/?${queryParams}`, {
       method: 'GET',
-      headers: this.getAuthHeaders(),
     });
     return this.handleResponse(response);
   }
 
   async getStepExecution(stepExecutionId) {
-    const response = await fetch(`${this.baseURL}/step-executions/${stepExecutionId}/`, {
+    const response = await apiRequest(`${this.baseURL}/step-executions/${stepExecutionId}/`, {
       method: 'GET',
-      headers: this.getAuthHeaders(),
     });
     return this.handleResponse(response);
   }
 
   async startStep(stepExecutionId) {
-    const response = await fetch(`${this.baseURL}/step-executions/${stepExecutionId}/start_step/`, {
+    const response = await apiRequest(`${this.baseURL}/step-executions/${stepExecutionId}/start_step/`, {
       method: 'POST',
-      headers: this.getAuthHeaders(),
     });
     return this.handleResponse(response);
   }
 
   async completeStep(stepExecutionId, stepData) {
-    const response = await fetch(`${this.baseURL}/step-executions/${stepExecutionId}/complete_step/`, {
+    const response = await apiRequest(`${this.baseURL}/step-executions/${stepExecutionId}/complete_step/`, {
       method: 'POST',
-      headers: this.getAuthHeaders(),
-      body: JSON.stringify(stepData),
+      body: stepData,
     });
     return this.handleResponse(response);
   }
 
   async updateStepExecution(stepExecutionId, updateData) {
-    const response = await fetch(`${this.baseURL}/step-executions/${stepExecutionId}/`, {
+    const response = await apiRequest(`${this.baseURL}/step-executions/${stepExecutionId}/`, {
       method: 'PATCH',
-      headers: this.getAuthHeaders(),
-      body: JSON.stringify(updateData),
+      body: updateData,
     });
     return this.handleResponse(response);
   }
@@ -161,27 +140,24 @@ class ProcessTrackingAPI {
       }
     });
 
-    const response = await fetch(`${this.baseURL}/process-alerts/?${queryParams}`, {
+    const response = await apiRequest(`${this.baseURL}/process-alerts/?${queryParams}`, {
       method: 'GET',
-      headers: this.getAuthHeaders(),
     });
     return this.handleResponse(response);
   }
 
   async createAlert(alertData) {
-    const response = await fetch(`${this.baseURL}/process-alerts/`, {
+    const response = await apiRequest(`${this.baseURL}/process-alerts/`, {
       method: 'POST',
-      headers: this.getAuthHeaders(),
-      body: JSON.stringify(alertData),
+      body: alertData,
     });
     return this.handleResponse(response);
   }
 
   async resolveAlert(alertId, resolutionData) {
-    const response = await fetch(`${this.baseURL}/process-alerts/${alertId}/resolve/`, {
+    const response = await apiRequest(`${this.baseURL}/process-alerts/${alertId}/resolve/`, {
       method: 'POST',
-      headers: this.getAuthHeaders(),
-      body: JSON.stringify(resolutionData),
+      body: resolutionData,
     });
     return this.handleResponse(response);
   }
@@ -191,18 +167,16 @@ class ProcessTrackingAPI {
       ? `${this.baseURL}/process-alerts/active_alerts/?mo_id=${moId}`
       : `${this.baseURL}/process-alerts/active_alerts/`;
     
-    const response = await fetch(url, {
+    const response = await apiRequest(url, {
       method: 'GET',
-      headers: this.getAuthHeaders(),
     });
     return this.handleResponse(response);
   }
 
   // Utility Methods
   async getProcesses() {
-    const response = await fetch(`${API_BASE_URL}/api/processes/processes/dropdown/`, {
+    const response = await apiRequest(`${API_BASE_URL}/api/processes/processes/dropdown/`, {
       method: 'GET',
-      headers: this.getAuthHeaders(),
     });
     return this.handleResponse(response);
   }
@@ -212,9 +186,8 @@ class ProcessTrackingAPI {
       ? `${API_BASE_URL}/api/processes/process-steps/dropdown/?process_id=${processId}`
       : `${API_BASE_URL}/api/processes/process-steps/dropdown/`;
     
-    const response = await fetch(url, {
+    const response = await apiRequest(url, {
       method: 'GET',
-      headers: this.getAuthHeaders(),
     });
     return this.handleResponse(response);
   }
@@ -242,9 +215,8 @@ class ProcessTrackingAPI {
 
   // Dashboard Statistics
   async getProcessDashboardStats() {
-    const response = await fetch(`${this.baseURL}/process-executions/dashboard_stats/`, {
+    const response = await apiRequest(`${this.baseURL}/process-executions/dashboard_stats/`, {
       method: 'GET',
-      headers: this.getAuthHeaders(),
     });
     return this.handleResponse(response);
   }

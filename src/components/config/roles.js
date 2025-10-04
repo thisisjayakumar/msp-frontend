@@ -2,9 +2,10 @@
 export const ROLE_HIERARCHY = [
   { key: 'admin', label: 'Admin', path: '/admin' },
   { key: 'manager', label: 'Manager', path: '/manager' },
+  { key: 'production_head', label: 'Production Head', path: '/production-head' },
   { key: 'supervisor', label: 'Supervisor', path: '/supervisor' },
-  { key: 'store_manager', label: 'Store Manager', path: '/store_manager' },
-  { key: 'operator', label: 'Operator', path: '/operator' }
+  { key: 'rm_store', label: 'RM Store', path: '/rm-store' },
+  { key: 'fg_store', label: 'FG Store', path: '/fg-store' }
 ];
 
 // Role-specific configurations
@@ -21,44 +22,53 @@ export const ROLE_CONFIG = {
   manager: {
     title: 'Manager Dashboard',
     subtitle: 'Management Operations',
-    description: 'Oversee operations, reports, and team management',
+    description: 'Oversee MO Management, Stock, Allocation, Reports, and Part Master',
     primaryColor: '#7c3aed', // violet-600
     secondaryColor: '#c4b5fd', // violet-300
     icon: 'briefcase',
-    permissions: ['manage_teams', 'view_reports', 'approve_requests']
+    permissions: ['manage_orders', 'view_reports', 'stock_allocation', 'part_master']
+  },
+  production_head: {
+    title: 'Production Head Dashboard',
+    subtitle: 'Production Management',
+    description: 'Full production oversight with all manager operations plus quality control',
+    primaryColor: '#f59e0b', // amber-600
+    secondaryColor: '#fcd34d', // amber-300
+    icon: 'cog-6-tooth',
+    permissions: ['manage_orders', 'view_reports', 'stock_allocation', 'part_master', 'quality_control', 'process_management']
   },
   supervisor: {
     title: 'Supervisor Panel',
-    subtitle: 'Team Supervision',
-    description: 'Monitor team performance and daily operations',
+    subtitle: 'Process Supervision',
+    description: 'Monitor process-specific tasks and team operations',
     primaryColor: '#059669', // emerald-600
     secondaryColor: '#6ee7b7', // emerald-300
     icon: 'users',
-    permissions: ['supervise_team', 'view_metrics', 'assign_tasks']
+    permissions: ['supervise_processes', 'view_batches', 'quality_checks', 'machine_allocation']
   },
-  store_manager: {
-    title: 'Store Manager',
-    subtitle: 'Store Operations',
-    description: 'Manage store inventory, staff, and customer service',
+  rm_store: {
+    title: 'RM Store Dashboard',
+    subtitle: 'Raw Material Management',
+    description: 'Manage processes, inventory, raw materials, and RM stock',
+    primaryColor: '#0891b2', // cyan-600
+    secondaryColor: '#67e8f9', // cyan-300
+    icon: 'cube',
+    permissions: ['process_management', 'manage_inventory', 'rawmaterials_crud', 'rmstock_management', 'stock_transactions']
+  },
+  fg_store: {
+    title: 'FG Store Dashboard',
+    subtitle: 'Finished Goods Management',
+    description: 'Manage process operations and finished goods inventory',
     primaryColor: '#ea580c', // orange-600
     secondaryColor: '#fdba74', // orange-300
     icon: 'building-storefront',
-    permissions: ['manage_inventory', 'schedule_staff', 'handle_customers']
-  },
-  operator: {
-    title: 'Operator Console',
-    subtitle: 'Daily Operations',
-    description: 'Execute daily tasks and operational procedures',
-    primaryColor: '#2563eb', // blue-600
-    secondaryColor: '#93c5fd', // blue-300
-    icon: 'cog',
-    permissions: ['execute_tasks', 'view_schedules', 'update_status']
+    permissions: ['process_management', 'dispatch_orders', 'packaging', 'finished_goods']
   }
 };
 
 // Helper functions
 export const getRoleConfig = (roleKey) => {
-  return ROLE_CONFIG[roleKey] || ROLE_CONFIG.operator;
+  return ROLE_CONFIG[roleKey] || null;
 };
 
 export const getRoleByPath = (path) => {
