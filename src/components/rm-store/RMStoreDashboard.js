@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { inventoryAPI } from '../API_Service/inventory-api';
-import LoadingSpinner from '../CommonComponents/ui/LoadingSpinner';
-import Card from '../CommonComponents/ui/Card';
+import DashboardLoader from '../CommonComponents/ui/DashboardLoader';
+import { Card } from '../CommonComponents/ui/Card';
 import Button from '../CommonComponents/ui/Button';
 import ProductForm from './ProductForm';
 import StockUpdateModal from './StockUpdateModal';
@@ -79,9 +79,14 @@ export default function RMStoreDashboard() {
   };
 
   // Handle stock update
-  const handleStockUpdate = async (internalProductCode, quantity) => {
+  const handleStockUpdate = async (product, quantity) => {
     try {
-      await inventoryAPI.stockBalances.updateByProductCode(internalProductCode, quantity);
+      // Get the material code from the product
+      const materialCode = product.material?.material_code;
+      if (!materialCode) {
+        throw new Error('Product does not have an associated material');
+      }
+      await inventoryAPI.stockBalances.updateByMaterialCode(materialCode, quantity);
       setShowStockModal(false);
       setSelectedProduct(null);
       await fetchDashboardData(); // Refresh data
@@ -139,11 +144,7 @@ export default function RMStoreDashboard() {
   };
 
   if (loading) {
-    return (
-      <div className="flex justify-center items-center min-h-screen">
-        <LoadingSpinner size="lg" />
-      </div>
-    );
+    return <DashboardLoader message="Loading RM Store Dashboard..." />;
   }
 
   if (error) {

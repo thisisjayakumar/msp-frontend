@@ -163,12 +163,12 @@ export const stockBalancesAPI = {
     return handleResponse(response);
   },
 
-  // Update stock balance by internal product code
-  updateByProductCode: async (internalProductCode, availableQuantity) => {
-    const response = await apiRequest(INVENTORY_APIS.STOCK_BALANCE_UPDATE_BY_CODE, {
+  // Update stock balance by material code
+  updateByMaterialCode: async (materialCode, availableQuantity) => {
+    const response = await apiRequest(INVENTORY_APIS.STOCK_BALANCE_UPDATE_BY_MATERIAL, {
       method: 'POST',
       body: {
-        internal_product_code: internalProductCode,
+        material_code: materialCode,
         available_quantity: availableQuantity,
       },
     });

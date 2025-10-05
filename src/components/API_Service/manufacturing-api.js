@@ -113,6 +113,15 @@ export const manufacturingOrdersAPI = {
     return handleResponse(response);
   },
 
+  // Get RM store users for dropdown
+  getRMStoreUsers: async () => {
+    const response = await apiRequest(MANUFACTURING_APIS.MO_RM_STORE_USERS, {
+      method: 'GET',
+    });
+    
+    return handleResponse(response);
+  },
+
   // Get customers for dropdown
   getCustomers: async () => {
     const response = await apiRequest(MANUFACTURING_APIS.MO_CUSTOMERS, {
@@ -144,6 +153,16 @@ export const manufacturingOrdersAPI = {
   // Approve MO - Manager only
   approveMO: async (id, approvalData) => {
     const response = await apiRequest(MANUFACTURING_APIS.MO_APPROVE(id), {
+      method: 'POST',
+      body: approvalData,
+    });
+    
+    return handleResponse(response);
+  },
+
+  // RM Approve MO - RM Store user only
+  rmApproveMO: async (id, approvalData) => {
+    const response = await apiRequest(MANUFACTURING_APIS.MO_RM_APPROVE(id), {
       method: 'POST',
       body: approvalData,
     });

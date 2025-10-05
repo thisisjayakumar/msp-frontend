@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import Card from '../CommonComponents/ui/Card';
+import { Card } from '../CommonComponents/ui/Card';
 
 export default function DashboardStats({ stats }) {
   const [animatedStats, setAnimatedStats] = useState({});

@@ -69,10 +69,27 @@ export default function ManagerDashboard() {
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: '📊' },
     { id: 'process-tracking', label: 'Process Tracking', icon: '🏭' },
-    { id: 'create-mo', label: 'Create MO', icon: '➕' },
-    { id: 'create-po', label: 'Create PO', icon: '📦' },
     { id: 'mo-list', label: 'MO List', icon: '📋' },
     { id: 'po-list', label: 'PO List', icon: '📄' },
+  ];
+
+  const navigationButtons = [
+    { 
+      id: 'create-mo', 
+      label: 'Create Manufacturing Order', 
+      icon: '🏭', 
+      url: '/manager/create-mo',
+      description: 'Plan and initiate production orders',
+      color: 'from-blue-600 to-indigo-600'
+    },
+    { 
+      id: 'create-po', 
+      label: 'Create Purchase Order', 
+      icon: '📦', 
+      url: '/manager/create-po',
+      description: 'Manage raw material procurement',
+      color: 'from-purple-600 to-indigo-600'
+    },
   ];
 
   if (loading) {
@@ -98,6 +115,20 @@ export default function ManagerDashboard() {
             </div>
             
             <div className="flex items-center space-x-4">
+              {/* Quick Action Buttons */}
+              <div className="flex space-x-2">
+                {navigationButtons.map((button) => (
+                  <button
+                    key={button.id}
+                    onClick={() => router.push(button.url)}
+                    className={`px-3 py-1.5 text-xs text-white bg-gradient-to-r ${button.color} hover:shadow-lg rounded-lg font-medium transition-all flex items-center space-x-2`}
+                  >
+                    <span>{button.icon}</span>
+                    <span className="hidden sm:inline">{button.label.replace(' Order', '')}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="h-6 w-px bg-slate-300"></div>
               <div className="text-right">
                 <p className="text-sm font-medium text-slate-700">
                   {user?.first_name} {user?.last_name}
@@ -143,6 +174,35 @@ export default function ManagerDashboard() {
           {/* Dashboard Tab */}
           {activeTab === 'dashboard' && (
             <div className="space-y-6">
+              {/* Quick Actions Section */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {navigationButtons.map((button) => (
+                  <div
+                    key={button.id}
+                    onClick={() => router.push(button.url)}
+                    className="bg-white/80 backdrop-blur-sm rounded-2xl border border-white/20 shadow-xl shadow-slate-200/50 p-6 cursor-pointer hover:scale-105 transition-all group"
+                  >
+                    <div className="flex items-center space-x-4">
+                      <div className={`p-4 rounded-xl bg-gradient-to-r ${button.color} text-white text-2xl group-hover:shadow-lg transition-all`}>
+                        {button.icon}
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-slate-800 group-hover:text-slate-900">
+                          {button.label}
+                        </h3>
+                        <p className="text-sm text-slate-600 group-hover:text-slate-700">
+                          {button.description}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-4 flex items-center text-blue-600 text-sm font-medium">
+                      <span>Get Started</span>
+                      <span className="ml-1 group-hover:ml-2 transition-all">→</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
               <DashboardStats stats={dashboardStats} />
               <ProcessTrackingSummary />
             </div>

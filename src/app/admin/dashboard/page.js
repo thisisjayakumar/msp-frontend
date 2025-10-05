@@ -1,9 +1,60 @@
 "use client";
 
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { getRoleConfig } from "@/components/config/roles";
 
 export default function AdminDashboard() {
+  const router = useRouter();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState(null);
   const roleConfig = getRoleConfig('admin');
+
+  useEffect(() => {
+    const checkAuth = () => {
+      const token = localStorage.getItem('authToken');
+      const userRole = localStorage.getItem('userRole');
+      const userData = localStorage.getItem('userData');
+      
+      if (!token || userRole !== 'admin') {
+        router.push('/login');
+        return;
+      }
+      
+      if (userData) {
+        setUser(JSON.parse(userData));
+      }
+      
+      setIsAuthenticated(true);
+      setIsLoading(false);
+    };
+
+    checkAuth();
+  }, [router]);
+
+  const handleLogout = () => {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('userData');
+    router.push('/login');
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-16 w-16 border-b-2 border-red-600 mb-4"></div>
+          <p className="text-gray-600 text-lg">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return null; // Will redirect
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -22,9 +73,17 @@ export default function AdminDashboard() {
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">{roleConfig.title}</h1>
                 <p className="text-gray-600">{roleConfig.description}</p>
+                {user && (
+                  <p className="text-sm text-gray-500 mt-1">
+                    Welcome, {user.full_name || user.first_name}
+                  </p>
+                )}
               </div>
             </div>
-            <button className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors">
+            <button 
+              onClick={handleLogout}
+              className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
+            >
               Logout
             </button>
           </div>
@@ -35,22 +94,22 @@ export default function AdminDashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <div className="bg-white rounded-lg shadow p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-2">System Users</h3>
-            <p className="text-3xl font-bold text-red-600">1,234</p>
+            <p className="text-3xl font-bold text-red-600">18</p>
             <p className="text-sm text-gray-600">Total registered users</p>
           </div>
           <div className="bg-white rounded-lg shadow p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Active Sessions</h3>
-            <p className="text-3xl font-bold text-red-600">89</p>
+            <p className="text-3xl font-bold text-red-600">1</p>
             <p className="text-sm text-gray-600">Currently online</p>
           </div>
           <div className="bg-white rounded-lg shadow p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-2">System Health</h3>
-            <p className="text-3xl font-bold text-green-600">98%</p>
+            <p className="text-3xl font-bold text-green-600">100%</p>
             <p className="text-sm text-gray-600">Uptime this month</p>
           </div>
           <div className="bg-white rounded-lg shadow p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Alerts</h3>
-            <p className="text-3xl font-bold text-yellow-600">3</p>
+            <p className="text-3xl font-bold text-green-600">0</p>
             <p className="text-sm text-gray-600">Pending issues</p>
           </div>
         </div>

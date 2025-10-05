@@ -68,7 +68,17 @@ export const ROLE_CONFIG = {
 
 // Helper functions
 export const getRoleConfig = (roleKey) => {
-  return ROLE_CONFIG[roleKey] || null;
+  const config = ROLE_CONFIG[roleKey];
+  const hierarchyInfo = ROLE_HIERARCHY.find(role => role.key === roleKey);
+  
+  if (!config) return null;
+  
+  return {
+    ...config,
+    path: hierarchyInfo?.path,
+    key: roleKey,
+    label: hierarchyInfo?.label
+  };
 };
 
 export const getRoleByPath = (path) => {

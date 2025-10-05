@@ -10,13 +10,13 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
-      <body className="antialiased min-h-screen flex flex-col font-sans" suppressHydrationWarning={true}>
-        <ConditionalHeader />
+    <html lang="en" suppressHydrationWarning>
+      <body className="antialiased min-h-screen flex flex-col font-sans" suppressHydrationWarning>
+        {/* <ConditionalHeader /> */}
         <main className="flex-1">
           {children}
         </main>
-        <ConditionalFooter />
+        {/* <ConditionalFooter /> */}
       </body>
     </html>
   );

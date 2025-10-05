@@ -3,17 +3,25 @@ import { AUTH_APIS } from './api-list';
 
 // Generic login function that works for all roles
 const performLogin = async (credentials, expectedRole = null) => {
+  console.log('🔐 Attempting login for:', credentials.email, 'Expected role:', expectedRole);
+  
   const response = await apiPost(AUTH_APIS.LOGIN, {
     email: credentials.email,
     password: credentials.password
   });
   
+  console.log('📥 Login response:', response.success ? 'Success' : 'Failed', response);
+  
   if (response.success) {
     const { access, refresh, user } = response.data;
+    
+    console.log('👤 User data:', user);
+    console.log('🎭 User role:', user.primary_role?.name);
     
     // Validate role if specified
     if (expectedRole && user.primary_role?.name !== expectedRole) {
       const userRoleName = user.primary_role?.name || 'unknown';
+      console.log('❌ Role mismatch! Expected:', expectedRole, 'Got:', userRoleName);
       return {
         success: false,
         error: `Access denied. Only ${expectedRole}s are allowed to login here. You are logged in as a ${userRoleName}.`
@@ -26,11 +34,19 @@ const performLogin = async (credentials, expectedRole = null) => {
     localStorage.setItem('userRole', user.primary_role?.name || 'unknown');
     localStorage.setItem('userData', JSON.stringify(user));
     
+    console.log('💾 Stored in localStorage:', {
+      hasToken: !!access,
+      hasRefresh: !!refresh,
+      role: user.primary_role?.name
+    });
+    
     // Store role-specific permissions if available
     if (user.primary_role?.name) {
       const permissionsKey = `${user.primary_role.name}Permissions`;
       localStorage.setItem(permissionsKey, JSON.stringify(user.permissions || []));
     }
+    
+    console.log('✅ Login successful! Returning role:', user.primary_role?.name);
     
     return {
       success: true,
@@ -43,6 +59,7 @@ const performLogin = async (credentials, expectedRole = null) => {
     };
   }
   
+  console.log('❌ Login failed:', response.error);
   return response;
 };
 

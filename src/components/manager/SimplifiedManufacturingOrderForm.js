@@ -1,9 +1,13 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import manufacturingAPI from '@/components/API_Service/manufacturing-api';
+import SearchableDropdown from '@/components/CommonComponents/ui/SearchableDropdown';
+import { toast } from '@/utils/notifications';
 
 export default function SimplifiedManufacturingOrderForm({ onSuccess }) {
+  const router = useRouter();
   const [formData, setFormData] = useState({
     product_code_id: '',
     customer_name: '',
@@ -19,6 +23,8 @@ export default function SimplifiedManufacturingOrderForm({ onSuccess }) {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [success, setSuccess] = useState(false);
+  const [stockWarning, setStockWarning] = useState(null);
+  const [isStockInsufficient, setIsStockInsufficient] = useState(false);
 
   // Fetch products list on component mount
   useEffect(() => {
@@ -41,8 +47,18 @@ export default function SimplifiedManufacturingOrderForm({ onSuccess }) {
       product_code_id: productId
     }));
 
+    // Clear error for this field
+    if (errors.product_code_id) {
+      setErrors(prev => ({
+        ...prev,
+        product_code_id: ''
+      }));
+    }
+
     if (!productId) {
       setSelectedProductDetails(null);
+      setStockWarning(null);
+      setIsStockInsufficient(false);
       return;
     }
 
@@ -52,9 +68,15 @@ export default function SimplifiedManufacturingOrderForm({ onSuccess }) {
       if (selectedProduct) {
         // Fetch detailed product information with BOM and materials
         const productDetails = await manufacturingAPI.manufacturingOrders.getProductDetails(selectedProduct.product_code);
-        console.log('Product details received:', productDetails);
-        console.log('Materials array:', productDetails.materials);
         setSelectedProductDetails(productDetails);
+        
+        // Auto-populate customer name from product details
+        if (productDetails.product && productDetails.product.customer_name) {
+          setFormData(prev => ({
+            ...prev,
+            customer_name: productDetails.product.customer_name
+          }));
+        }
       }
     } catch (error) {
       console.error('Error fetching product details:', error);
@@ -64,6 +86,42 @@ export default function SimplifiedManufacturingOrderForm({ onSuccess }) {
       }));
     }
   };
+
+  // Stock validation function
+  const validateStock = (quantity, materials) => {
+    if (!quantity || !materials || materials.length === 0) {
+      setStockWarning(null);
+      setIsStockInsufficient(false);
+      return;
+    }
+
+    const enteredQuantity = parseFloat(quantity);
+    if (isNaN(enteredQuantity) || enteredQuantity <= 0) {
+      setStockWarning(null);
+      setIsStockInsufficient(false);
+      return;
+    }
+
+    // Calculate total available stock (sum all materials)
+    const totalAvailableStock = materials.reduce((sum, material) => {
+      return sum + (material.available_quantity || 0);
+    }, 0);
+
+    if (enteredQuantity > totalAvailableStock) {
+      setStockWarning(`Insufficient stock! Available: ${totalAvailableStock} kg, Required: ${enteredQuantity} kg`);
+      setIsStockInsufficient(true);
+    } else {
+      setStockWarning(null);
+      setIsStockInsufficient(false);
+    }
+  };
+
+  // Monitor quantity and stock changes
+  useEffect(() => {
+    if (selectedProductDetails?.materials) {
+      validateStock(formData.quantity, selectedProductDetails.materials);
+    }
+  }, [formData.quantity, selectedProductDetails?.materials]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -120,7 +178,13 @@ export default function SimplifiedManufacturingOrderForm({ onSuccess }) {
         quantity: parseInt(formData.quantity)
       };
 
-      await manufacturingAPI.manufacturingOrders.create(submitData);
+      const response = await manufacturingAPI.manufacturingOrders.create(submitData);
+      
+      // Show success notification with NotifyX
+      toast.mo.created({
+        mo_id: response.mo_id || 'Generated',
+        quantity: submitData.quantity
+      });
       
       setSuccess(true);
       setTimeout(() => {
@@ -142,10 +206,46 @@ export default function SimplifiedManufacturingOrderForm({ onSuccess }) {
 
     } catch (error) {
       console.error('Error creating MO:', error);
+      toast.mo.error(error);
       setErrors({ submit: error.message || 'Failed to create Manufacturing Order' });
     } finally {
       setLoading(false);
     }
+  };
+
+  // Handle Create PO from insufficient stock
+  const handleCreatePO = () => {
+    if (!selectedProductDetails?.materials || !formData.quantity) return;
+
+    const totalAvailableStock = selectedProductDetails.materials.reduce((sum, material) => {
+      return sum + (material.available_quantity || 0);
+    }, 0);
+
+    const requiredQuantity = parseFloat(formData.quantity);
+    const shortage = requiredQuantity - totalAvailableStock;
+
+    // Prepare auto-fill data for PO form
+    const autoFillData = {
+      materials: selectedProductDetails.materials,
+      requiredQuantity: requiredQuantity,
+      availableQuantity: totalAvailableStock,
+      shortageQuantity: shortage,
+      productDetails: selectedProductDetails.product,
+      moReference: `MO for ${selectedProductDetails.product.product_code}`
+    };
+
+    // Store auto-fill data and navigate to PO creation page
+    sessionStorage.setItem('autoFillPOData', JSON.stringify(autoFillData));
+    
+    // Show navigation notification
+    toast.navigation.redirecting('Purchase Order Creation');
+    
+    // Navigate to PO creation page
+    setTimeout(() => {
+      router.push('/manager/create-po');
+    }, 1000);
+    
+    console.log('Auto-fill data for PO:', autoFillData);
   };
 
   const resetForm = () => {
@@ -160,6 +260,8 @@ export default function SimplifiedManufacturingOrderForm({ onSuccess }) {
     });
     setSelectedProductDetails(null);
     setErrors({});
+    setStockWarning(null);
+    setIsStockInsufficient(false);
   };
 
   if (success) {
@@ -199,21 +301,20 @@ export default function SimplifiedManufacturingOrderForm({ onSuccess }) {
               <label className="block text-xs font-medium text-slate-700 mb-1">
                 Product <span className="text-red-500">*</span>
               </label>
-              <select
-                name="product_code_id"
-                value={formData.product_code_id}
-                onChange={(e) => handleProductChange(e.target.value)}
-                className={`w-full px-3 py-2 text-sm text-slate-800 rounded-lg border ${
-                  errors.product_code_id ? 'border-red-300 bg-red-50' : 'border-slate-300 bg-white'
-                } focus:ring-1 focus:ring-blue-500 focus:border-transparent transition-all`}
-              >
-                <option value="">Select Product</option>
-                {productsList.map(product => (
-                  <option key={product.id} value={product.id}>
-                    {product.display_name}
-                  </option>
-                ))}
-              </select>
+              <div className="searchable-dropdown-compact">
+                <SearchableDropdown
+                  options={productsList}
+                  value={formData.product_code_id}
+                  onChange={handleProductChange}
+                  placeholder="Select Product"
+                  displayKey="display_name"
+                  valueKey="id"
+                  searchKeys={["display_name", "product_code", "description"]}
+                  error={!!errors.product_code_id}
+                  className="w-full text-sm"
+                  loading={productsList.length === 0}
+                />
+              </div>
               {errors.product_code_id && (
                 <p className="text-red-500 text-xs mt-1">{errors.product_code_id}</p>
               )}
@@ -229,10 +330,14 @@ export default function SimplifiedManufacturingOrderForm({ onSuccess }) {
                 name="customer_name"
                 value={formData.customer_name}
                 onChange={handleInputChange}
+                readOnly={selectedProductDetails?.product?.customer_name ? true : false}
                 className={`w-full px-3 py-2 text-sm text-slate-800 rounded-lg border ${
-                  errors.customer_name ? 'border-red-300 bg-red-50' : 'border-slate-300 bg-white'
-                } focus:ring-1 focus:ring-blue-500 focus:border-transparent transition-all`}
-                placeholder="Enter customer name"
+                  errors.customer_name ? 'border-red-300 bg-red-50' : 
+                  selectedProductDetails?.product?.customer_name ? 'border-slate-300 bg-slate-50' : 'border-slate-300 bg-white'
+                } focus:ring-1 focus:ring-blue-500 focus:border-transparent transition-all ${
+                  selectedProductDetails?.product?.customer_name ? 'cursor-not-allowed' : ''
+                }`}
+                placeholder={selectedProductDetails?.product?.customer_name ? "Auto-populated from product" : "Enter customer name"}
               />
               {errors.customer_name && (
                 <p className="text-red-500 text-xs mt-1">{errors.customer_name}</p>
@@ -243,6 +348,9 @@ export default function SimplifiedManufacturingOrderForm({ onSuccess }) {
             <div>
               <label className="block text-xs font-medium text-slate-700 mb-1">
                 Quantity <span className="text-red-500">*</span>
+                {stockWarning && (
+                  <span className="ml-2 text-orange-600 font-normal">⚠️ {stockWarning}</span>
+                )}
               </label>
               <input
                 type="number"
@@ -251,12 +359,19 @@ export default function SimplifiedManufacturingOrderForm({ onSuccess }) {
                 onChange={handleInputChange}
                 min="1"
                 className={`w-full px-3 py-2 text-slate-800 text-sm rounded-lg border ${
-                  errors.quantity ? 'border-red-300 bg-red-50' : 'border-slate-300 bg-white'
+                  errors.quantity ? 'border-red-300 bg-red-50' : 
+                  stockWarning ? 'border-orange-300 bg-orange-50' : 'border-slate-300 bg-white'
                 } focus:ring-1 focus:ring-blue-500 focus:border-transparent transition-all`}
                 placeholder="Enter quantity"
               />
               {errors.quantity && (
                 <p className="text-red-500 text-xs mt-1">{errors.quantity}</p>
+              )}
+              {stockWarning && !errors.quantity && (
+                <p className="text-orange-600 text-xs mt-1 flex items-center">
+                  <span className="mr-1">⚠️</span>
+                  {stockWarning}
+                </p>
               )}
             </div>
 
@@ -346,67 +461,66 @@ export default function SimplifiedManufacturingOrderForm({ onSuccess }) {
               </div>
               <div>
                 <span className="text-blue-600 font-medium">Type:</span>
-                <div className="text-slate-700">{selectedProductDetails.auto_populate_data.product_type || 'N/A'}</div>
+                <div className="text-slate-700">{selectedProductDetails.product.product_type_display || 'N/A'}</div>
               </div>
               <div>
-                <span className="text-blue-600 font-medium">RM/Unit:</span>
-                <div className="text-slate-700">{selectedProductDetails.auto_populate_data.rm_consumption_per_unit || 'N/A'} kg</div>
+                <span className="text-blue-600 font-medium">Available Stock:</span>
+                <div className="text-slate-700">
+                  {selectedProductDetails.materials && selectedProductDetails.materials.length > 0 
+                    ? selectedProductDetails.materials.map((material, index) => (
+                        <div key={index} className="text-sm">
+                          <span className={`font-medium ${material.available_quantity > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {material.available_quantity || 0} kg
+                          </span>
+                          {/* <span className="text-slate-500 ml-1">({material.material_name})</span> */}
+                        </div>
+                      ))
+                    : 'N/A'
+                  }
+                </div>
               </div>
               <div>
-                <span className="text-blue-600 font-medium">Material:</span>
-                <div className="text-slate-700">{selectedProductDetails.auto_populate_data.material_type || 'N/A'}</div>
+                <span className="text-blue-600 font-medium">Material Type:</span>
+                <div className="text-slate-700">{selectedProductDetails.product.material_type_display || 'N/A'}</div>
               </div>
               <div>
-                <span className="text-blue-600 font-medium">Name:</span>
-                <div className="text-slate-700">{selectedProductDetails.auto_populate_data.material_name || 'N/A'}</div>
+                <span className="text-blue-600 font-medium">Material Name:</span>
+                <div className="text-slate-700">{selectedProductDetails.product.material_name || 'N/A'}</div>
               </div>
               <div>
                 <span className="text-blue-600 font-medium">Grade:</span>
-                <div className="text-slate-700">{selectedProductDetails.auto_populate_data.grade || 'N/A'}</div>
+                <div className="text-slate-700">{selectedProductDetails.product.grade || 'N/A'}</div>
               </div>
-              {selectedProductDetails.auto_populate_data.wire_diameter_mm && (
+              {selectedProductDetails.product.wire_diameter_mm && (
                 <div>
                   <span className="text-blue-600 font-medium">Wire Dia:</span>
-                  <div className="text-slate-700">{selectedProductDetails.auto_populate_data.wire_diameter_mm} mm</div>
+                  <div className="text-slate-700">{selectedProductDetails.product.wire_diameter_mm} mm</div>
                 </div>
               )}
-              {selectedProductDetails.auto_populate_data.thickness_mm && (
+              {selectedProductDetails.product.thickness_mm && (
                 <div>
                   <span className="text-blue-600 font-medium">Thickness:</span>
-                  <div className="text-slate-700">{selectedProductDetails.auto_populate_data.thickness_mm} mm</div>
+                  <div className="text-slate-700">{selectedProductDetails.product.thickness_mm} mm</div>
                 </div>
               )}
               <div>
                 <span className="text-blue-600 font-medium">Finishing:</span>
-                <div className="text-slate-700">{selectedProductDetails.auto_populate_data.finishing || 'N/A'}</div>
+                <div className="text-slate-700">{selectedProductDetails.product.finishing || 'N/A'}</div>
               </div>
               <div>
-                <span className="text-blue-600 font-medium">Manufacturer:</span>
-                <div className="text-slate-700">{selectedProductDetails.auto_populate_data.manufacturer_brand || 'N/A'}</div>
+                <span className="text-blue-600 font-medium">Weight:</span>
+                <div className="text-slate-700">{selectedProductDetails.product.weight_kg ? `${selectedProductDetails.product.weight_kg} kg` : 'N/A'}</div>
               </div>
             </div>
 
             {/* Raw Materials - Inline */}
-            {selectedProductDetails.bom_items && selectedProductDetails.bom_items.length > 0 && (
+            {selectedProductDetails.materials && selectedProductDetails.materials.length > 0 && (
               <div className="border-t border-blue-200 pt-2 mt-2">
                 <span className="text-xs font-medium text-blue-700">Raw Materials: </span>
                 <span className="text-xs text-slate-600">
-                  {(() => {
-                    // Deduplicate materials by material_code
-                    const uniqueMaterials = [];
-                    const seenMaterialCodes = new Set();
-                    
-                    selectedProductDetails.bom_items.forEach(bomItem => {
-                      if (bomItem.material && bomItem.material.material_code && !seenMaterialCodes.has(bomItem.material.material_code)) {
-                        uniqueMaterials.push(bomItem.material);
-                        seenMaterialCodes.add(bomItem.material.material_code);
-                      }
-                    });
-                    
-                    return uniqueMaterials.map(material => 
-                      `${material?.material_code || 'N/A'} (${material?.material_name || 'N/A'})`
-                    ).join(', ');
-                  })()}
+                  {selectedProductDetails.materials.map(material => 
+                    `${material?.material_code || 'N/A'} (${material?.material_name || 'N/A'})`
+                  ).join(', ') || 'N/A'}
                 </span>
               </div>
             )}
@@ -434,6 +548,17 @@ export default function SimplifiedManufacturingOrderForm({ onSuccess }) {
 
         {/* Submit Buttons */}
         <div className="flex justify-end space-x-3">
+          {/* Create PO Button - shown when insufficient stock */}
+          {isStockInsufficient && selectedProductDetails?.materials && (
+            <button
+              type="button"
+              onClick={() => handleCreatePO()}
+              className="px-6 py-2 text-sm bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-lg font-medium hover:from-amber-700 hover:to-orange-700 transition-all shadow-md shadow-amber-600/25"
+              title="Create Purchase Order to fulfill stock requirement"
+            >
+              📦 Create PO
+            </button>
+          )}
           <button
             type="button"
             onClick={resetForm}
@@ -441,22 +566,42 @@ export default function SimplifiedManufacturingOrderForm({ onSuccess }) {
           >
             Reset
           </button>
-          <button
-            type="submit"
-            disabled={loading}
-            className="px-6 py-2 text-sm bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg font-medium hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md shadow-blue-600/25"
-          >
-            {loading ? (
-              <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                <span>Creating...</span>
-              </div>
-            ) : (
-              'Create MO'
+          <div className="relative">
+            <button
+              type="submit"
+              disabled={loading || isStockInsufficient}
+              className={`px-6 py-2 text-sm rounded-lg font-medium transition-all shadow-md ${
+                loading || isStockInsufficient 
+                  ? 'bg-slate-400 text-slate-200 cursor-not-allowed shadow-slate-400/25' 
+                  : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 shadow-blue-600/25'
+              }`}
+              title={isStockInsufficient ? 'Cannot create MO - Insufficient stock' : ''}
+            >
+              {loading ? (
+                <div className="flex items-center space-x-2">
+                  <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <span>Creating...</span>
+                </div>
+              ) : (
+                'Create MO'
+              )}
+            </button>
+            {isStockInsufficient && (
+              <p className="absolute -bottom-5 left-0 text-xs text-orange-600 whitespace-nowrap">
+                Insufficient stock to create MO
+              </p>
             )}
-          </button>
+          </div>
         </div>
       </form>
+
+      <style jsx>{`
+        .searchable-dropdown-compact :global(.relative > div) {
+          padding: 0.5rem 0.75rem !important;
+          border-radius: 0.5rem !important;
+          font-size: 0.875rem !important;
+        }
+      `}</style>
     </div>
   );
 }

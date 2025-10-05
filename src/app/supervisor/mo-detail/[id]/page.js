@@ -2,12 +2,12 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { ArrowLeftIcon, PlayIcon, PauseIcon, CheckCircleIcon, ExclamationTriangleIcon, ClockIcon } from '@heroicons/react/24/outline';
+import { ArrowLeftIcon, PlayIcon, CheckCircleIcon, ClockIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 
 // Components
 import ProcessFlowVisualization from '@/components/process/ProcessFlowVisualization';
 import LoadingSpinner from '@/components/CommonComponents/ui/LoadingSpinner';
-import SearchableDropdown from '@/components/CommonComponents/ui/SearchableDropdown';
+import NotificationBell from '@/components/supervisor/NotificationBell';
 
 // API Services
 import manufacturingAPI from '@/components/API_Service/manufacturing-api';
@@ -15,7 +15,7 @@ import processTrackingAPI from '@/components/API_Service/process-tracking-api';
 import { apiRequest } from '@/components/API_Service/api-utils';
 import { AUTH_APIS } from '@/components/API_Service/api-list';
 
-export default function MODetailPage() {
+export default function SupervisorMODetailPage() {
   const router = useRouter();
   const params = useParams();
   const moId = params.id;
@@ -25,14 +25,10 @@ export default function MODetailPage() {
   const [processesInitialized, setProcessesInitialized] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const [alerts, setAlerts] = useState([]);
-  const [pollingCleanup, setPollingCleanup] = useState(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editData, setEditData] = useState({});
-  const [supervisorsList, setSupervisorsList] = useState([]);
-  const [rmStoreUsersList, setRMStoreUsersList] = useState([]);
-  const [userRole, setUserRole] = useState(null);
+  const [userProfile, setUserProfile] = useState(null);
+  const [startingProcess, setStartingProcess] = useState(false);
 
-  // Fetch user profile to get role
+  // Fetch user profile
   const fetchUserProfile = useCallback(async () => {
     try {
       const response = await apiRequest(AUTH_APIS.PROFILE, { method: 'GET' });
@@ -40,68 +36,20 @@ export default function MODetailPage() {
       if (response.success) {
         const role = response.data.primary_role?.name;
         
-        if (role) {
-          console.log('Fetched user role from profile:', role);
-          localStorage.setItem('userRole', role);
-          setUserRole(role);
+        if (role !== 'supervisor') {
+          router.push('/supervisor');
+          return null;
         }
         
-        return role;
-      } else {
-        console.error('Profile API error:', response.error);
-        return null;
+        setUserProfile(response.data);
+        return response.data;
       }
     } catch (error) {
       console.error('Error fetching user profile:', error);
+      router.push('/supervisor');
       return null;
     }
-  }, []);
-
-  // Check authentication
-  useEffect(() => {
-    const token = localStorage.getItem('authToken');
-    let role = localStorage.getItem('userRole');
-    
-    if (!token) {
-      router.push('/manager');
-      return;
-    }
-    
-    // If role is not available, fetch it from profile
-    if (!role) {
-      fetchUserProfile().then((fetchedRole) => {
-        if (!['manager', 'production_head', 'rm_store'].includes(fetchedRole)) {
-          router.push('/manager');
-        }
-      });
-    } else if (!['manager', 'production_head', 'rm_store'].includes(role)) {
-      router.push('/manager');
-      return;
-    } else {
-      console.log('Using stored user role:', role);
-      setUserRole(role);
-    }
-  }, [router, fetchUserProfile]);
-
-  // Fetch supervisors list
-  const fetchSupervisors = useCallback(async () => {
-    try {
-      const supervisors = await manufacturingAPI.manufacturingOrders.getSupervisors();
-      setSupervisorsList(supervisors);
-    } catch (error) {
-      console.error('Error fetching supervisors:', error);
-    }
-  }, []);
-
-  // Fetch RM store users list
-  const fetchRMStoreUsers = useCallback(async () => {
-    try {
-      const rmStoreUsers = await manufacturingAPI.manufacturingOrders.getRMStoreUsers();
-      setRMStoreUsersList(rmStoreUsers);
-    } catch (error) {
-      console.error('Error fetching RM store users:', error);
-    }
-  }, []);
+  }, [router]);
 
   // Fetch MO data with process tracking
   const fetchMOData = useCallback(async () => {
@@ -111,53 +59,68 @@ export default function MODetailPage() {
       setMO(data);
       setProcessesInitialized(data.process_executions && data.process_executions.length > 0);
       
-      // Set edit data
-      setEditData({
-        assigned_rm_store: data.assigned_rm_store || '',
-        assigned_supervisor: data.assigned_supervisor || '',
-        shift: data.shift || ''
-      });
-      
       // Fetch alerts
       const alertsData = await processTrackingAPI.getActiveAlerts(moId);
       setAlerts(alertsData);
     } catch (error) {
       console.error('Error fetching MO data:', error);
       if (error.message.includes('404')) {
-        router.push('/manager/dashboard');
+        router.push('/supervisor/dashboard');
       }
     } finally {
       setLoading(false);
     }
   }, [moId, router]);
 
-  // Initialize data and polling
+  // Check authentication and load data
   useEffect(() => {
-    let cleanupFunction = null;
+    const token = localStorage.getItem('authToken');
+    
+    if (!token) {
+      router.push('/supervisor');
+      return;
+    }
 
-    const initializePolling = async () => {
-      await Promise.all([fetchMOData(), fetchSupervisors(), fetchRMStoreUsers()]);
-
-      // Set up real-time polling for updates
-      cleanupFunction = await processTrackingAPI.pollProcessUpdates(moId, (data) => {
-        setMO(data);
-        setProcessesInitialized(data.process_executions && data.process_executions.length > 0);
-      }, 10000); // Poll every 10 seconds
-
-      setPollingCleanup(() => cleanupFunction);
-    };
-
-    initializePolling();
-
-    // Cleanup on unmount
-    return () => {
-      if (cleanupFunction && typeof cleanupFunction === 'function') {
-        cleanupFunction();
+    const initializePage = async () => {
+      const profile = await fetchUserProfile();
+      if (profile) {
+        await fetchMOData();
       }
     };
-  }, [fetchMOData, fetchSupervisors, fetchRMStoreUsers, moId]);
 
-  // Initialize processes for the MO
+    initializePage();
+
+    // Poll for updates every 10 seconds
+    const interval = setInterval(fetchMOData, 10000);
+    return () => clearInterval(interval);
+  }, [fetchUserProfile, fetchMOData, router, moId]);
+
+  // Handle start MO
+  const handleStartMO = async () => {
+    if (!window.confirm(`Are you sure you want to start production for MO ${mo.mo_id}?`)) {
+      return;
+    }
+
+    try {
+      setStartingProcess(true);
+      const response = await manufacturingAPI.manufacturingOrders.startMO(moId, {
+        notes: 'Production started by supervisor'
+      });
+      
+      if (response && response.mo) {
+        setMO(response.mo);
+        alert('Production started successfully!');
+        await fetchMOData();
+      }
+    } catch (error) {
+      console.error('Error starting MO:', error);
+      alert('Failed to start production: ' + error.message);
+    } finally {
+      setStartingProcess(false);
+    }
+  };
+
+  // Initialize processes
   const handleInitializeProcesses = async () => {
     try {
       setLoading(true);
@@ -174,134 +137,29 @@ export default function MODetailPage() {
   // Handle process click
   const handleProcessClick = (execution) => {
     console.log('Process clicked:', execution);
-    // You can add process-specific actions here
+    // Future: Navigate to process detail page
   };
 
   // Handle step click
   const handleStepClick = (stepExecution) => {
     console.log('Step clicked:', stepExecution);
-    // You can add step-specific actions here
+    // Future: Open step detail modal
   };
 
-  // Handle edit MO details
-  const handleEditMO = () => {
-    setIsEditing(true);
-  };
-
-  // Handle cancel edit
-  const handleCancelEdit = () => {
-    setIsEditing(false);
-    setEditData({
-      assigned_rm_store: mo.assigned_rm_store || '',
-      assigned_supervisor: mo.assigned_supervisor || '',
-      shift: mo.shift || ''
-    });
-  };
-
-  // Handle save MO details
-  const handleSaveMO = async () => {
-    try {
-      setLoading(true);
-      const response = await manufacturingAPI.manufacturingOrders.updateMODetails(moId, editData);
-      
-      // Response is already unwrapped by handleResponse, so it contains { message, mo }
-      if (response && response.mo) {
-        setMO(response.mo);
-        setIsEditing(false);
-        alert('MO details updated successfully!');
-      } else {
-        alert('Failed to update MO details: Unexpected response format');
-      }
-    } catch (error) {
-      console.error('Error updating MO:', error);
-      alert('Failed to update MO details: ' + error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Handle approve MO (Manager/Production Head - starts production)
-  const handleApproveMO = async () => {
-    if (!mo.assigned_supervisor) {
-      alert('Please assign a supervisor before approving the MO.');
-      return;
-    }
-
-    const confirmApproval = window.confirm(
-      `Are you sure you want to approve MO ${mo.mo_id} and start production? This will notify the assigned supervisor and consume raw materials.`
-    );
-
-    if (!confirmApproval) return;
-
-    try {
-      setLoading(true);
-      const response = await manufacturingAPI.manufacturingOrders.approveMO(moId, {
-        notes: 'MO approved by manager - Production started'
-      });
-      
-      // Response is already unwrapped by handleResponse, so it contains { message, mo }
-      if (response && response.mo) {
-        setMO(response.mo);
-        alert('MO approved successfully! Production has started and supervisor has been notified.');
-      } else {
-        alert('Failed to approve MO: Unexpected response format');
-      }
-    } catch (error) {
-      console.error('Error approving MO:', error);
-      alert('Failed to approve MO: ' + error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Handle RM approve MO (RM Store user - allocates raw materials)
-  const handleRMApproveMO = async () => {
-    const confirmApproval = window.confirm(
-      `Are you sure you want to approve RM allocation for MO ${mo.mo_id}? This will make the MO ready for production approval.`
-    );
-
-    if (!confirmApproval) return;
-
-    try {
-      setLoading(true);
-      const response = await manufacturingAPI.manufacturingOrders.rmApproveMO(moId, {
-        notes: 'Raw materials verified and allocated by RM store'
-      });
-      
-      // Response is already unwrapped by handleResponse, so it contains { message, mo }
-      if (response && response.mo) {
-        setMO(response.mo);
-        alert('RM allocation approved successfully! MO is now ready for production approval.');
-      } else {
-        alert('Failed to approve RM allocation: Unexpected response format');
-      }
-    } catch (error) {
-      console.error('Error approving RM allocation:', error);
-      alert('Failed to approve RM allocation: ' + error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Handle input changes for edit form
-  const handleEditInputChange = (field, value) => {
-    setEditData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+  const handleLogout = () => {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('userRole');
+    router.push('/supervisor');
   };
 
   // Get status color
   const getStatusColor = (status) => {
     const colors = {
-      draft: 'bg-gray-100 text-gray-700',
-      submitted: 'bg-blue-100 text-blue-700',
-      gm_approved: 'bg-green-100 text-green-700',
-      rm_allocated: 'bg-purple-100 text-purple-700',
-      in_progress: 'bg-orange-100 text-orange-700',
+      mo_approved: 'bg-green-100 text-green-700',
+      in_progress: 'bg-blue-100 text-blue-700',
       completed: 'bg-emerald-100 text-emerald-700',
-      cancelled: 'bg-red-100 text-red-700',
-      on_hold: 'bg-yellow-100 text-yellow-700'
+      on_hold: 'bg-yellow-100 text-yellow-700',
+      cancelled: 'bg-red-100 text-red-700'
     };
     return colors[status] || 'bg-gray-100 text-gray-700';
   };
@@ -327,7 +185,7 @@ export default function MODetailPage() {
         <div className="text-center">
           <h2 className="text-2xl font-bold text-slate-800 mb-4">Manufacturing Order Not Found</h2>
           <button
-            onClick={() => router.push('/manager/dashboard')}
+            onClick={() => router.push('/supervisor/dashboard')}
             className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             Back to Dashboard
@@ -351,7 +209,7 @@ export default function MODetailPage() {
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-4">
               <button
-                onClick={() => router.push('/manager/dashboard')}
+                onClick={() => router.push('/supervisor/dashboard')}
                 className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
               >
                 <ArrowLeftIcon className="h-5 w-5 text-slate-600" />
@@ -371,6 +229,13 @@ export default function MODetailPage() {
                   {mo.priority_display}
                 </span>
               )}
+              <NotificationBell onNotificationClick={fetchMOData} />
+              <button
+                onClick={handleLogout}
+                className="px-4 py-2 text-sm text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                Logout
+              </button>
             </div>
           </div>
         </div>
@@ -413,17 +278,7 @@ export default function MODetailPage() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* Basic Information */}
                 <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-slate-800">Order Information</h3>
-                    {(['manager', 'production_head'].includes(userRole) && ['on_hold', 'rm_allocated'].includes(mo.status)) && !isEditing && (
-                      <button
-                        onClick={handleEditMO}
-                        className="px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                      >
-                        Edit Details
-                      </button>
-                    )}
-                  </div>
+                  <h3 className="text-lg font-semibold text-slate-800 mb-4">Order Information</h3>
                   <div className="space-y-3">
                     <div className="flex justify-between">
                       <span className="text-slate-600">Product Code:</span>
@@ -441,97 +296,19 @@ export default function MODetailPage() {
                       <span className="text-slate-600">Grade:</span>
                       <span className="font-medium text-slate-800">{mo.grade}</span>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-slate-600">RM Store User:</span>
-                      {isEditing ? (
-                        <div className="searchable-dropdown-compact flex-1 ml-4">
-                          <SearchableDropdown
-                            options={rmStoreUsersList}
-                            value={editData.assigned_rm_store}
-                            onChange={(value) => handleEditInputChange('assigned_rm_store', value)}
-                            placeholder="Select RM Store User"
-                            displayKey="display_name"
-                            valueKey="id"
-                            searchKeys={["display_name", "username", "email"]}
-                            className="w-full text-slate-800"
-                            loading={rmStoreUsersList.length === 0}
-                            allowClear={true}
-                          />
-                        </div>
-                      ) : (
-                        <span className="font-medium text-slate-800">{mo.assigned_rm_store_name || 'Not Assigned'}</span>
-                      )}
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-slate-600">Supervisor:</span>
-                      {isEditing ? (
-                        <div className="searchable-dropdown-compact flex-1 ml-4">
-                          <SearchableDropdown
-                            options={supervisorsList}
-                            value={editData.assigned_supervisor}
-                            onChange={(value) => handleEditInputChange('assigned_supervisor', value)}
-                            placeholder="Select Supervisor"
-                            displayKey="display_name"
-                            valueKey="id"
-                            searchKeys={["display_name", "username", "email"]}
-                            className="w-full text-slate-800"
-                            loading={supervisorsList.length === 0}
-                            allowClear={true}
-                          />
-                        </div>
-                      ) : (
-                        <span className="font-medium text-slate-800">{mo.assigned_supervisor_name || 'Not Assigned'}</span>
-                      )}
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-600">Shift:</span>
-                      {isEditing ? (
-                        <select
-                          value={editData.shift}
-                          onChange={(e) => handleEditInputChange('shift', e.target.value)}
-                          className="px-2 py-1 text-slate-800 border border-slate-300 rounded text-sm"
-                        >
-                          <option value="">Select Shift</option>
-                          <option value="I">I (9AM-5PM)</option>
-                          <option value="II">II (5PM-2AM)</option>
-                          <option value="III">III (2AM-9AM)</option>
-                        </select>
-                      ) : (
-                        <span className="font-medium text-slate-800">{mo.shift_display || 'Not Assigned'}</span>
-                      )}
-                    </div>
+                    {mo.shift && (
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Shift:</span>
+                        <span className="font-medium text-slate-800">{mo.shift_display}</span>
+                      </div>
+                    )}
                   </div>
-                  
-                  {/* Edit Controls */}
-                  {isEditing && (
-                    <div className="flex justify-end space-x-2 mt-4 pt-4 border-t border-slate-200">
-                      <button
-                        onClick={handleCancelEdit}
-                        className="px-3 py-1 text-sm bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={handleSaveMO}
-                        disabled={loading}
-                        className="px-3 py-1 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
-                      >
-                        {loading ? 'Saving...' : 'Save'}
-                      </button>
-                    </div>
-                  )}
                 </div>
 
                 {/* Timeline */}
                 <div>
                   <h3 className="text-lg font-semibold text-slate-800 mb-4">Timeline</h3>
                   <div className="space-y-3">
-                    <div className="flex justify-between">
-                      <span className="text-slate-600">Created:</span>
-                      <span className="font-medium text-slate-800">
-                        {new Date(mo.created_at).toLocaleString()}
-                      </span>
-                    </div>
                     <div className="flex justify-between">
                       <span className="text-slate-600">Planned Start:</span>
                       <span className="font-medium text-slate-800">
@@ -609,50 +386,20 @@ export default function MODetailPage() {
               )}
             </div>
 
-            {/* RM Store Actions */}
-            {userRole === 'rm_store' && mo.status === 'on_hold' && mo.assigned_rm_store && (
+            {/* Start Production Button */}
+            {['mo_approved', 'gm_approved', 'rm_allocated', 'on_hold'].includes(mo.status) && (
               <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200/60 p-6 text-center">
                 <div className="mb-4">
-                  <CheckCircleIcon className="h-12 w-12 text-orange-600 mx-auto mb-2" />
-                  <h3 className="text-lg font-semibold text-slate-800">RM Allocation Required</h3>
-                  <p className="text-slate-600">
-                    Verify raw material availability and approve allocation for this MO.
-                  </p>
-                  <p className="text-sm text-slate-500 mt-2">
-                    Required: {mo.rm_required_kg} kg of raw material
-                  </p>
+                  <PlayIcon className="h-12 w-12 text-green-600 mx-auto mb-2" />
+                  <h3 className="text-lg font-semibold text-slate-800">Ready to Start Production</h3>
+                  <p className="text-slate-600">Click below to start production for this manufacturing order.</p>
                 </div>
                 <button
-                  onClick={handleRMApproveMO}
-                  disabled={loading}
-                  className="px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={handleStartMO}
+                  disabled={startingProcess}
+                  className="px-8 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
                 >
-                  {loading ? 'Approving...' : 'Approve RM Allocation'}
-                </button>
-              </div>
-            )}
-
-            {/* Manager Actions */}
-            {['manager', 'production_head'].includes(userRole) && mo.status === 'rm_allocated' && (
-              <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200/60 p-6 text-center">
-                <div className="mb-4">
-                  <CheckCircleIcon className="h-12 w-12 text-green-600 mx-auto mb-2" />
-                  <h3 className="text-lg font-semibold text-slate-800">Ready for Production</h3>
-                  <p className="text-slate-600">
-                    Raw materials have been allocated. Approve to start production and notify the supervisor.
-                  </p>
-                  {!mo.assigned_supervisor && (
-                    <p className="text-amber-600 text-sm mt-2">
-                      ⚠️ Please assign a supervisor before starting production
-                    </p>
-                  )}
-                </div>
-                <button
-                  onClick={handleApproveMO}
-                  disabled={loading || !mo.assigned_supervisor}
-                  className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {loading ? 'Starting Production...' : 'Start Production'}
+                  {startingProcess ? 'Starting...' : 'Start Production'}
                 </button>
               </div>
             )}
@@ -662,13 +409,13 @@ export default function MODetailPage() {
               <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200/60 p-6 text-center">
                 <div className="mb-4">
                   <ClockIcon className="h-12 w-12 text-blue-600 mx-auto mb-2" />
-                  <h3 className="text-lg font-semibold text-slate-800">Production Started</h3>
-                  <p className="text-slate-600">Initialize process tracking to begin monitoring production flow.</p>
+                  <h3 className="text-lg font-semibold text-slate-800">Initialize Process Tracking</h3>
+                  <p className="text-slate-600">Set up process tracking to monitor production flow.</p>
                 </div>
                 <button
                   onClick={handleInitializeProcesses}
                   disabled={loading}
-                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 font-semibold"
                 >
                   {loading ? 'Initializing...' : 'Initialize Processes'}
                 </button>
@@ -694,8 +441,8 @@ export default function MODetailPage() {
                 <h3 className="text-xl font-medium text-slate-600 mb-2">Processes Not Initialized</h3>
                 <p className="text-slate-500 mb-6">
                   {mo.status === 'in_progress' 
-                    ? 'Initialize processes to start tracking production flow.'
-                    : `MO must be in 'In Progress' status to initialize processes. Current status: ${mo.status_display}`
+                    ? 'Initialize process tracking to monitor production flow.'
+                    : `MO must be in 'In Progress' status to track processes. Current status: ${mo.status_display}`
                   }
                 </p>
                 {mo.status === 'in_progress' && (
@@ -750,15 +497,7 @@ export default function MODetailPage() {
           </div>
         )}
       </main>
-
-      {/* Compact styling for SearchableDropdown */}
-      <style jsx>{`
-        :global(.searchable-dropdown-compact .relative > div) {
-          padding: 0.5rem 0.75rem !important;
-          border-radius: 0.5rem !important;
-          font-size: 0.875rem !important;
-        }
-      `}</style>
     </div>
   );
 }
+
