@@ -42,8 +42,22 @@ export const MANUFACTURING_APIS = {
   MO_UPDATE_DETAILS: (id) => `${API_BASE_URL}/manufacturing/api/manufacturing-orders/${id}/update_mo_details/`,
   MO_APPROVE: (id) => `${API_BASE_URL}/manufacturing/api/manufacturing-orders/${id}/approve_mo/`,
   MO_RM_APPROVE: (id) => `${API_BASE_URL}/manufacturing/api/manufacturing-orders/${id}/rm_approve/`,
+  MO_RM_STORE_DASHBOARD: `${API_BASE_URL}/manufacturing/api/manufacturing-orders/rm_store_dashboard/`,
   MO_SUPERVISOR_DASHBOARD: `${API_BASE_URL}/manufacturing/api/manufacturing-orders/supervisor_dashboard/`,
   MO_START: (id) => `${API_BASE_URL}/manufacturing/api/manufacturing-orders/${id}/start_mo/`,
+  MO_CALCULATE_RM: `${API_BASE_URL}/manufacturing/api/manufacturing-orders/calculate_rm_requirement/`,
+
+  // Batches
+  BATCH_LIST: `${API_BASE_URL}/manufacturing/api/batches/`,
+  BATCH_CREATE: `${API_BASE_URL}/manufacturing/api/batches/`,
+  BATCH_DETAIL: (id) => `${API_BASE_URL}/manufacturing/api/batches/${id}/`,
+  BATCH_UPDATE: (id) => `${API_BASE_URL}/manufacturing/api/batches/${id}/`,
+  BATCH_DELETE: (id) => `${API_BASE_URL}/manufacturing/api/batches/${id}/`,
+  BATCH_BY_MO: `${API_BASE_URL}/manufacturing/api/batches/by_mo/`,
+  BATCH_START: (id) => `${API_BASE_URL}/manufacturing/api/batches/${id}/start_batch/`,
+  BATCH_COMPLETE: (id) => `${API_BASE_URL}/manufacturing/api/batches/${id}/complete_batch/`,
+  BATCH_UPDATE_PROGRESS: (id) => `${API_BASE_URL}/manufacturing/api/batches/${id}/update_progress/`,
+  BATCH_DASHBOARD_STATS: `${API_BASE_URL}/manufacturing/api/batches/dashboard_stats/`,
 
   // Purchase Orders
   PO_LIST: `${API_BASE_URL}/manufacturing/api/purchase-orders/`,

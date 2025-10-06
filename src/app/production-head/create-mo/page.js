@@ -11,14 +11,15 @@ export default function CreateMOPage() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
 
-  // Check authentication and role
+  // Check authentication and role - allow both production_head and manager
   useEffect(() => {
     const checkAuth = () => {
       const token = localStorage.getItem('authToken');
       const userRole = localStorage.getItem('userRole');
       
-      if (!token || userRole !== 'manager') {
-        router.push('/manager');
+      // Allow both production_head and manager roles
+      if (!token || (userRole !== 'production_head' && userRole !== 'manager')) {
+        router.push('/production-head');
         return;
       }
       
@@ -36,11 +37,11 @@ export default function CreateMOPage() {
 
   const handleMOSuccess = () => {
     // Navigate back to dashboard after successful MO creation
-    router.replace('/manager/dashboard');
+    router.replace('/production-head/dashboard');
   };
 
   const handleBack = () => {
-    router.replace('/manager/dashboard');
+    router.replace('/production-head/dashboard');
   };
 
   if (loading) {
@@ -48,7 +49,7 @@ export default function CreateMOPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-amber-50 to-orange-100">
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-md border-b border-slate-200/60 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -73,7 +74,7 @@ export default function CreateMOPage() {
                   {user?.first_name} {user?.last_name}
                 </div>
                 <div className="text-xs text-slate-500 capitalize">
-                  {user?.primary_role?.name || 'Manager'}
+                  {user?.primary_role?.name || 'Production Head'}
                 </div>
               </div>
             </div>

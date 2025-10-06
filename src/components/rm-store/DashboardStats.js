@@ -47,8 +47,8 @@ export default function DashboardStats({ stats }) {
 
   const statCards = [
     {
-      title: 'Total Products',
-      value: animatedStats.total_products || stats.total_products || 0,
+      title: 'Total Raw Materials',
+      value: animatedStats.total_raw_materials || stats.total_raw_materials || 0,
       icon: (
         <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
@@ -56,11 +56,11 @@ export default function DashboardStats({ stats }) {
       ),
       color: 'text-blue-600',
       bgColor: 'bg-blue-50',
-      description: 'Total products in system'
+      description: 'Total raw materials in system'
     },
     {
       title: 'In Stock',
-      value: animatedStats.products_with_stock || stats.products_with_stock || 0,
+      value: animatedStats.materials_with_stock || stats.materials_with_stock || 0,
       icon: (
         <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -68,11 +68,11 @@ export default function DashboardStats({ stats }) {
       ),
       color: 'text-green-600',
       bgColor: 'bg-green-50',
-      description: 'Products with available stock'
+      description: 'Materials with available stock'
     },
     {
       title: 'Out of Stock',
-      value: animatedStats.products_out_of_stock || stats.products_out_of_stock || 0,
+      value: animatedStats.materials_out_of_stock || stats.materials_out_of_stock || 0,
       icon: (
         <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
@@ -80,11 +80,11 @@ export default function DashboardStats({ stats }) {
       ),
       color: 'text-red-600',
       bgColor: 'bg-red-50',
-      description: 'Products with zero stock'
+      description: 'Materials with zero stock'
     },
     {
       title: 'No Stock Record',
-      value: animatedStats.products_no_stock_record || stats.products_no_stock_record || 0,
+      value: animatedStats.materials_no_stock_record || stats.materials_no_stock_record || 0,
       icon: (
         <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -92,7 +92,7 @@ export default function DashboardStats({ stats }) {
       ),
       color: 'text-yellow-600',
       bgColor: 'bg-yellow-50',
-      description: 'Products without stock records'
+      description: 'Materials without stock records'
     },
     {
       title: 'Stock Records',

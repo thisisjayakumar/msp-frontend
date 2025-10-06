@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Button from "@/components/CommonComponents/ui/Button";
@@ -17,6 +17,20 @@ export default function UnifiedLoginPage() {
   });
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
+
+  // Check if user is already authenticated and redirect to their dashboard
+  useEffect(() => {
+    const token = localStorage.getItem('authToken');
+    const userRole = localStorage.getItem('userRole');
+    
+    if (token && userRole) {
+      const roleConfig = getRoleConfig(userRole);
+      if (roleConfig) {
+        const dashboardPath = `${roleConfig.path}/dashboard`;
+        router.replace(dashboardPath);
+      }
+    }
+  }, [router]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;

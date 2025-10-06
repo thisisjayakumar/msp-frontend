@@ -1,9 +1,29 @@
+"use client";
+
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from "next/link";
 import Button from "@/components/CommonComponents/ui/Button";
 import { APP_CONFIG } from "@/components/config";
 import { ROLE_HIERARCHY, getRoleConfig } from "@/components/config/roles";
 
 export default function Home() {
+  const router = useRouter();
+
+  // Check if user is already authenticated and redirect to their dashboard
+  useEffect(() => {
+    const token = localStorage.getItem('authToken');
+    const userRole = localStorage.getItem('userRole');
+    
+    if (token && userRole) {
+      const roleConfig = getRoleConfig(userRole);
+      if (roleConfig) {
+        const dashboardPath = `${roleConfig.path}/dashboard`;
+        router.replace(dashboardPath);
+      }
+    }
+  }, [router]);
+
   return (
     <div className="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
       {/* Hero Section */}

@@ -63,7 +63,7 @@ export default function MODetailPage() {
     let role = localStorage.getItem('userRole');
     
     if (!token) {
-      router.push('/manager');
+      router.push('/production-head');
       return;
     }
     
@@ -71,11 +71,11 @@ export default function MODetailPage() {
     if (!role) {
       fetchUserProfile().then((fetchedRole) => {
         if (!['manager', 'production_head', 'rm_store'].includes(fetchedRole)) {
-          router.push('/manager');
+          router.push('/production-head');
         }
       });
     } else if (!['manager', 'production_head', 'rm_store'].includes(role)) {
-      router.push('/manager');
+      router.push('/production-head');
       return;
     } else {
       console.log('Using stored user role:', role);
@@ -124,7 +124,7 @@ export default function MODetailPage() {
     } catch (error) {
       console.error('Error fetching MO data:', error);
       if (error.message.includes('404')) {
-        router.replace('/manager/dashboard');
+        router.replace('/production-head/dashboard');
       }
     } finally {
       setLoading(false);
@@ -323,12 +323,12 @@ export default function MODetailPage() {
 
   if (!mo) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-amber-50 to-orange-100 flex items-center justify-center">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-slate-800 mb-4">Manufacturing Order Not Found</h2>
           <button
-            onClick={() => router.replace('/manager/dashboard')}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            onClick={() => router.replace('/production-head/dashboard')}
+            className="px-6 py-3 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
           >
             Back to Dashboard
           </button>
@@ -344,14 +344,14 @@ export default function MODetailPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-amber-50 to-orange-100">
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-md border-b border-slate-200/60 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-4">
               <button
-                onClick={() => router.replace('/manager/dashboard')}
+                onClick={() => router.replace('/production-head/dashboard')}
                 className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
               >
                 <ArrowLeftIcon className="h-5 w-5 text-slate-600" />
@@ -386,7 +386,7 @@ export default function MODetailPage() {
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
                   activeTab === tab.id
-                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25'
+                    ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/25'
                     : 'text-slate-600 hover:text-slate-800 hover:bg-white/80'
                 }`}
               >
@@ -418,7 +418,7 @@ export default function MODetailPage() {
                     {(['manager', 'production_head'].includes(userRole) && ['on_hold', 'rm_allocated'].includes(mo.status)) && !isEditing && (
                       <button
                         onClick={handleEditMO}
-                        className="px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                        className="px-3 py-1 text-sm bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
                       >
                         Edit Details
                       </button>
@@ -576,18 +576,18 @@ export default function MODetailPage() {
                   </div>
                   <div className="w-full h-3 bg-slate-200 rounded-full overflow-hidden">
                     <div 
-                      className="h-full bg-gradient-to-r from-blue-500 to-green-500 transition-all duration-1000"
+                      className="h-full bg-gradient-to-r from-amber-500 to-green-500 transition-all duration-1000"
                       style={{ width: `${mo.overall_progress}%` }}
                     />
                   </div>
                   
                   {mo.active_process && (
-                    <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+                    <div className="mt-4 p-4 bg-amber-50 rounded-lg">
                       <div className="flex items-center space-x-2 mb-2">
-                        <PlayIcon className="h-4 w-4 text-blue-600" />
-                        <span className="font-medium text-blue-800">Currently Active Process</span>
+                        <PlayIcon className="h-4 w-4 text-amber-600" />
+                        <span className="font-medium text-amber-800">Currently Active Process</span>
                       </div>
-                      <div className="text-sm text-blue-700">
+                      <div className="text-sm text-amber-700">
                         {mo.active_process.process_name} - {mo.active_process.progress_percentage}%
                         {mo.active_process.assigned_operator && (
                           <span className="ml-2">({mo.active_process.assigned_operator})</span>
@@ -661,14 +661,14 @@ export default function MODetailPage() {
             {!processesInitialized && mo.status === 'in_progress' && (
               <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200/60 p-6 text-center">
                 <div className="mb-4">
-                  <ClockIcon className="h-12 w-12 text-blue-600 mx-auto mb-2" />
+                  <ClockIcon className="h-12 w-12 text-amber-600 mx-auto mb-2" />
                   <h3 className="text-lg font-semibold text-slate-800">Production Started</h3>
                   <p className="text-slate-600">Initialize process tracking to begin monitoring production flow.</p>
                 </div>
                 <button
                   onClick={handleInitializeProcesses}
                   disabled={loading}
-                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-6 py-3 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {loading ? 'Initializing...' : 'Initialize Processes'}
                 </button>
@@ -702,7 +702,7 @@ export default function MODetailPage() {
                   <button
                     onClick={handleInitializeProcesses}
                     disabled={loading}
-                    className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                    className="px-6 py-3 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-50"
                   >
                     {loading ? 'Initializing...' : 'Initialize Processes'}
                   </button>

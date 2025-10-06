@@ -1,38 +1,30 @@
 "use client";
 
-import RoleLoginLayout from "@/components/CommonComponents/layout/RoleLoginLayout";
-import { roleAuthService } from "@/components/API_Service/role-auth";
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
-export default function SupervisorLoginPage() {
-  const handleSupervisorLogin = async (loginData) => {
-    try {
-      // Supervisor-specific login logic using actual backend API
-      console.log("Supervisor login attempt:", loginData);
-      
-      // Use the actual backend authentication
-      const response = await roleAuthService.supervisorLogin({
-        email: loginData.email,
-        password: loginData.password
-      });
-      
-      if (response.success) {
-        // On successful login, redirect to supervisor dashboard
-        window?.location?.replace('/supervisor/dashboard');
-      } else {
-        throw new Error(response.error || "Login failed");
-      }
-      
-    } catch (error) {
-      console.error("Supervisor login failed:", error);
-      throw new Error(error.message || "Invalid supervisor credentials");
+export default function SupervisorPage() {
+  const router = useRouter();
+
+  useEffect(() => {
+    const token = localStorage.getItem('authToken');
+    const userRole = localStorage.getItem('userRole');
+    
+    if (token && userRole === 'supervisor') {
+      // Already authenticated, redirect to dashboard
+      router.replace('/supervisor/dashboard');
+    } else {
+      // Not authenticated, redirect to unified login
+      router.replace('/login');
     }
-  };
+  }, [router]);
 
   return (
-    <RoleLoginLayout 
-      role="supervisor"
-      onLogin={handleSupervisorLogin}
-      showForgotPassword={true}
-    />
+    <div className="flex justify-center items-center min-h-screen">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
+        <p className="text-gray-600">Redirecting...</p>
+      </div>
+    </div>
   );
 }

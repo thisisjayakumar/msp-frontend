@@ -2,23 +2,23 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import SimplifiedManufacturingOrderForm from '@/components/manager/SimplifiedManufacturingOrderForm';
+import PurchaseOrderForm from '@/components/manager/PurchaseOrderForm';
 import LoadingSpinner from '@/components/CommonComponents/ui/LoadingSpinner';
-import NotifyXTest from '@/components/NotifyXTest';
 
-export default function CreateMOPage() {
+export default function CreatePOPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
 
-  // Check authentication and role
+  // Check authentication and role - allow both production_head and manager
   useEffect(() => {
     const checkAuth = () => {
       const token = localStorage.getItem('authToken');
       const userRole = localStorage.getItem('userRole');
       
-      if (!token || userRole !== 'manager') {
-        router.push('/manager');
+      // Allow both production_head and manager roles
+      if (!token || (userRole !== 'production_head' && userRole !== 'manager')) {
+        router.push('/production-head');
         return;
       }
       
@@ -34,13 +34,13 @@ export default function CreateMOPage() {
     checkAuth();
   }, [router]);
 
-  const handleMOSuccess = () => {
-    // Navigate back to dashboard after successful MO creation
-    router.replace('/manager/dashboard');
+  const handlePOSuccess = () => {
+    // Navigate back to dashboard after successful PO creation
+    router.replace('/production-head/dashboard');
   };
 
   const handleBack = () => {
-    router.replace('/manager/dashboard');
+    router.replace('/production-head/dashboard');
   };
 
   if (loading) {
@@ -48,7 +48,7 @@ export default function CreateMOPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-amber-50 to-orange-100">
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-md border-b border-slate-200/60 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -63,8 +63,8 @@ export default function CreateMOPage() {
               </button>
               <div className="h-6 w-px bg-slate-300"></div>
               <div>
-                <h1 className="text-xl font-bold text-slate-800">Create Manufacturing Order</h1>
-                <p className="text-sm text-slate-600">Plan and initiate production orders</p>
+                <h1 className="text-xl font-bold text-slate-800">Create Purchase Order</h1>
+                <p className="text-sm text-slate-600">Order raw materials from vendors</p>
               </div>
             </div>
             <div className="flex items-center space-x-4">
@@ -73,7 +73,7 @@ export default function CreateMOPage() {
                   {user?.first_name} {user?.last_name}
                 </div>
                 <div className="text-xs text-slate-500 capitalize">
-                  {user?.primary_role?.name || 'Manager'}
+                  {user?.primary_role?.name || 'Production Head'}
                 </div>
               </div>
             </div>
@@ -84,12 +84,9 @@ export default function CreateMOPage() {
       {/* Main Content */}
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-white/70 backdrop-blur-sm rounded-2xl border border-white/20 shadow-xl shadow-slate-200/50 p-8">
-          <SimplifiedManufacturingOrderForm onSuccess={handleMOSuccess} />
+          <PurchaseOrderForm simplified={false} onSuccess={handlePOSuccess} />
         </div>
       </main>
-      
-      {/* Temporary NotifyX Test Component */}
-      <NotifyXTest />
     </div>
   );
 }

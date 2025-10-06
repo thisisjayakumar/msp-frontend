@@ -6,9 +6,9 @@ import Button from '../CommonComponents/ui/Button';
 import Input from '../CommonComponents/ui/Input';
 // LoadingSpinner removed - using inline SVG spinner
 
-export default function StockUpdateModal({ product, onSave, onCancel }) {
+export default function StockUpdateModal({ material, onSave, onCancel }) {
   const [quantity, setQuantity] = useState(
-    product.stock_info?.available_quantity?.toString() || '0'
+    material?.available_quantity?.toString() || '0'
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -17,7 +17,7 @@ export default function StockUpdateModal({ product, onSave, onCancel }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const quantityNum = parseInt(quantity);
+    const quantityNum = parseFloat(quantity);
     
     // Validate quantity
     if (isNaN(quantityNum) || quantityNum < 0) {
@@ -28,7 +28,7 @@ export default function StockUpdateModal({ product, onSave, onCancel }) {
     try {
       setLoading(true);
       setError(null);
-      await onSave(product, quantityNum);
+      await onSave(material, quantityNum);
     } catch (err) {
       console.error('Error updating stock:', err);
       setError(err.message || 'Failed to update stock balance');
@@ -40,8 +40,8 @@ export default function StockUpdateModal({ product, onSave, onCancel }) {
   // Handle quantity change
   const handleQuantityChange = (e) => {
     const value = e.target.value;
-    // Allow empty string or valid numbers
-    if (value === '' || /^\d+$/.test(value)) {
+    // Allow empty string, valid numbers, and decimal points
+    if (value === '' || /^\d*\.?\d*$/.test(value)) {
       setQuantity(value);
       setError(null);
     }
@@ -49,34 +49,24 @@ export default function StockUpdateModal({ product, onSave, onCancel }) {
 
   // Get current stock status
   const getCurrentStockStatus = () => {
-    if (!product.stock_info) return 'No stock record';
-    
-    switch (product.stock_info.stock_status) {
-      case 'in_stock':
-        return `In Stock (${product.stock_info.available_quantity})`;
-      case 'out_of_stock':
-        return 'Out of Stock';
-      case 'no_stock_record':
-        return 'No Stock Record';
-      default:
-        return 'Unknown';
+    const qty = material?.available_quantity || 0;
+    if (qty > 0) {
+      return `In Stock (${qty} kg)`;
+    } else if (qty === 0) {
+      return 'Out of Stock';
     }
+    return 'No Stock Record';
   };
 
   // Get stock status color
   const getStockStatusColor = () => {
-    if (!product.stock_info) return 'text-gray-600';
-    
-    switch (product.stock_info.stock_status) {
-      case 'in_stock':
-        return 'text-green-600';
-      case 'out_of_stock':
-        return 'text-red-600';
-      case 'no_stock_record':
-        return 'text-yellow-600';
-      default:
-        return 'text-gray-600';
+    const qty = material?.available_quantity || 0;
+    if (qty > 0) {
+      return 'text-green-600';
+    } else if (qty === 0) {
+      return 'text-red-600';
     }
+    return 'text-gray-600';
   };
 
   return (
@@ -86,7 +76,7 @@ export default function StockUpdateModal({ product, onSave, onCancel }) {
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-semibold text-gray-900">
-              Update Stock Balance
+              Update Raw Material Stock
             </h2>
             <button
               onClick={onCancel}
@@ -98,25 +88,31 @@ export default function StockUpdateModal({ product, onSave, onCancel }) {
             </button>
           </div>
 
-          {/* Product Info */}
+          {/* Material Info */}
           <div className="mb-6 p-4 bg-gray-50 rounded-lg">
             <div className="flex items-center justify-between mb-2">
               <h3 className="font-medium text-gray-900">
-                {product.internal_product_code}
+                {material.material_code}
               </h3>
               <span className={`text-sm font-medium ${getStockStatusColor()}`}>
                 {getCurrentStockStatus()}
               </span>
             </div>
             <p className="text-sm text-gray-600 mb-1">
-              {product.product_code}
+              {material.material_name}
             </p>
             <p className="text-sm text-gray-500">
-              {product.material_name} • {product.material_type_display}
+              Grade: {material.grade} • {material.material_type_display}
             </p>
-            {product.stock_info?.last_updated && (
-              <p className="text-xs text-gray-400 mt-2">
-                Last updated: {new Date(product.stock_info.last_updated).toLocaleString()}
+            {material.material_type === 'coil' && (
+              <p className="text-sm text-gray-500">
+                {material.wire_diameter_mm && `⌀${material.wire_diameter_mm}mm`}
+                {material.weight_kg && ` • ${material.weight_kg}kg`}
+              </p>
+            )}
+            {material.material_type === 'sheet' && material.thickness_mm && (
+              <p className="text-sm text-gray-500">
+                Thickness: {material.thickness_mm}mm
               </p>
             )}
           </div>
@@ -137,7 +133,7 @@ export default function StockUpdateModal({ product, onSave, onCancel }) {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label htmlFor="quantity" className="block text-sm font-medium text-gray-700 mb-2">
-                Available Quantity *
+                Available Quantity (kg) *
               </label>
               <Input
                 id="quantity"
@@ -145,17 +141,17 @@ export default function StockUpdateModal({ product, onSave, onCancel }) {
                 type="text"
                 value={quantity}
                 onChange={handleQuantityChange}
-                placeholder="Enter quantity"
+                placeholder="Enter quantity in kg"
                 disabled={loading}
                 className="text-lg"
               />
               <p className="mt-1 text-sm text-gray-500">
-                Enter the current available quantity for this product
+                Enter the current available stock quantity for this raw material in kilograms
               </p>
             </div>
 
             {/* Quick Actions */}
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-5 gap-2">
               <button
                 type="button"
                 onClick={() => setQuantity('0')}
@@ -163,14 +159,6 @@ export default function StockUpdateModal({ product, onSave, onCancel }) {
                 className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 0
-              </button>
-              <button
-                type="button"
-                onClick={() => setQuantity('10')}
-                disabled={loading}
-                className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                10
               </button>
               <button
                 type="button"
@@ -187,6 +175,22 @@ export default function StockUpdateModal({ product, onSave, onCancel }) {
                 className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 100
+              </button>
+              <button
+                type="button"
+                onClick={() => setQuantity('500')}
+                disabled={loading}
+                className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                500
+              </button>
+              <button
+                type="button"
+                onClick={() => setQuantity('1000')}
+                disabled={loading}
+                className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                1000
               </button>
             </div>
 
@@ -225,3 +229,4 @@ export default function StockUpdateModal({ product, onSave, onCancel }) {
     </div>
   );
 }
+

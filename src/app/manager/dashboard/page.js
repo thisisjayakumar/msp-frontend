@@ -63,7 +63,7 @@ export default function ManagerDashboard() {
     localStorage.removeItem('authToken');
     localStorage.removeItem('userRole');
     localStorage.removeItem('userData');
-    router.push('/manager');
+    router.replace('/login');
   };
 
   const tabs = [

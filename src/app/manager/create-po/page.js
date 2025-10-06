@@ -50,11 +50,11 @@ export default function CreatePOPage() {
 
   const handlePOSuccess = () => {
     // Navigate back to dashboard after successful PO creation
-    router.push('/manager/dashboard');
+    router.replace('/manager/dashboard');
   };
 
   const handleBack = () => {
-    router.push('/manager/dashboard');
+    router.replace('/manager/dashboard');
   };
 
   if (loading) {

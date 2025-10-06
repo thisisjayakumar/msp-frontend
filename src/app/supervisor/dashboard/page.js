@@ -81,7 +81,7 @@ export default function SupervisorDashboard() {
   const handleLogout = () => {
     localStorage.removeItem('authToken');
     localStorage.removeItem('userRole');
-    router.push('/supervisor');
+    router.replace('/login');
   };
 
   const handleMOClick = (moId) => {

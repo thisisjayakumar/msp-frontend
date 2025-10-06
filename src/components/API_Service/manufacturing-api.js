@@ -12,6 +12,138 @@ const handleResponse = async (response) => {
   throw new Error(response.error || 'API request failed');
 };
 
+// Batch API Service
+export const batchAPI = {
+  // Get all batches with optional filters
+  getAll: async (filters = {}) => {
+    const queryParams = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        queryParams.append(key, value);
+      }
+    });
+    
+    const url = queryParams.toString() 
+      ? `${MANUFACTURING_APIS.BATCH_LIST}?${queryParams}`
+      : MANUFACTURING_APIS.BATCH_LIST;
+    
+    const response = await apiRequest(url, {
+      method: 'GET',
+    });
+    
+    return handleResponse(response);
+  },
+
+  // Get batch by ID
+  getById: async (id) => {
+    const response = await apiRequest(MANUFACTURING_APIS.BATCH_DETAIL(id), {
+      method: 'GET',
+    });
+    
+    return handleResponse(response);
+  },
+
+  // Get batches for a specific MO
+  getByMO: async (moId) => {
+    const response = await apiRequest(`${MANUFACTURING_APIS.BATCH_BY_MO}?mo_id=${moId}`, {
+      method: 'GET',
+    });
+    
+    return handleResponse(response);
+  },
+
+  // Create new batch
+  create: async (batchData) => {
+    const response = await apiRequest(MANUFACTURING_APIS.BATCH_CREATE, {
+      method: 'POST',
+      body: batchData,
+    });
+    
+    return handleResponse(response);
+  },
+
+  // Update batch
+  update: async (id, batchData) => {
+    const response = await apiRequest(MANUFACTURING_APIS.BATCH_UPDATE(id), {
+      method: 'PATCH',
+      body: batchData,
+    });
+    
+    return handleResponse(response);
+  },
+
+  // Delete batch
+  delete: async (id) => {
+    const response = await apiRequest(MANUFACTURING_APIS.BATCH_DELETE(id), {
+      method: 'DELETE',
+    });
+    
+    if (!response.success) {
+      throw new Error(`Failed to delete batch: ${response.status}`);
+    }
+    
+    return true;
+  },
+
+  // Start batch
+  startBatch: async (id) => {
+    const response = await apiRequest(MANUFACTURING_APIS.BATCH_START(id), {
+      method: 'POST',
+      body: {},
+    });
+    
+    return handleResponse(response);
+  },
+
+  // Complete batch
+  completeBatch: async (id, completionData) => {
+    const response = await apiRequest(MANUFACTURING_APIS.BATCH_COMPLETE(id), {
+      method: 'POST',
+      body: completionData,
+    });
+    
+    return handleResponse(response);
+  },
+
+  // Update batch progress
+  updateProgress: async (id, progressData) => {
+    const response = await apiRequest(MANUFACTURING_APIS.BATCH_UPDATE_PROGRESS(id), {
+      method: 'PATCH',
+      body: progressData,
+    });
+    
+    return handleResponse(response);
+  },
+
+  // Get batch dashboard stats
+  getDashboardStats: async () => {
+    const response = await apiRequest(MANUFACTURING_APIS.BATCH_DASHBOARD_STATS, {
+      method: 'GET',
+    });
+    
+    return handleResponse(response);
+  },
+
+  // Get MO batch summary - comprehensive RM tracking
+  getMOBatchSummary: async (moId) => {
+    const response = await apiRequest(`${MANUFACTURING_APIS.BATCH_LIST}mo-batch-summary/${moId}/`, {
+      method: 'GET',
+    });
+    
+    return handleResponse(response);
+  },
+
+  // Add scrap RM to a batch
+  addScrapRM: async (batchId, scrapRmKg) => {
+    const response = await apiRequest(`${MANUFACTURING_APIS.BATCH_LIST}${batchId}/add-scrap-rm/`, {
+      method: 'POST',
+      body: { scrap_rm_kg: scrapRmKg },
+    });
+    
+    return handleResponse(response);
+  },
+};
+
 // Manufacturing Orders API Service
 export const manufacturingOrdersAPI = {
   // Get all MOs with optional filters
@@ -38,6 +170,26 @@ export const manufacturingOrdersAPI = {
   getById: async (id) => {
     const response = await apiRequest(MANUFACTURING_APIS.MO_DETAIL(id), {
       method: 'GET',
+    });
+    
+    return handleResponse(response);
+  },
+
+  // Send remaining RM to scrap
+  sendRemainingToScrap: async (moId, scrapRmKg = null, sendAll = false) => {
+    const response = await apiRequest(`${MANUFACTURING_APIS.MO_LIST}${moId}/send-remaining-to-scrap/`, {
+      method: 'POST',
+      body: sendAll ? { send_all_remaining: true } : { scrap_rm_kg: scrapRmKg },
+    });
+    
+    return handleResponse(response);
+  },
+
+  // Complete RM allocation (RM Store)
+  completeRMAllocation: async (moId, notes = '') => {
+    const response = await apiRequest(`${MANUFACTURING_APIS.MO_LIST}${moId}/complete-rm-allocation/`, {
+      method: 'POST',
+      body: { notes },
     });
     
     return handleResponse(response);
@@ -170,6 +322,15 @@ export const manufacturingOrdersAPI = {
     return handleResponse(response);
   },
 
+  // Get RM Store dashboard - RM Store user only
+  getRMStoreDashboard: async () => {
+    const response = await apiRequest(MANUFACTURING_APIS.MO_RM_STORE_DASHBOARD, {
+      method: 'GET',
+    });
+    
+    return handleResponse(response);
+  },
+
   // Get supervisor dashboard - Supervisor only
   getSupervisorDashboard: async () => {
     const response = await apiRequest(MANUFACTURING_APIS.MO_SUPERVISOR_DASHBOARD, {
@@ -184,6 +345,16 @@ export const manufacturingOrdersAPI = {
     const response = await apiRequest(MANUFACTURING_APIS.MO_START(id), {
       method: 'POST',
       body: startData,
+    });
+    
+    return handleResponse(response);
+  },
+
+  // Calculate RM requirement for MO
+  calculateRMRequirement: async (calculationData) => {
+    const response = await apiRequest(MANUFACTURING_APIS.MO_CALCULATE_RM, {
+      method: 'POST',
+      body: calculationData,
     });
     
     return handleResponse(response);
@@ -336,5 +507,6 @@ export const getDashboardStats = async () => {
 export default {
   manufacturingOrders: manufacturingOrdersAPI,
   purchaseOrders: purchaseOrdersAPI,
+  batches: batchAPI,
   getDashboardStats,
 };

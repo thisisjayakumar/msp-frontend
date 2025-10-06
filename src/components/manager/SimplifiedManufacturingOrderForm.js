@@ -348,9 +348,9 @@ export default function SimplifiedManufacturingOrderForm({ onSuccess }) {
             <div>
               <label className="block text-xs font-medium text-slate-700 mb-1">
                 Quantity <span className="text-red-500">*</span>
-                {stockWarning && (
+                {/* {stockWarning && (
                   <span className="ml-2 text-orange-600 font-normal">⚠️ {stockWarning}</span>
-                )}
+                )} */}
               </label>
               <input
                 type="number"

@@ -65,7 +65,7 @@ export default function SupervisorMODetailPage() {
     } catch (error) {
       console.error('Error fetching MO data:', error);
       if (error.message.includes('404')) {
-        router.push('/supervisor/dashboard');
+        router.replace('/supervisor/dashboard');
       }
     } finally {
       setLoading(false);
@@ -149,7 +149,7 @@ export default function SupervisorMODetailPage() {
   const handleLogout = () => {
     localStorage.removeItem('authToken');
     localStorage.removeItem('userRole');
-    router.push('/supervisor');
+    router.replace('/login');
   };
 
   // Get status color
@@ -185,7 +185,7 @@ export default function SupervisorMODetailPage() {
         <div className="text-center">
           <h2 className="text-2xl font-bold text-slate-800 mb-4">Manufacturing Order Not Found</h2>
           <button
-            onClick={() => router.push('/supervisor/dashboard')}
+            onClick={() => router.replace('/supervisor/dashboard')}
             className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             Back to Dashboard
@@ -209,7 +209,7 @@ export default function SupervisorMODetailPage() {
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-4">
               <button
-                onClick={() => router.push('/supervisor/dashboard')}
+                onClick={() => router.replace('/supervisor/dashboard')}
                 className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
               >
                 <ArrowLeftIcon className="h-5 w-5 text-slate-600" />
