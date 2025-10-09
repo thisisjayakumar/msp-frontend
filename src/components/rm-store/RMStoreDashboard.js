@@ -8,9 +8,12 @@ import Button from '../CommonComponents/ui/Button';
 import StockUpdateModal from './StockUpdateModal';
 import DashboardStats from './DashboardStats';
 import MOListTab from './MOListTab';
+import POListTab from './POListTab';
+import GRMReceiptsTab from './GRMReceiptsTab';
+import InventoryTransactionsTab from './InventoryTransactionsTab';
 
 export default function RMStoreDashboard() {
-  const [activeTab, setActiveTab] = useState('stock'); // 'stock' or 'mo_list'
+  const [activeTab, setActiveTab] = useState('stock'); // 'stock', 'rm_inward', 'grm_receipts', 'mo_list', 'transactions'
   const [rawMaterials, setRawMaterials] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -126,13 +129,17 @@ export default function RMStoreDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-800 mb-2">RM Store Dashboard</h1>
-          <p className="text-slate-800">Monitor raw material stock levels and update inventory balances</p>
-        </div>
+    <div className="space-y-6">
+      {/* Description */}
+      <div className="mb-6">
+        <p className="text-slate-600">
+          {activeTab === 'stock' && 'Monitor raw material stock levels and update inventory balances'}
+          {activeTab === 'rm_inward' && 'Manage incoming raw materials from Purchase Orders'}
+          {activeTab === 'grm_receipts' && 'Track GRM receipts and heat numbers for complete traceability'}
+          {activeTab === 'mo_list' && 'Process Manufacturing Orders and manage raw material outward'}
+          {activeTab === 'transactions' && 'Audit every inventory movement across RM inward and outward operations'}
+        </p>
+      </div>
 
         {/* Tabs */}
         <div className="mb-6">
@@ -149,6 +156,26 @@ export default function RMStoreDashboard() {
                 Raw Material Stock
               </button>
               <button
+                onClick={() => setActiveTab('rm_inward')}
+                className={`${
+                  activeTab === 'rm_inward'
+                    ? 'border-cyan-500 text-cyan-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors`}
+              >
+                PO List
+              </button>
+              <button
+                onClick={() => setActiveTab('grm_receipts')}
+                className={`${
+                  activeTab === 'grm_receipts'
+                    ? 'border-cyan-500 text-cyan-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors`}
+              >
+                GRM Receipts
+              </button>
+              <button
                 onClick={() => setActiveTab('mo_list')}
                 className={`${
                   activeTab === 'mo_list'
@@ -156,7 +183,17 @@ export default function RMStoreDashboard() {
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors`}
               >
-                MO Approvals
+                MO List
+              </button>
+              <button
+                onClick={() => setActiveTab('transactions')}
+                className={`${
+                  activeTab === 'transactions'
+                    ? 'border-cyan-500 text-cyan-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors`}
+              >
+                Inventory Transactions
               </button>
             </nav>
           </div>
@@ -340,9 +377,17 @@ export default function RMStoreDashboard() {
           </>
         )}
 
-        {/* MO List Tab */}
-        {activeTab === 'mo_list' && <MOListTab />}
-      </div>
+      {/* RM Inward Tab */}
+      {activeTab === 'rm_inward' && <POListTab />}
+
+      {/* GRM Receipts Tab */}
+      {activeTab === 'grm_receipts' && <GRMReceiptsTab />}
+
+      {/* RM Outward Tab */}
+      {activeTab === 'mo_list' && <MOListTab />}
+
+      {/* Transactions Tab */}
+      {activeTab === 'transactions' && <InventoryTransactionsTab />}
     </div>
   );
 }

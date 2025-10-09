@@ -1,16 +1,144 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import manufacturingAPI from '@/components/API_Service/manufacturing-api';
 import { toast } from '@/utils/notifications';
+import { checkPermission, getPermissionMessage } from '@/utils/permissionUtils';
+
+function SearchableSelect({
+  value,
+  onChange,
+  options,
+  placeholder = 'Select option',
+  error,
+  disabled = false,
+  emptyMessage = 'No results found',
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const blurTimeout = useRef(null);
+
+  const selectedOption = options.find((option) => String(option.value) === String(value));
+  const displayLabel = selectedOption?.label || '';
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+  const filteredOptions = normalizedSearch
+    ? options.filter((option) => {
+        const labelMatch = option.label?.toLowerCase().includes(normalizedSearch);
+        const descriptionMatch = option.description?.toLowerCase().includes(normalizedSearch);
+        return labelMatch || descriptionMatch;
+      })
+    : options;
+
+  const closeDropdown = () => {
+    setIsOpen(false);
+    setSearchTerm('');
+  };
+
+  const handleOptionSelect = (option) => {
+    onChange(option.value, option);
+    closeDropdown();
+  };
+
+  const handleInputFocus = () => {
+    if (blurTimeout.current) clearTimeout(blurTimeout.current);
+    setIsOpen(true);
+    setSearchTerm(displayLabel);
+  };
+
+  const handleInputBlur = () => {
+    blurTimeout.current = setTimeout(() => {
+      closeDropdown();
+    }, 120);
+  };
+
+  const handleKeyDown = (event) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeDropdown();
+      event.currentTarget.blur();
+      return;
+    }
+
+    if (event.key === 'Enter' && isOpen) {
+      event.preventDefault();
+      if (filteredOptions.length > 0) {
+        handleOptionSelect(filteredOptions[0]);
+      }
+    }
+  };
+
+  const baseInputClasses = `w-full px-4 py-3 rounded-xl text-slate-800 border focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all ${
+    error ? 'border-red-300 bg-red-50' : 'border-slate-300 bg-white'
+  } ${disabled ? 'bg-slate-100 cursor-not-allowed' : ''}`;
+
+  return (
+    <div className="relative" onBlur={handleInputBlur}>
+      <input
+        type="text"
+        value={isOpen ? searchTerm : displayLabel}
+        onFocus={handleInputFocus}
+        onChange={(event) => {
+          setSearchTerm(event.target.value);
+          if (!isOpen) setIsOpen(true);
+        }}
+        onKeyDown={handleKeyDown}
+        placeholder={placeholder}
+        disabled={disabled}
+        className={baseInputClasses}
+        autoComplete="off"
+      />
+      <div className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-slate-400">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="h-4 w-4"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+        >
+          <path
+            fillRule="evenodd"
+            d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.25a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z"
+            clipRule="evenodd"
+          />
+        </svg>
+      </div>
+
+      {isOpen && (
+        <div className="absolute z-20 mt-2 max-h-60 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg">
+          {filteredOptions.length === 0 ? (
+            <div className="px-4 py-3 text-sm text-slate-500">{emptyMessage}</div>
+          ) : (
+            filteredOptions.map((option) => (
+              <button
+                type="button"
+                key={option.value}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => handleOptionSelect(option)}
+                className={`w-full px-4 py-2 text-left text-sm transition-colors ${
+                  String(option.value) === String(value)
+                    ? 'bg-purple-50 text-purple-700'
+                    : 'hover:bg-slate-100 text-slate-700'
+                }`}
+              >
+                <div className="font-medium">{option.label}</div>
+                {option.description && (
+                  <div className="text-xs text-slate-500">{option.description}</div>
+                )}
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function PurchaseOrderForm({ onSuccess, autoFillData = null }) {
   const [formData, setFormData] = useState({
     rm_code_id: '',
     vendor_name_id: '',
     quantity_ordered: '',
-    expected_date: '',
     unit_price: '',
+    expected_date: '',
     terms_conditions: '',
     notes: ''
   });
@@ -30,6 +158,13 @@ export default function PurchaseOrderForm({ onSuccess, autoFillData = null }) {
   // Fetch dropdown data
   useEffect(() => {
     const fetchDropdownData = async () => {
+      // Check permissions first
+      if (!checkPermission('purchaseOrders')) {
+        toast.error(getPermissionMessage('purchaseOrders'));
+        setDropdownData({ rawMaterials: [], vendors: [] });
+        return;
+      }
+
       try {
         const [rawMaterials, vendors] = await Promise.all([
           manufacturingAPI.purchaseOrders.getRawMaterials(),
@@ -38,7 +173,13 @@ export default function PurchaseOrderForm({ onSuccess, autoFillData = null }) {
         
         setDropdownData({ rawMaterials, vendors });
       } catch (error) {
-        console.error('Error fetching dropdown data:', error);
+        // Handle permission errors gracefully
+        if (error.message.includes('403') || error.message.includes('Forbidden') || error.message.includes('Permission denied')) {
+          toast.error(getPermissionMessage('purchaseOrders'));
+          setDropdownData({ rawMaterials: [], vendors: [] });
+        } else {
+          toast.error('Failed to load purchase order data');
+        }
       }
     };
 
@@ -112,7 +253,7 @@ export default function PurchaseOrderForm({ onSuccess, autoFillData = null }) {
             }
           }
         } catch (error) {
-          console.error('Error parsing stored auto-fill data:', error);
+          // Error parsing stored auto-fill data - continue without auto-fill
         }
       }
     }
@@ -122,12 +263,22 @@ export default function PurchaseOrderForm({ onSuccess, autoFillData = null }) {
   const handleMaterialChange = async (materialId) => {
     try {
       const material = dropdownData.rawMaterials.find(m => m.id === parseInt(materialId));
-      setSelectedMaterial(material);
       
-      // Fetch detailed material info for auto-population
-      if (materialId) {
-        const materialDetails = await manufacturingAPI.purchaseOrders.getMaterialDetails(materialId);
-        setSelectedMaterial(materialDetails);
+      if (material) {
+        // Set the material from dropdown data first (immediate feedback)
+        setSelectedMaterial(material);
+        
+        // Try to fetch detailed material info for auto-population
+        if (materialId) {
+          try {
+            const materialDetails = await manufacturingAPI.purchaseOrders.getMaterialDetails(materialId);
+            // Use the detailed data if available, otherwise keep the dropdown data
+            setSelectedMaterial(materialDetails || material);
+          } catch (detailError) {
+            // Keep the dropdown data if detailed fetch fails
+            setSelectedMaterial(material);
+          }
+        }
       }
       
       setFormData(prev => ({
@@ -135,7 +286,11 @@ export default function PurchaseOrderForm({ onSuccess, autoFillData = null }) {
         rm_code_id: materialId
       }));
     } catch (error) {
-      console.error('Error fetching material details:', error);
+      // Still update the form even if there's an error
+      setFormData(prev => ({
+        ...prev,
+        rm_code_id: materialId
+      }));
     }
   };
 
@@ -143,12 +298,23 @@ export default function PurchaseOrderForm({ onSuccess, autoFillData = null }) {
   const handleVendorChange = async (vendorId) => {
     try {
       const vendor = dropdownData.vendors.find(v => v.id === parseInt(vendorId));
-      setSelectedVendor(vendor);
       
-      // Fetch detailed vendor info for auto-population
-      if (vendorId) {
-        const vendorDetails = await manufacturingAPI.purchaseOrders.getVendorDetails(vendorId);
-        setSelectedVendor(vendorDetails);
+      if (vendor) {
+        // Set the vendor from dropdown data first (immediate feedback)
+        setSelectedVendor(vendor);
+        
+        // Try to fetch detailed vendor info for auto-population
+        if (vendorId) {
+          try {
+            const vendorDetails = await manufacturingAPI.purchaseOrders.getVendorDetails(vendorId);
+            // Merge detailed data with dropdown data to ensure we have all available fields
+            const mergedVendor = { ...vendor, ...vendorDetails };
+            setSelectedVendor(mergedVendor);
+          } catch (detailError) {
+            // Keep the dropdown data if detailed fetch fails
+            setSelectedVendor(vendor);
+          }
+        }
       }
       
       setFormData(prev => ({
@@ -156,7 +322,11 @@ export default function PurchaseOrderForm({ onSuccess, autoFillData = null }) {
         vendor_name_id: vendorId
       }));
     } catch (error) {
-      console.error('Error fetching vendor details:', error);
+      // Still update the form even if there's an error
+      setFormData(prev => ({
+        ...prev,
+        vendor_name_id: vendorId
+      }));
     }
   };
 
@@ -183,7 +353,6 @@ export default function PurchaseOrderForm({ onSuccess, autoFillData = null }) {
     if (!formData.vendor_name_id) newErrors.vendor_name_id = 'Vendor is required';
     if (!formData.quantity_ordered || formData.quantity_ordered <= 0) newErrors.quantity_ordered = 'Valid quantity is required';
     if (!formData.expected_date) newErrors.expected_date = 'Expected date is required';
-    if (!formData.unit_price || formData.unit_price <= 0) newErrors.unit_price = 'Valid unit price is required';
 
     // Check if expected date is in the future
     if (formData.expected_date) {
@@ -213,22 +382,21 @@ export default function PurchaseOrderForm({ onSuccess, autoFillData = null }) {
         rm_code_id: parseInt(formData.rm_code_id),
         vendor_name_id: parseInt(formData.vendor_name_id),
         quantity_ordered: parseInt(formData.quantity_ordered),
-        unit_price: parseFloat(formData.unit_price)
+        unit_price: formData.unit_price ? parseFloat(formData.unit_price) : null
       };
 
       const response = await manufacturingAPI.purchaseOrders.create(submitData);
       
-      // Show success notification with NotifyX
+      // Show success notification with react-hot-toast
       if (isAutoFilled && autoFillData) {
         toast.po.autoGenerated({
           po_id: response.po_id || 'Generated',
-          quantity_ordered: submitData.quantity_ordered,
-          total_amount: (submitData.quantity_ordered * submitData.unit_price).toFixed(2)
+          quantity_ordered: submitData.quantity_ordered
         }, autoFillData.moReference);
       } else {
         toast.po.created({
           po_id: response.po_id || 'Generated',
-          total_amount: (submitData.quantity_ordered * submitData.unit_price).toFixed(2)
+          quantity_ordered: submitData.quantity_ordered
         });
       }
       
@@ -243,8 +411,8 @@ export default function PurchaseOrderForm({ onSuccess, autoFillData = null }) {
         rm_code_id: '',
         vendor_name_id: '',
         quantity_ordered: '',
-        expected_date: '',
         unit_price: '',
+        expected_date: '',
         terms_conditions: '',
         notes: ''
       });
@@ -252,7 +420,6 @@ export default function PurchaseOrderForm({ onSuccess, autoFillData = null }) {
       setSelectedVendor(null);
 
     } catch (error) {
-      console.error('Error creating PO:', error);
       toast.po.error(error);
       setErrors({ submit: error.message || 'Failed to create Purchase Order' });
     } finally {
@@ -260,10 +427,6 @@ export default function PurchaseOrderForm({ onSuccess, autoFillData = null }) {
     }
   };
 
-  // Calculate total amount
-  const totalAmount = formData.quantity_ordered && formData.unit_price 
-    ? (parseFloat(formData.quantity_ordered) * parseFloat(formData.unit_price)).toFixed(2)
-    : '0.00';
 
   if (success) {
     return (
@@ -283,6 +446,46 @@ export default function PurchaseOrderForm({ onSuccess, autoFillData = null }) {
       </div>
     );
   }
+
+  const rawMaterialOptions = dropdownData.rawMaterials.map((material) => {
+    const baseLabel =
+      material.display_name ||
+      [material.material_name, material.material_code]
+        .filter(Boolean)
+        .join(' - ') ||
+      material.material_code ||
+      `Material #${material.id}`;
+
+    const descriptionParts = [];
+    if (material.material_code) {
+      descriptionParts.push(`Code: ${material.material_code}`);
+    }
+    if (material.available_quantity !== undefined) {
+      descriptionParts.push(`Stock: ${material.available_quantity} kg`);
+    }
+
+    return {
+      value: material.id?.toString() || '',
+      label: baseLabel,
+      description: descriptionParts.length ? descriptionParts.join(' • ') : undefined,
+    };
+  });
+
+  const vendorOptions = dropdownData.vendors.map((vendor) => {
+    const descriptionParts = [];
+    if (vendor.vendor_type_display || vendor.vendor_type) {
+      descriptionParts.push(vendor.vendor_type_display || vendor.vendor_type);
+    }
+    if (vendor.gst_no) {
+      descriptionParts.push(`GST: ${vendor.gst_no}`);
+    }
+
+    return {
+      value: vendor.id?.toString() || '',
+      label: vendor.name || `Vendor #${vendor.id}`,
+      description: descriptionParts.length ? descriptionParts.join(' • ') : undefined,
+    };
+  });
 
   return (
     <div className="space-y-6">
@@ -330,21 +533,14 @@ export default function PurchaseOrderForm({ onSuccess, autoFillData = null }) {
           <label className="block text-sm font-medium text-slate-700 mb-2">
             Raw Material <span className="text-red-500">*</span>
           </label>
-          <select
-            name="rm_code_id"
+          <SearchableSelect
             value={formData.rm_code_id}
-            onChange={(e) => handleMaterialChange(e.target.value)}
-            className={`w-full px-4 py-3 text-slate-800 rounded-xl border ${
-              errors.rm_code_id ? 'border-red-300 bg-red-50' : 'border-slate-300 bg-white'
-            } focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all`}
-          >
-            <option value="">Select Raw Material</option>
-            {dropdownData.rawMaterials.map(material => (
-              <option key={material.id} value={material.id}>
-                {material.display_name} {material.available_quantity !== undefined ? `(Stock: ${material.available_quantity} kg)` : ''}
-              </option>
-            ))}
-          </select>
+            onChange={(nextValue) => handleMaterialChange(nextValue)}
+            options={rawMaterialOptions}
+            placeholder="Select Raw Material"
+            error={errors.rm_code_id}
+            emptyMessage="No raw materials found"
+          />
           {errors.rm_code_id && (
             <p className="text-red-500 text-sm mt-1">{errors.rm_code_id}</p>
           )}
@@ -354,21 +550,14 @@ export default function PurchaseOrderForm({ onSuccess, autoFillData = null }) {
           <label className="block text-sm font-medium text-slate-700 mb-2">
             Vendor <span className="text-red-500">*</span>
           </label>
-          <select
-            name="vendor_name_id"
+          <SearchableSelect
             value={formData.vendor_name_id}
-            onChange={(e) => handleVendorChange(e.target.value)}
-            className={`w-full px-4 py-3 rounded-xl text-slate-800 border ${
-              errors.vendor_name_id ? 'border-red-300 bg-red-50' : 'border-slate-300 bg-white'
-            } focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all`}
-          >
-            <option value="">Select Vendor</option>
-            {dropdownData.vendors.map(vendor => (
-              <option key={vendor.id} value={vendor.id}>
-                {vendor.name}
-              </option>
-            ))}
-          </select>
+            onChange={(nextValue) => handleVendorChange(nextValue)}
+            options={vendorOptions}
+            placeholder="Select Vendor"
+            error={errors.vendor_name_id}
+            emptyMessage="No vendors found"
+          />
           {errors.vendor_name_id && (
             <p className="text-red-500 text-sm mt-1">{errors.vendor_name_id}</p>
           )}
@@ -384,21 +573,27 @@ export default function PurchaseOrderForm({ onSuccess, autoFillData = null }) {
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
             <div>
-              <span className="text-purple-600 font-medium">Product Code:</span>
-              <span className="ml-2 text-slate-700">{selectedMaterial.product_code}</span>
+              <span className="text-purple-600 font-medium">Material Code:</span>
+              <span className="ml-2 text-slate-700">{selectedMaterial.material_code || selectedMaterial.id || 'N/A'}</span>
             </div>
             <div>
               <span className="text-purple-600 font-medium">Material:</span>
-              <span className="ml-2 text-slate-700">{selectedMaterial.material_name_display}</span>
+              <span className="ml-2 text-slate-700">{selectedMaterial.material_name_display || selectedMaterial.material_name || selectedMaterial.display_name || 'N/A'}</span>
             </div>
             <div>
               <span className="text-purple-600 font-medium">Type:</span>
-              <span className="ml-2 text-slate-700">{selectedMaterial.material_type_display}</span>
+              <span className="ml-2 text-slate-700">{selectedMaterial.material_type_display || selectedMaterial.material_type || 'N/A'}</span>
             </div>
             <div>
               <span className="text-purple-600 font-medium">Grade:</span>
-              <span className="ml-2 text-slate-700">{selectedMaterial.grade}</span>
+              <span className="ml-2 text-slate-700">{selectedMaterial.grade || 'N/A'}</span>
             </div>
+            {selectedMaterial.finishing && (
+              <div>
+                <span className="text-purple-600 font-medium">Finishing:</span>
+                <span className="ml-2 text-slate-700">{selectedMaterial.finishing}</span>
+              </div>
+            )}
             {selectedMaterial.wire_diameter_mm && (
               <div>
                 <span className="text-purple-600 font-medium">Wire Diameter:</span>
@@ -425,6 +620,7 @@ export default function PurchaseOrderForm({ onSuccess, autoFillData = null }) {
         </div>
       )}
 
+
       {/* Auto-populated Vendor Details */}
       {selectedVendor && (
         <div className="bg-indigo-50 rounded-xl p-4 border border-indigo-200">
@@ -434,12 +630,20 @@ export default function PurchaseOrderForm({ onSuccess, autoFillData = null }) {
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
             <div>
+              <span className="text-indigo-600 font-medium">Vendor Name:</span>
+              <span className="ml-2 text-slate-700">{selectedVendor.name || 'N/A'}</span>
+            </div>
+            <div>
+              <span className="text-indigo-600 font-medium">Vendor Type:</span>
+              <span className="ml-2 text-slate-700">{selectedVendor.vendor_type_display || selectedVendor.vendor_type || 'N/A'}</span>
+            </div>
+            <div>
               <span className="text-indigo-600 font-medium">GST No:</span>
-              <span className="ml-2 text-slate-700">{selectedVendor.gst_no}</span>
+              <span className="ml-2 text-slate-700">{selectedVendor.gst_no || 'N/A'}</span>
             </div>
             <div>
               <span className="text-indigo-600 font-medium">Contact:</span>
-              <span className="ml-2 text-slate-700">{selectedVendor.contact_no}</span>
+              <span className="ml-2 text-slate-700">{selectedVendor.contact_no || 'N/A'}</span>
             </div>
             <div>
               <span className="text-indigo-600 font-medium">Contact Person:</span>
@@ -447,17 +651,17 @@ export default function PurchaseOrderForm({ onSuccess, autoFillData = null }) {
             </div>
             <div className="md:col-span-2 lg:col-span-3">
               <span className="text-indigo-600 font-medium">Address:</span>
-              <span className="ml-2 text-slate-700">{selectedVendor.address}</span>
+              <span className="ml-2 text-slate-700">{selectedVendor.address || 'N/A'}</span>
             </div>
           </div>
         </div>
       )}
 
       {/* Order Details */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-2">
-            Quantity Ordered <span className="text-red-500">*</span>
+            Quantity Needed <span className="text-red-500">*</span>
             {isAutoFilled && autoFillData && (
               <span className="ml-2 text-amber-600 text-xs font-normal">
                 (Required: {autoFillData.requiredQuantity - (autoFillData.availableQuantity || 0)} kg shortage)
@@ -488,7 +692,7 @@ export default function PurchaseOrderForm({ onSuccess, autoFillData = null }) {
 
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-2">
-            Unit Price (₹) <span className="text-red-500">*</span>
+            Unit Price (₹)
           </label>
           <input
             type="number"
@@ -497,21 +701,12 @@ export default function PurchaseOrderForm({ onSuccess, autoFillData = null }) {
             onChange={handleInputChange}
             min="0"
             step="0.01"
-            className={`w-full px-4 py-3 rounded-xl border ${
-              errors.unit_price ? 'border-red-300 bg-red-50' : 'border-slate-300 bg-white'
-            } focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all`}
-            placeholder="0.00"
+            className="w-full px-4 py-3 rounded-xl text-slate-600 border border-slate-300 bg-white focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+            placeholder="Enter unit price per kg"
           />
-          {errors.unit_price && (
-            <p className="text-red-500 text-sm mt-1">{errors.unit_price}</p>
-          )}
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">Total Amount (₹)</label>
-          <div className="w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50 text-slate-700 font-medium">
-            ₹{totalAmount}
-          </div>
+          <p className="text-slate-500 text-xs mt-1">
+            💡 Optional: Enter the price per unit for cost tracking
+          </p>
         </div>
       </div>
 
@@ -526,7 +721,7 @@ export default function PurchaseOrderForm({ onSuccess, autoFillData = null }) {
           value={formData.expected_date}
           onChange={handleInputChange}
           min={new Date().toISOString().split('T')[0]}
-          className={`w-full px-4 py-3 rounded-xl border ${
+          className={`w-full px-4 py-3 rounded-xl text-slate-800 border ${
             errors.expected_date ? 'border-red-300 bg-red-50' : 'border-slate-300 bg-white'
           } focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all`}
         />
@@ -543,7 +738,7 @@ export default function PurchaseOrderForm({ onSuccess, autoFillData = null }) {
           value={formData.terms_conditions}
           onChange={handleInputChange}
           rows="3"
-          className="w-full px-4 py-3 rounded-xl border border-slate-300 bg-white focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all resize-none"
+          className="w-full text-slate-800 px-4 py-3 rounded-xl border border-slate-300 bg-white focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all resize-none"
           placeholder="Enter terms and conditions (e.g., Net 30 days, FOB destination, etc.)"
         />
       </div>
@@ -556,7 +751,7 @@ export default function PurchaseOrderForm({ onSuccess, autoFillData = null }) {
           value={formData.notes}
           onChange={handleInputChange}
           rows="3"
-          className="w-full px-4 py-3 rounded-xl border border-slate-300 bg-white focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all resize-none"
+          className="w-full px-4 text-slate-800 py-3 rounded-xl border border-slate-300 bg-white focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all resize-none"
           placeholder="Enter any additional notes or requirements..."
         />
       </div>
@@ -577,8 +772,8 @@ export default function PurchaseOrderForm({ onSuccess, autoFillData = null }) {
               rm_code_id: '',
               vendor_name_id: '',
               quantity_ordered: '',
-              expected_date: '',
               unit_price: '',
+              expected_date: '',
               terms_conditions: '',
               notes: ''
             });

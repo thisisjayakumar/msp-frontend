@@ -79,16 +79,33 @@ export default function MODetailModal({ mo, onClose, onRefresh, onCreateBatch })
   };
 
   const handleCompleteAllocation = async () => {
-    if (!confirm('Complete RM Allocation?\n\nThis will mark all RM as allocated and move the MO to the next stage.')) {
-      return;
+    // Check if MO is already in progress
+    if (mo.status === 'in_progress') {
+      if (!confirm('This MO is already in progress. Completing RM allocation will not change the status but will mark it as completed in the RM Store dashboard. Continue?')) {
+        return;
+      }
+    } else {
+      if (!confirm('Complete RM Allocation?\n\nThis will mark all RM as allocated and move the MO to the next stage.')) {
+        return;
+      }
     }
 
     try {
       setCompletingAllocation(true);
+      
+      // Complete RM allocation - backend will handle status logic appropriately
       await manufacturingAPI.manufacturingOrders.completeRMAllocation(
         mo.id,
-        'All RM allocated to batches by RM Store'
+        mo.status === 'in_progress' 
+          ? 'RM allocation completed for in-progress MO - status unchanged'
+          : 'All RM allocated to batches by RM Store'
       );
+      
+      if (mo.status !== 'in_progress') {
+        alert('RM Allocation completed successfully! MO moved to Completed tab.');
+      } else {
+        alert('RM Allocation completed! MO remains in progress and will appear in Completed tab.');
+      }
       
       // Refresh dashboard
       onRefresh && onRefresh();
@@ -96,7 +113,6 @@ export default function MODetailModal({ mo, onClose, onRefresh, onCreateBatch })
       // Close modal
       onClose();
       
-      alert('RM Allocation completed successfully! MO moved to Completed tab.');
     } catch (err) {
       console.error('Error completing RM allocation:', err);
       alert('Error completing RM allocation: ' + (err.message || 'Unknown error'));
@@ -306,7 +322,8 @@ export default function MODetailModal({ mo, onClose, onRefresh, onCreateBatch })
                     <div className="mt-3">
                       <Button
                         onClick={() => setScrapModal({ show: true, scrapKg: '', sendAll: false })}
-                        className="w-full bg-red-50 hover:bg-red-100 text-red-700 border border-red-300"
+                        variant="outline"
+                        className="w-full border border-red-300 text-red-600 bg-white hover:bg-white"
                         size="sm"
                       >
                         Send Remaining RM to Scrap
@@ -315,7 +332,9 @@ export default function MODetailModal({ mo, onClose, onRefresh, onCreateBatch })
                   )}
 
                   {/* Complete RM Allocation Button - Show when all RM is allocated */}
-                  {batchSummary.remaining_rm <= 0 && batchSummary.completion_percentage === 100 && mo.status !== 'rm_allocated' && (
+                  {batchSummary.remaining_rm <= 0 &&
+                   batchSummary.completion_percentage === 100 &&
+                   !['rm_allocated', 'in_progress', 'completed'].includes(mo.status) && (
                     <div className="mt-3">
                       <Button
                         onClick={handleCompleteAllocation}

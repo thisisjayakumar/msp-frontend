@@ -132,11 +132,14 @@ export default function MOListTab() {
       </div>
     );
   }
-
   const currentMOs = getCurrentMOList();
 
   return (
     <div className="space-y-6">
+      {/* Section Header */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-semibold text-gray-900">RM Outward</h2>
+      </div>
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-gradient-to-r from-yellow-500 to-orange-500 rounded-xl shadow-lg p-6 text-white">
@@ -175,33 +178,33 @@ export default function MOListTab() {
         <nav className="-mb-px flex space-x-8">
           <button
             onClick={() => setActiveTab('on_hold')}
-            className={`${
+            className={`whitespace-nowrap py-4 px-3 border-b-2 font-medium text-sm transition-colors flex items-center rounded-t-md ${
               activeTab === 'on_hold'
-                ? 'border-yellow-500 text-yellow-600'
+                ? 'border-cyan-500 text-cyan-600 bg-cyan-50 shadow-sm'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center`}
+            }`}
           >
             <ClockIcon className="h-5 w-5 mr-2" />
             On Hold ({moData.summary.pending_approvals})
           </button>
           <button
             onClick={() => setActiveTab('in_progress')}
-            className={`${
+            className={`whitespace-nowrap py-4 px-3 border-b-2 font-medium text-sm transition-colors flex items-center rounded-t-md ${
               activeTab === 'in_progress'
-                ? 'border-blue-500 text-blue-600'
+                ? 'border-blue-500 text-blue-600 bg-blue-50 shadow-sm'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center`}
+            }`}
           >
             <PlayCircleIcon className="h-5 w-5 mr-2" />
             In Progress ({moData.summary.in_progress})
           </button>
           <button
             onClick={() => setActiveTab('completed')}
-            className={`${
+            className={`whitespace-nowrap py-4 px-3 border-b-2 font-medium text-sm transition-colors flex items-center rounded-t-md ${
               activeTab === 'completed'
-                ? 'border-green-500 text-green-600'
+                ? 'border-green-500 text-green-600 bg-green-50 shadow-sm'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center`}
+            }`}
           >
             <CheckCircleIcon className="h-5 w-5 mr-2" />
             Completed ({moData.summary.completed})

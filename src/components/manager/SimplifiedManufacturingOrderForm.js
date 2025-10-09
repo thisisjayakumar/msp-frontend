@@ -180,7 +180,7 @@ export default function SimplifiedManufacturingOrderForm({ onSuccess }) {
 
       const response = await manufacturingAPI.manufacturingOrders.create(submitData);
       
-      // Show success notification with NotifyX
+      // Show success notification with react-hot-toast
       toast.mo.created({
         mo_id: response.mo_id || 'Generated',
         quantity: submitData.quantity

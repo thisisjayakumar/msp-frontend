@@ -4,6 +4,7 @@
  */
 
 import { apiRequest } from './api-utils';
+import { throttledGet, throttledPost, throttledPatch } from './throttled-api';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000/api';
 
@@ -20,11 +21,10 @@ class ProcessTrackingAPI {
     throw new Error(response.error || 'API request failed');
   }
 
-  // Manufacturing Order Process Tracking
+  // Manufacturing Order Process Tracking (THROTTLED)
   async getMOWithProcesses(moId) {
-    const response = await apiRequest(`${this.baseURL}/manufacturing-orders/${moId}/process_tracking/`, {
-      method: 'GET',
-    });
+    const url = `${this.baseURL}/manufacturing-orders/${moId}/process_tracking/`;
+    const response = await throttledGet(url);
     return this.handleResponse(response);
   }
 
@@ -50,8 +50,16 @@ class ProcessTrackingAPI {
     return this.handleResponse(response);
   }
 
-  async getProcessExecution(executionId) {
-    const response = await apiRequest(`${this.baseURL}/process-executions/${executionId}/`, {
+  // Get process executions filtered by user's department/role
+  async getUserProcessExecutions(filters = {}) {
+    const queryParams = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== null && value !== undefined && value !== '') {
+        queryParams.append(key, value);
+      }
+    });
+
+    const response = await apiRequest(`${this.baseURL}/process-executions/?${queryParams}`, {
       method: 'GET',
     });
     return this.handleResponse(response);
@@ -167,9 +175,7 @@ class ProcessTrackingAPI {
       ? `${this.baseURL}/process-alerts/active_alerts/?mo_id=${moId}`
       : `${this.baseURL}/process-alerts/active_alerts/`;
     
-    const response = await apiRequest(url, {
-      method: 'GET',
-    });
+    const response = await throttledGet(url);
     return this.handleResponse(response);
   }
 
@@ -213,10 +219,42 @@ class ProcessTrackingAPI {
     return () => clearInterval(intervalId);
   }
 
-  // Dashboard Statistics
-  async getProcessDashboardStats() {
+  // Get dashboard statistics
+  async getDashboardStats() {
     const response = await apiRequest(`${this.baseURL}/process-executions/dashboard_stats/`, {
       method: 'GET',
+    });
+    return this.handleResponse(response);
+  }
+
+  // Batch Process Execution Management
+  async startBatchProcess(batchId, processId) {
+    const response = await apiRequest(`${this.baseURL}/batch-process-executions/start/`, {
+      method: 'POST',
+      body: { batch_id: batchId, process_id: processId },
+    });
+    return this.handleResponse(response);
+  }
+
+  async completeBatchProcess(batchId, processId, completionData = {}) {
+    const response = await apiRequest(`${this.baseURL}/batch-process-executions/complete/`, {
+      method: 'POST',
+      body: { batch_id: batchId, process_id: processId, ...completionData },
+    });
+    return this.handleResponse(response);
+  }
+
+  async getBatchProcessExecutions(moId) {
+    const response = await apiRequest(`${this.baseURL}/batch-process-executions/get_batch_process_executions/?mo_id=${moId}`, {
+      method: 'GET',
+    });
+    return this.handleResponse(response);
+  }
+
+  async updateBatchProcessProgress(batchId, processId, progressData) {
+    const response = await apiRequest(`${this.baseURL}/batch-process-executions/update-progress/`, {
+      method: 'POST',
+      body: { batch_id: batchId, process_id: processId, ...progressData },
     });
     return this.handleResponse(response);
   }
@@ -225,6 +263,5 @@ class ProcessTrackingAPI {
 // Create and export singleton instance
 const processTrackingAPI = new ProcessTrackingAPI();
 export default processTrackingAPI;
-
 // Export class for testing
 export { ProcessTrackingAPI };

@@ -14,6 +14,8 @@ export default function BatchCreateModal({ mo, onClose, onSuccess }) {
   const [rmCalculation, setRmCalculation] = useState(null);
   const [batchSummary, setBatchSummary] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [willAutoScrap, setWillAutoScrap] = useState(false);
+  const [autoScrapAmount, setAutoScrapAmount] = useState(0);
 
   // Fetch batch summary on mount
   useEffect(() => {
@@ -55,6 +57,11 @@ export default function BatchCreateModal({ mo, onClose, onSuccess }) {
 
     // Check if exceeds remaining
     const exceedsRemaining = finalRmKg > batchSummary.remaining_rm;
+    const remainingAfter = Math.max(0, batchSummary.remaining_rm - finalRmKg);
+
+    // Check if remaining after batch will be below scrap threshold (0.05 kg)
+    const scrapThreshold = 0.05;
+    const willNeedScrap = remainingAfter > 0 && remainingAfter < scrapThreshold;
 
     setRmCalculation({
       type: 'coil',
@@ -63,8 +70,40 @@ export default function BatchCreateModal({ mo, onClose, onSuccess }) {
       tolerance_amount: (finalRmKg - rmKg).toFixed(3),
       final_rm_kg: finalRmKg.toFixed(3),
       exceeds_remaining: exceedsRemaining,
-      remaining_after: Math.max(0, batchSummary.remaining_rm - finalRmKg).toFixed(3)
+      remaining_after: remainingAfter.toFixed(3),
+      will_need_scrap: willNeedScrap
     });
+
+    setWillAutoScrap(willNeedScrap);
+    setAutoScrapAmount(willNeedScrap ? remainingAfter : 0);
+  };
+
+  // Calculate maximum possible batch size
+  const calculateMaxBatch = () => {
+    if (!batchSummary) return;
+
+    const tolerance = batchSummary.tolerance_percentage || 2;
+    const toleranceFactor = 1 + (tolerance / 100);
+    const scrapThreshold = 0.05;
+    
+    // Calculate max base RM that can be allocated
+    // If remaining RM after tolerance would be < 0.05, use all remaining RM
+    const remainingRm = batchSummary.remaining_rm;
+    
+    // Try to use all remaining RM
+    const maxBaseRm = remainingRm / toleranceFactor;
+    const finalRmWithTolerance = maxBaseRm * toleranceFactor;
+    const wouldRemain = remainingRm - finalRmWithTolerance;
+    
+    // If what would remain is less than scrap threshold, use all remaining RM
+    if (wouldRemain < scrapThreshold) {
+      const adjustedBaseRm = remainingRm / toleranceFactor;
+      setFormData(prev => ({ ...prev, planned_quantity: adjustedBaseRm.toFixed(3) }));
+      calculateRM(adjustedBaseRm);
+    } else {
+      setFormData(prev => ({ ...prev, planned_quantity: maxBaseRm.toFixed(3) }));
+      calculateRM(maxBaseRm);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -79,6 +118,15 @@ export default function BatchCreateModal({ mo, onClose, onSuccess }) {
     if (rmCalculation && rmCalculation.exceeds_remaining) {
       toast.error(`Cannot exceed remaining RM allocation of ${batchSummary.remaining_rm.toFixed(3)} ${batchSummary.rm_unit}`);
       return;
+    }
+
+    // Confirm auto-scrap if needed
+    if (willAutoScrap) {
+      const confirmScrap = window.confirm(
+        `This batch will leave ${autoScrapAmount.toFixed(3)} ${batchSummary.rm_unit} remaining, which is below the minimum batch threshold (0.05 ${batchSummary.rm_unit}). ` +
+        `The remaining RM will be automatically sent to scrap and the MO will be marked as RM Allocated. Continue?`
+      );
+      if (!confirmScrap) return;
     }
 
     try {
@@ -97,7 +145,26 @@ export default function BatchCreateModal({ mo, onClose, onSuccess }) {
       console.log('Creating batch with data:', batchData);
       await manufacturingAPI.batches.create(batchData);
       
-      toast.success('Batch created successfully! RM has been released and production can start.');
+      // If auto-scrap is needed, send remaining to scrap and complete RM allocation
+      if (willAutoScrap && autoScrapAmount > 0) {
+        console.log('Auto-scrapping remaining RM:', autoScrapAmount);
+        await manufacturingAPI.manufacturingOrders.sendRemainingToScrap(mo.id, autoScrapAmount, false);
+        
+        // Complete RM allocation - backend will handle status appropriately
+        await manufacturingAPI.manufacturingOrders.completeRMAllocation(
+          mo.id, 
+          'RM allocation completed with auto-scrap of remaining material'
+        );
+        
+        if (mo.status !== 'in_progress') {
+          toast.success(`Batch created successfully! Remaining ${autoScrapAmount.toFixed(3)} ${batchSummary.rm_unit} sent to scrap. MO marked as RM Allocated.`);
+        } else {
+          toast.success(`Batch created successfully! Remaining ${autoScrapAmount.toFixed(3)} ${batchSummary.rm_unit} sent to scrap. MO remains in progress.`);
+        }
+      } else {
+        toast.success('Batch created successfully! RM has been released and production can start.');
+      }
+      
       onSuccess();
     } catch (err) {
       console.error('Error creating batch:', err);
@@ -225,19 +292,31 @@ export default function BatchCreateModal({ mo, onClose, onSuccess }) {
                     <label className="block text-sm font-medium text-slate-700 mb-1">
                       Batch RM Quantity ({batchSummary?.rm_unit || 'kg'}) <span className="text-red-500">*</span>
                     </label>
-                    <input
-                      type="number"
-                      step="0.001"
-                      min="0.001"
-                      value={formData.planned_quantity}
-                      onChange={handleQuantityChange}
-                      className="w-full px-3 py-2 border border-gray-300 text-slate-800 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-                      placeholder={`Enter RM amount in ${batchSummary?.rm_unit || 'kg'}`}
-                      required
-                      disabled={loading || !batchSummary}
-                    />
+                    <div className="flex space-x-2">
+                      <input
+                        type="number"
+                        step="0.001"
+                        min="0.001"
+                        value={formData.planned_quantity}
+                        onChange={handleQuantityChange}
+                        className="flex-1 px-3 py-2 border border-gray-300 text-slate-800 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                        placeholder={`Enter RM amount in ${batchSummary?.rm_unit || 'kg'}`}
+                        required
+                        disabled={loading || !batchSummary}
+                      />
+                      <button
+                        type="button"
+                        onClick={calculateMaxBatch}
+                        disabled={loading || !batchSummary || batchSummary.remaining_rm <= 0}
+                        className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Max
+                      </button>
+                    </div>
                     <p className="text-xs text-slate-500 mt-1">
-                      Enter the raw material amount to allocate. Tolerance will be applied automatically.
+                      Enter the raw material amount to allocate. Tolerance will be applied automatically. 
+                      <span className="font-medium">Use "Max" to allocate all remaining RM</span> 
+                      (auto-scrap if remaining &lt; 0.05 {batchSummary?.rm_unit}).
                     </p>
                   </div>
 
@@ -283,6 +362,14 @@ export default function BatchCreateModal({ mo, onClose, onSuccess }) {
                           <strong>Error:</strong> This batch requires more RM than available. Maximum allowed is {batchSummary.remaining_rm} {batchSummary.rm_unit}.
                         </div>
                       )}
+                      
+                      {rmCalculation.will_need_scrap && !rmCalculation.exceeds_remaining && (
+                        <div className="mt-2 p-2 bg-orange-100 rounded text-xs text-orange-800">
+                          <strong>Auto-Scrap Warning:</strong> This batch will leave {rmCalculation.remaining_after} {batchSummary.rm_unit} remaining, 
+                          which is below the minimum batch threshold (0.05 {batchSummary.rm_unit}). 
+                          The remaining RM will be automatically sent to scrap and the MO will be marked as RM Allocated.
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -315,7 +402,9 @@ export default function BatchCreateModal({ mo, onClose, onSuccess }) {
               }
               className="bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {submitting ? 'Creating...' : 'Create Batch & Release RM'}
+              {submitting ? 'Creating...' : 
+               willAutoScrap ? 'Create Batch & Complete RM Allocation' : 
+               'Create Batch & Release RM'}
             </Button>
           </div>
         </div>

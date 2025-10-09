@@ -249,12 +249,106 @@ export const dashboardAPI = {
   },
 };
 
+// Inventory transactions API Service
+export const transactionsAPI = {
+  // Get all inventory transactions with optional filters
+  getAll: async (filters = {}) => {
+    const queryParams = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        queryParams.append(key, value);
+      }
+    });
+
+    const url = queryParams.toString()
+      ? `${INVENTORY_APIS.TRANSACTION_LIST}?${queryParams}`
+      : INVENTORY_APIS.TRANSACTION_LIST;
+
+    const response = await apiRequest(url, {
+      method: 'GET',
+    });
+
+    return handleResponse(response);
+  },
+};
+
+// GRM Receipts API Service
+export const grmReceiptsAPI = {
+  // Get all GRM receipts with optional filters
+  getAll: async (filters = {}) => {
+    const queryParams = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        queryParams.append(key, value);
+      }
+    });
+
+    const url = queryParams.toString()
+      ? `${INVENTORY_APIS.GRM_RECEIPTS_LIST}?${queryParams}`
+      : INVENTORY_APIS.GRM_RECEIPTS_LIST;
+
+    const response = await apiRequest(url, {
+      method: 'GET',
+    });
+
+    return handleResponse(response);
+  },
+
+  // Get GRM receipt by ID
+  getById: async (id) => {
+    const response = await apiRequest(INVENTORY_APIS.GRM_RECEIPTS_DETAIL(id), {
+      method: 'GET',
+    });
+
+    return handleResponse(response);
+  },
+
+  // Update quality check for GRM receipt
+  updateQualityCheck: async (id, qualityCheckPassed) => {
+    const response = await apiRequest(INVENTORY_APIS.GRM_RECEIPTS_QUALITY_CHECK(id), {
+      method: 'POST',
+      body: { quality_check_passed: qualityCheckPassed },
+    });
+
+    return handleResponse(response);
+  },
+
+  // Complete GRM receipt
+  completeReceipt: async (id) => {
+    const response = await apiRequest(INVENTORY_APIS.GRM_RECEIPTS_COMPLETE(id), {
+      method: 'POST',
+    });
+
+    return handleResponse(response);
+  },
+
+  // Test basic GRM API connectivity
+  testBasic: async () => {
+    const response = await apiRequest(INVENTORY_APIS.GRM_TEST_BASIC, {
+      method: 'GET',
+    });
+
+    return handleResponse(response);
+  },
+
+  // Test GRM models accessibility
+  testModels: async () => {
+    const response = await apiRequest(INVENTORY_APIS.GRM_TEST_MODELS, {
+      method: 'GET',
+    });
+
+    return handleResponse(response);
+  },
+};
+
 // Combined inventory API service
 export const inventoryAPI = {
   products: productsAPI,
   stockBalances: stockBalancesAPI,
   rawMaterials: rawMaterialsAPI,
   dashboard: dashboardAPI,
+  transactions: transactionsAPI,
+  grmReceipts: grmReceiptsAPI,
 };
 
 // Export individual services for convenience
@@ -266,4 +360,6 @@ export {
   stockBalancesAPI,
   rawMaterialsAPI,
   dashboardAPI,
+  transactionsAPI,
+  grmReceiptsAPI,
 };

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { BellIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { apiRequest } from '@/components/API_Service/api-utils';
+import { throttledGet } from '@/components/API_Service/throttled-api';
 import { NOTIFICATIONS_APIS } from '@/components/API_Service/api-list';
 
 export default function NotificationBell({ onNotificationClick }) {
@@ -14,13 +15,11 @@ export default function NotificationBell({ onNotificationClick }) {
   const [loading, setLoading] = useState(false);
   const dropdownRef = useRef(null);
 
-  // Fetch notifications
+  // Fetch notifications (THROTTLED)
   const fetchNotifications = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await apiRequest(NOTIFICATIONS_APIS.MY_NOTIFICATIONS, { 
-        method: 'GET' 
-      });
+      const response = await throttledGet(NOTIFICATIONS_APIS.MY_NOTIFICATIONS);
       
       if (response.success) {
         setNotifications(response.data.notifications || []);
@@ -28,15 +27,21 @@ export default function NotificationBell({ onNotificationClick }) {
       }
     } catch (error) {
       console.error('Error fetching notifications:', error);
+      
+      // Handle rate limiting errors gracefully
+      if (error.message.includes('429') || error.message.includes('Too Many Requests')) {
+        console.warn('Rate limited while fetching notifications - will retry');
+        return;
+      }
     } finally {
       setLoading(false);
     }
   }, []);
 
-  // Fetch notifications on mount and poll every 30 seconds
+  // Fetch notifications on mount and poll every 60 seconds (increased from 30 seconds)
   useEffect(() => {
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 30000);
+    const interval = setInterval(fetchNotifications, 60000);
     return () => clearInterval(interval);
   }, [fetchNotifications]);
 

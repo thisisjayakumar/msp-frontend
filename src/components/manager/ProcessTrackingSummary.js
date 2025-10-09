@@ -26,6 +26,19 @@ export default function ProcessTrackingSummary() {
     overdue: 0
   });
   const [loading, setLoading] = useState(true);
+  const [userRole, setUserRole] = useState(null);
+
+  useEffect(() => {
+    const storedRole = localStorage.getItem('userRole');
+    if (storedRole) {
+      setUserRole(storedRole);
+    }
+  }, []);
+
+  const resolveRolePath = () => {
+    const role = userRole || localStorage.getItem('userRole');
+    return role === 'production_head' ? 'production-head' : 'manager';
+  };
 
   // Fetch process tracking data
   const fetchData = async () => {
@@ -93,8 +106,8 @@ export default function ProcessTrackingSummary() {
   useEffect(() => {
     fetchData();
     
-    // Set up polling for real-time updates
-    const interval = setInterval(fetchData, 30000); // Update every 30 seconds
+    // Set up polling for real-time updates (increased interval)
+    const interval = setInterval(fetchData, 60000); // Poll every 60 seconds (increased from 30 seconds) // Update every 30 seconds
     
     return () => clearInterval(interval);
   }, []);
@@ -155,7 +168,7 @@ export default function ProcessTrackingSummary() {
           <span>Process Tracking</span>
         </h3>
         <button
-          onClick={() => router.push('/manager/dashboard')}
+          onClick={() => router.push(`/${resolveRolePath()}/dashboard`)}
           className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center space-x-1"
         >
           <span>View All</span>
@@ -207,7 +220,7 @@ export default function ProcessTrackingSummary() {
                 <div
                   key={mo.id}
                   className="flex items-center justify-between p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer"
-                  onClick={() => router.push(`/manager/mo-detail/${mo.id}`)}
+                  onClick={() => router.push(`/${resolveRolePath()}/mo-detail/${mo.id}`)}
                 >
                   <div className="flex items-center space-x-4">
                     <div className="flex-shrink-0">
@@ -275,7 +288,7 @@ export default function ProcessTrackingSummary() {
           {activeProcesses.length > 3 && (
             <div className="text-center mt-3">
               <button
-                onClick={() => router.push('/manager/dashboard')}
+                onClick={() => router.push(`/${resolveRolePath()}/dashboard`)}
                 className="text-sm text-blue-600 hover:text-blue-700 font-medium"
               >
                 View {activeProcesses.length - 3} more active MOs

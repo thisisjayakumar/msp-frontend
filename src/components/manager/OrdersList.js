@@ -70,7 +70,14 @@ export default function OrdersList({ type }) {
 
   const handleMOClick = (order) => {
     if (isMO) {
-      router.push(`/manager/mo-detail/${order.id}`);
+      // Get user role to determine correct route
+      const userRole = localStorage.getItem('userRole');
+      
+      if (userRole === 'production_head') {
+        router.push(`/production-head/mo-detail/${order.id}`);
+      } else {
+        router.push(`/manager/mo-detail/${order.id}`);
+      }
     }
   };
 

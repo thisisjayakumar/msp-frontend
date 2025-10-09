@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import SimplifiedManufacturingOrderForm from '@/components/manager/SimplifiedManufacturingOrderForm';
 import LoadingSpinner from '@/components/CommonComponents/ui/LoadingSpinner';
-import NotifyXTest from '@/components/NotifyXTest';
+import ToastTest from '@/components/ToastTest';
 
 export default function CreateMOPage() {
   const router = useRouter();
@@ -88,8 +88,9 @@ export default function CreateMOPage() {
         </div>
       </main>
       
-      {/* Temporary NotifyX Test Component */}
-      <NotifyXTest />
+      {/* Temporary Toast Test Component */}
+      <ToastTest />
+      
     </div>
   );
 }

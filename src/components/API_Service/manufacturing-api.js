@@ -3,12 +3,19 @@
 
 import { MANUFACTURING_APIS } from './api-list';
 import { apiRequest } from './api-utils';
+import { throttledGet, throttledPost, throttledPatch, throttledDelete } from './throttled-api';
 
 // Helper function to handle API responses (for backward compatibility)
 const handleResponse = async (response) => {
   if (response.success) {
     return response.data;
   }
+  
+  // Handle permission errors gracefully
+  if (response.status === 403) {
+    throw new Error(`Permission denied: ${response.error || 'Access forbidden'}`);
+  }
+  
   throw new Error(response.error || 'API request failed');
 };
 
@@ -43,12 +50,9 @@ export const batchAPI = {
     return handleResponse(response);
   },
 
-  // Get batches for a specific MO
+  // Get batches for a specific MO (THROTTLED)
   getByMO: async (moId) => {
-    const response = await apiRequest(`${MANUFACTURING_APIS.BATCH_BY_MO}?mo_id=${moId}`, {
-      method: 'GET',
-    });
-    
+    const response = await throttledGet(`${MANUFACTURING_APIS.BATCH_BY_MO}?mo_id=${moId}`);
     return handleResponse(response);
   },
 
@@ -115,12 +119,9 @@ export const batchAPI = {
     return handleResponse(response);
   },
 
-  // Get batch dashboard stats
+  // Get batch dashboard stats (THROTTLED)
   getDashboardStats: async () => {
-    const response = await apiRequest(MANUFACTURING_APIS.BATCH_DASHBOARD_STATS, {
-      method: 'GET',
-    });
-    
+    const response = await throttledGet(MANUFACTURING_APIS.BATCH_DASHBOARD_STATS);
     return handleResponse(response);
   },
 
@@ -238,12 +239,9 @@ export const manufacturingOrdersAPI = {
     return handleResponse(response);
   },
 
-  // Get dashboard statistics
+  // Get dashboard statistics (THROTTLED)
   getDashboardStats: async () => {
-    const response = await apiRequest(MANUFACTURING_APIS.MO_DASHBOARD_STATS, {
-      method: 'GET',
-    });
-    
+    const response = await throttledGet(MANUFACTURING_APIS.MO_DASHBOARD_STATS);
     return handleResponse(response);
   },
 
@@ -435,34 +433,34 @@ export const purchaseOrdersAPI = {
     return handleResponse(response);
   },
 
-  // Get dashboard statistics
+  // Get dashboard statistics (THROTTLED)
   getDashboardStats: async () => {
-    const response = await apiRequest(MANUFACTURING_APIS.PO_DASHBOARD_STATS, {
-      method: 'GET',
-    });
-    
-    return handleResponse(response);
+    try {
+      const response = await throttledGet(MANUFACTURING_APIS.PO_DASHBOARD_STATS);
+      return handleResponse(response);
+    } catch (error) {
+      // Handle permission errors gracefully
+      if (error.message.includes('403') || error.message.includes('Permission denied')) {
+        console.warn('User does not have permission to access purchase order dashboard stats');
+        return { error: 'Permission denied', message: 'Purchase order data not available' };
+      }
+      throw error;
+    }
   },
 
-  // Get raw materials for dropdown
+  // Get raw materials for dropdown (THROTTLED)
   getRawMaterials: async () => {
-    const response = await apiRequest(MANUFACTURING_APIS.PO_RAW_MATERIALS, {
-      method: 'GET',
-    });
-    
+    const response = await throttledGet(MANUFACTURING_APIS.PO_RAW_MATERIALS);
     return handleResponse(response);
   },
 
-  // Get vendors for dropdown
+  // Get vendors for dropdown (THROTTLED)
   getVendors: async (vendorType = null) => {
     const url = vendorType 
       ? `${MANUFACTURING_APIS.PO_VENDORS}?vendor_type=${vendorType}`
       : MANUFACTURING_APIS.PO_VENDORS;
     
-    const response = await apiRequest(url, {
-      method: 'GET',
-    });
-    
+    const response = await throttledGet(url);
     return handleResponse(response);
   },
 
@@ -485,13 +483,19 @@ export const purchaseOrdersAPI = {
   },
 };
 
-// Combined dashboard stats
+// Combined dashboard stats with graceful error handling
 export const getDashboardStats = async () => {
   try {
-    const [moStats, poStats] = await Promise.all([
-      manufacturingOrdersAPI.getDashboardStats(),
-      purchaseOrdersAPI.getDashboardStats(),
-    ]);
+    // Always try to get MO stats (most users can access this)
+    const moStats = await manufacturingOrdersAPI.getDashboardStats();
+    
+    // Try to get PO stats, but handle 403 errors gracefully
+    const poStats = await purchaseOrdersAPI.getDashboardStats();
+    
+    // Check if PO stats returned an error object
+    if (poStats && poStats.error === 'Permission denied') {
+      console.warn('User does not have permission to access purchase order dashboard stats');
+    }
     
     return {
       manufacturingOrders: moStats,

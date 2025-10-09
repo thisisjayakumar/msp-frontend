@@ -82,15 +82,12 @@ const refreshAuthToken = async () => {
   const refreshToken = getRefreshToken();
   
   if (!refreshToken) {
-    console.log('No refresh token available');
     throw new Error('No refresh token available');
   }
 
-  console.log('Attempting to refresh token...');
   
   try {
     const refreshUrl = `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000/api'}/auth/token/refresh/`;
-    console.log('Refresh URL:', refreshUrl);
     
     const response = await fetch(refreshUrl, {
       method: 'POST',
@@ -111,7 +108,6 @@ const refreshAuthToken = async () => {
     }
 
     const data = await response.json();
-    console.log('Token refresh successful, new token received');
     
     // Update the auth token (keep the same storage type as before)
     const wasInLocalStorage = localStorage.getItem('authToken') !== null;
@@ -144,12 +140,18 @@ const createAuthHeaders = (additionalHeaders = {}) => {
 };
 
 // Generic API request function with automatic token refresh
-export const apiRequest = async (url, options = {}) => {
+export const apiRequest = async (url, options = {}, retryCount = 0) => {
   const config = {
     method: 'GET',
     headers: createAuthHeaders(options.headers),
     ...options,
   };
+  
+  // Prevent infinite retry loops
+  if (retryCount > 2) {
+    console.error('Maximum retry attempts reached');
+    throw new Error('Maximum retry attempts reached');
+  }
 
   // Add body for POST, PUT, PATCH requests
   if (config.body && typeof config.body === 'object') {
@@ -174,11 +176,9 @@ export const apiRequest = async (url, options = {}) => {
     }
 
     if (!response.ok) {
-      console.log('Response not OK. Status:', response.status, 'Data:', data);
       
       // Handle authentication errors with automatic token refresh
       if (response.status === 401) {
-        console.log('401 Unauthorized detected. Refresh token available:', !!getRefreshToken());
         
         if (getRefreshToken()) {
           // Don't try to refresh token for refresh endpoint itself
@@ -211,9 +211,20 @@ export const apiRequest = async (url, options = {}) => {
             console.log('Token refreshed successfully');
             processQueue(null, newToken);
             
-            // Retry the original request with new token
+            // Update the authorization header with new token
+            const updatedOptions = {
+              ...options,
+              headers: {
+                ...options.headers,
+                'Authorization': `Bearer ${newToken}`
+              }
+            };
+            
+            // Retry the original request with new token (non-recursive)
             console.log('Retrying original request with new token');
-            return apiRequest(url, options);
+            // Add small delay to prevent rate limiting
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            return apiRequest(url, updatedOptions, retryCount + 1);
           } catch (refreshError) {
             console.error('Token refresh failed:', refreshError);
             processQueue(refreshError, null);
@@ -232,7 +243,61 @@ export const apiRequest = async (url, options = {}) => {
         }
       }
       
-      throw new Error(data.message || `HTTP error! status: ${response.status}`);
+      // Handle different types of error responses
+      
+      let errorMessage = `HTTP error! status: ${response.status}`;
+      
+      if (data.message) {
+        errorMessage = data.message;
+      } else if (data.detail) {
+        errorMessage = data.detail;
+      } else if (data.error) {
+        errorMessage = data.error;
+      } else if (typeof data === 'string') {
+        errorMessage = data;
+      } else if (typeof data === 'object') {
+        // Handle validation errors
+        const validationErrors = [];
+        Object.keys(data).forEach(key => {
+          if (Array.isArray(data[key])) {
+            validationErrors.push(`${key}: ${data[key].join(', ')}`);
+          } else if (typeof data[key] === 'object' && data[key] !== null) {
+            // Handle nested objects (like heat_numbers_data array)
+            if (Array.isArray(data[key])) {
+              data[key].forEach((item, index) => {
+                if (typeof item === 'object' && item !== null) {
+                  Object.keys(item).forEach(subKey => {
+                    if (Array.isArray(item[subKey])) {
+                      validationErrors.push(`${key}[${index}].${subKey}: ${item[subKey].join(', ')}`);
+                    } else {
+                      validationErrors.push(`${key}[${index}].${subKey}: ${item[subKey]}`);
+                    }
+                  });
+                } else {
+                  validationErrors.push(`${key}[${index}]: ${item}`);
+                }
+              });
+            } else {
+              Object.keys(data[key]).forEach(subKey => {
+                if (Array.isArray(data[key][subKey])) {
+                  validationErrors.push(`${key}.${subKey}: ${data[key][subKey].join(', ')}`);
+                } else {
+                  validationErrors.push(`${key}.${subKey}: ${data[key][subKey]}`);
+                }
+              });
+            }
+          } else {
+            validationErrors.push(`${key}: ${data[key]}`);
+          }
+        });
+        if (validationErrors.length > 0) {
+          errorMessage = validationErrors.join('; ');
+        }
+      }
+      
+      const error = new Error(errorMessage);
+      error.response = { status: response.status, data };
+      throw error;
     }
 
     return {
@@ -328,7 +393,6 @@ export const handleLoginSuccess = (loginResponse, remember = false) => {
     setRefreshToken(loginResponse.refresh, remember);
   }
   
-  console.log('Tokens stored successfully. Auth token:', !!loginResponse.access, 'Refresh token:', !!loginResponse.refresh);
   
   return {
     success: true,
@@ -342,18 +406,6 @@ export const debugTokenStatus = () => {
   const authToken = getAuthToken();
   const refreshToken = getRefreshToken();
   
-  console.log('=== TOKEN DEBUG STATUS ===');
-  console.log('Auth token exists:', !!authToken);
-  console.log('Refresh token exists:', !!refreshToken);
-  console.log('Auth token (first 20 chars):', authToken ? authToken.substring(0, 20) + '...' : 'null');
-  console.log('Refresh token (first 20 chars):', refreshToken ? refreshToken.substring(0, 20) + '...' : 'null');
-  console.log('LocalStorage auth token:', localStorage.getItem('authToken') ? 'exists' : 'null');
-  console.log('SessionStorage auth token:', sessionStorage.getItem('authToken') ? 'exists' : 'null');
-  console.log('LocalStorage refresh token:', localStorage.getItem('refreshToken') ? 'exists' : 'null');
-  console.log('SessionStorage refresh token:', sessionStorage.getItem('refreshToken') ? 'exists' : 'null');
-  console.log('Is refreshing:', isRefreshing);
-  console.log('Failed queue length:', failedQueue.length);
-  console.log('========================');
   
   return {
     hasAuthToken: !!authToken,

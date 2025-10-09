@@ -13,6 +13,7 @@ import SearchableDropdown from '@/components/CommonComponents/ui/SearchableDropd
 import manufacturingAPI from '@/components/API_Service/manufacturing-api';
 import processTrackingAPI from '@/components/API_Service/process-tracking-api';
 import { apiRequest } from '@/components/API_Service/api-utils';
+import { throttledGet } from '@/components/API_Service/throttled-api';
 import { AUTH_APIS } from '@/components/API_Service/api-list';
 
 export default function MODetailPage() {
@@ -32,10 +33,10 @@ export default function MODetailPage() {
   const [rmStoreUsersList, setRMStoreUsersList] = useState([]);
   const [userRole, setUserRole] = useState(null);
 
-  // Fetch user profile to get role
+  // Fetch user profile to get role (THROTTLED)
   const fetchUserProfile = useCallback(async () => {
     try {
-      const response = await apiRequest(AUTH_APIS.PROFILE, { method: 'GET' });
+      const response = await throttledGet(AUTH_APIS.PROFILE);
       
       if (response.success) {
         const role = response.data.primary_role?.name;
@@ -53,6 +54,13 @@ export default function MODetailPage() {
       }
     } catch (error) {
       console.error('Error fetching user profile:', error);
+      
+      // Handle rate limiting errors gracefully
+      if (error.message.includes('429') || error.message.includes('Too Many Requests')) {
+        console.warn('Rate limited while fetching profile - will retry');
+        return null;
+      }
+      
       return null;
     }
   }, []);
@@ -63,7 +71,7 @@ export default function MODetailPage() {
     let role = localStorage.getItem('userRole');
     
     if (!token) {
-      router.push('/manager');
+      router.push('/login');
       return;
     }
     
@@ -71,11 +79,11 @@ export default function MODetailPage() {
     if (!role) {
       fetchUserProfile().then((fetchedRole) => {
         if (!['manager', 'production_head', 'rm_store'].includes(fetchedRole)) {
-          router.push('/manager');
+          router.push('/login');
         }
       });
     } else if (!['manager', 'production_head', 'rm_store'].includes(role)) {
-      router.push('/manager');
+      router.push('/login');
       return;
     } else {
       console.log('Using stored user role:', role);
@@ -142,7 +150,7 @@ export default function MODetailPage() {
       cleanupFunction = await processTrackingAPI.pollProcessUpdates(moId, (data) => {
         setMO(data);
         setProcessesInitialized(data.process_executions && data.process_executions.length > 0);
-      }, 10000); // Poll every 10 seconds
+      }, 30000); // Poll every 30 seconds (increased from 10 seconds)
 
       setPollingCleanup(() => cleanupFunction);
     };

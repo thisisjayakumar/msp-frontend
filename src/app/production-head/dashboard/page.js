@@ -124,7 +124,7 @@ export default function ProductionHeadDashboard() {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Quick Actions */}
-        <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-4">
           {navigationButtons.map((button) => (
             <button
               key={button.id}
@@ -141,7 +141,7 @@ export default function ProductionHeadDashboard() {
               </div>
             </button>
           ))}
-        </div>
+        </div> */}
 
         {/* Tabs */}
         <div className="bg-white rounded-xl shadow-md mb-6">

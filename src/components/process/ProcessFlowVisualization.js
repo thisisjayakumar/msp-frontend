@@ -3,12 +3,27 @@
 import { useState, useEffect, useRef } from 'react';
 import { ChevronRightIcon, CheckCircleIcon, ClockIcon, ExclamationTriangleIcon, PlayIcon, PauseIcon } from '@heroicons/react/24/outline';
 
+const formatDateTime = (dateTime) => {
+  if (!dateTime) return 'Not set';
+  try {
+    return new Date(dateTime).toLocaleString();
+  } catch (error) {
+    return dateTime;
+  }
+};
+
 export default function ProcessFlowVisualization({ 
   processExecutions = [], 
   onProcessClick, 
   onStepClick,
+  onStartProcess,
+  onCompleteProcess,
   showSteps = true,
-  compact = false 
+  compact = false,
+  userRole = null,
+  startingProcessId = null,
+  completingProcessId = null,
+  batchData = { batches: [], summary: null }
 }) {
   const [expandedProcesses, setExpandedProcesses] = useState(new Set());
   const [animationEnabled, setAnimationEnabled] = useState(true);
@@ -71,9 +86,36 @@ export default function ProcessFlowVisualization({
   // Calculate overall progress
   const calculateOverallProgress = () => {
     if (!processExecutions.length) return 0;
-    const totalProgress = processExecutions.reduce((sum, exec) => sum + (exec.progress_percentage || 0), 0);
-    return Math.round(totalProgress / processExecutions.length);
+    
+    let totalProgress = 0;
+    let validProcesses = 0;
+    
+    processExecutions.forEach(exec => {
+      const progress = exec.progress_percentage;
+      if (progress !== null && progress !== undefined && !isNaN(progress) && progress >= 0) {
+        totalProgress += Number(progress);
+        validProcesses++;
+      }
+    });
+    
+    if (validProcesses === 0) return 0;
+    return Math.round(totalProgress / validProcesses);
   };
+
+  // Show message when no processes are available for the user
+  if (!processExecutions.length) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="text-center">
+          <ClockIcon className="mx-auto h-12 w-12 text-gray-400" />
+          <h3 className="mt-2 text-sm font-medium text-gray-900">No Processes Available</h3>
+          <p className="mt-1 text-sm text-gray-500">
+            There are no processes assigned to your department for this manufacturing order.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // Get quality status color
   const getQualityColor = (qualityStatus) => {
@@ -87,16 +129,6 @@ export default function ProcessFlowVisualization({
   };
 
   const overallProgress = calculateOverallProgress();
-
-  if (!processExecutions.length) {
-    return (
-      <div className="text-center py-12 bg-white/80 backdrop-blur-sm rounded-xl">
-        <div className="text-6xl mb-4">🏭</div>
-        <h3 className="text-xl font-medium text-slate-600 mb-2">No Processes Initialized</h3>
-        <p className="text-slate-500">Initialize processes to start tracking production flow.</p>
-      </div>
-    );
-  }
 
   return (
     <div ref={containerRef} className="space-y-6">
@@ -202,12 +234,51 @@ export default function ProcessFlowVisualization({
                           {totalSteps > 0 && (
                             <span>Steps: {completedSteps}/{totalSteps}</span>
                           )}
+                          {batchData.batches.length > 0 && (
+                            <span className="text-blue-600 font-medium">
+                              Batches: {batchData.batches.length}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
 
                     {/* Progress and Controls */}
                     <div className="flex items-center space-x-4">
+                      {/* Start Process Button for Supervisors */}
+                      {userRole === 'supervisor' && execution.status === 'pending' && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onStartProcess?.(execution);
+                          }}
+                          disabled={startingProcessId === execution.id}
+                          className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                          title={execution.sequence_order === 1 && batchData.batches.length > 0 ? 'Select batch to start process' : 'Start process'}
+                        >
+                          <PlayIcon className="h-4 w-4" />
+                          <span>
+                            {startingProcessId === execution.id ? 'Starting...' : 
+                             execution.sequence_order === 1 && batchData.batches.length > 0 ? 'Select Batch' : 'Start Process'}
+                          </span>
+                        </button>
+                      )}
+
+                      {userRole === 'supervisor' && execution.status === 'in_progress' && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onCompleteProcess?.(execution);
+                          }}
+                          disabled={completingProcessId === execution.id}
+                          className="px-4 py-2 bg-emerald-600 text-white text-sm rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                          title="Complete this process (all steps must be finished first)"
+                        >
+                          <CheckCircleIcon className="h-4 w-4" />
+                          <span>{completingProcessId === execution.id ? 'Completing...' : 'Complete Process'}</span>
+                        </button>
+                      )}
+
                       {/* Progress Circle */}
                       <div className="relative w-16 h-16">
                         <svg className="w-16 h-16 transform -rotate-90" viewBox="0 0 64 64">
@@ -228,14 +299,26 @@ export default function ProcessFlowVisualization({
                             strokeWidth="4"
                             fill="none"
                             strokeDasharray={`${2 * Math.PI * 28}`}
-                            strokeDashoffset={`${2 * Math.PI * 28 * (1 - (execution.progress_percentage || 0) / 100)}`}
+                            strokeDashoffset={`${2 * Math.PI * 28 * (1 - (() => {
+                              const progress = execution.progress_percentage;
+                              if (progress === null || progress === undefined || isNaN(progress)) {
+                                return 0;
+                              }
+                              return Number(progress) / 100;
+                            })())}`}
                             className="transition-all duration-1000 ease-out"
                             style={{ color: statusInfo.color.includes('green') ? '#10b981' : statusInfo.color.includes('blue') ? '#3b82f6' : '#6b7280' }}
                           />
                         </svg>
                         <div className="absolute inset-0 flex items-center justify-center">
                           <span className="text-xs font-bold text-slate-700">
-                            {Math.round(execution.progress_percentage || 0)}%
+                            {(() => {
+                              const progress = execution.progress_percentage;
+                              if (progress === null || progress === undefined || isNaN(progress)) {
+                                return '0%';
+                              }
+                              return `${Math.round(Number(progress))}%`;
+                            })()}
                           </span>
                         </div>
                       </div>
@@ -261,42 +344,72 @@ export default function ProcessFlowVisualization({
 
                   {/* Timing Information */}
                   {!compact && (
-                    <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                      <div>
-                        <span className="text-slate-500 font-medium">Planned Start:</span>
-                        <div className="text-slate-700">
-                          {execution.planned_start_time 
-                            ? new Date(execution.planned_start_time).toLocaleString()
-                            : 'Not set'
-                          }
-                        </div>
-                      </div>
+                    <div className="mt-4 grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
                       <div>
                         <span className="text-slate-500 font-medium">Actual Start:</span>
-                        <div className="text-slate-700">
-                          {execution.actual_start_time 
-                            ? new Date(execution.actual_start_time).toLocaleString()
-                            : 'Not started'
-                          }
-                        </div>
+                        <div className="text-slate-700">{execution.actual_start_time ? formatDateTime(execution.actual_start_time) : 'Not started'}</div>
                       </div>
                       <div>
-                        <span className="text-slate-500 font-medium">Planned End:</span>
-                        <div className="text-slate-700">
-                          {execution.planned_end_time 
-                            ? new Date(execution.planned_end_time).toLocaleString()
-                            : 'Not set'
-                          }
-                        </div>
+                        <span className="text-slate-500 font-medium">Actual End:</span>
+                        <div className="text-slate-700">{execution.actual_end_time ? formatDateTime(execution.actual_end_time) : 'Not completed'}</div>
                       </div>
                       <div>
                         <span className="text-slate-500 font-medium">Duration:</span>
                         <div className="text-slate-700">
-                          {execution.duration_minutes 
+                          {execution.duration_minutes
                             ? `${execution.duration_minutes} min`
-                            : 'In progress'
+                            : execution.actual_start_time
+                              ? 'In progress'
+                              : 'Not started'
                           }
                         </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Batch Information for First Process */}
+                  {isExpanded && execution.sequence_order === 1 && batchData.batches.length > 0 && (
+                    <div className="mt-6 border-t border-slate-200/60 pt-4">
+                      <h5 className="text-sm font-medium text-slate-700 mb-3 flex items-center">
+                        <span className="mr-2">📦</span>
+                        Available Batches ({batchData.batches.length})
+                      </h5>
+                      <div className="grid gap-3">
+                        {batchData.batches.slice(0, 3).map((batch) => (
+                          <div
+                            key={batch.id}
+                            className="flex items-center justify-between p-3 bg-white/60 rounded-lg border border-slate-200/40"
+                          >
+                            <div className="flex items-center space-x-3">
+                              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 border flex items-center justify-center text-xs font-medium text-blue-700">
+                                {batch.batch_id.slice(-2)}
+                              </div>
+                              <div>
+                                <div className="font-medium text-slate-800 text-sm">
+                                  {batch.batch_id}
+                                </div>
+                                <div className="text-xs text-slate-500">
+                                  RM: {(batch.planned_quantity / 1000).toFixed(3)} kg
+                                </div>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className={`text-xs px-2 py-1 rounded-full ${
+                                batch.status === 'created' ? 'bg-gray-100 text-gray-700' :
+                                batch.status === 'in_process' ? 'bg-blue-100 text-blue-700' :
+                                batch.status === 'completed' ? 'bg-green-100 text-green-700' :
+                                'bg-gray-100 text-gray-700'
+                              }`}>
+                                {batch.status_display || batch.status}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                        {batchData.batches.length > 3 && (
+                          <div className="text-xs text-slate-500 text-center py-2">
+                            +{batchData.batches.length - 3} more batches
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}

@@ -100,6 +100,18 @@ export const INVENTORY_APIS = {
 
   // Dashboard
   DASHBOARD_STATS: `${API_BASE_URL}/inventory/dashboard/stats/`,
+
+  // Transactions
+  TRANSACTION_LIST: `${API_BASE_URL}/inventory/transactions/`,
+
+  // GRM Receipts
+  GRM_RECEIPTS_LIST: `${API_BASE_URL}/inventory/grm-receipts/`,
+  GRM_RECEIPTS_CREATE: `${API_BASE_URL}/inventory/grm-receipts/`,
+  GRM_RECEIPTS_DETAIL: (id) => `${API_BASE_URL}/inventory/grm-receipts/${id}/`,
+  GRM_RECEIPTS_QUALITY_CHECK: (id) => `${API_BASE_URL}/inventory/grm-receipts/${id}/quality_check/`,
+  GRM_RECEIPTS_COMPLETE: (id) => `${API_BASE_URL}/inventory/grm-receipts/${id}/complete_receipt/`,
+  GRM_TEST_BASIC: `${API_BASE_URL}/inventory/test-grm/`,
+  GRM_TEST_MODELS: `${API_BASE_URL}/inventory/test-grm-models/`,
 };
 
 // Notifications APIs

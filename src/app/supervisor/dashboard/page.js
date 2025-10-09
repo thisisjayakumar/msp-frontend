@@ -11,6 +11,7 @@ import NotificationBell from '@/components/supervisor/NotificationBell';
 // API Services
 import manufacturingAPI from '@/components/API_Service/manufacturing-api';
 import { apiRequest } from '@/components/API_Service/api-utils';
+import { throttledGet } from '@/components/API_Service/throttled-api';
 import { AUTH_APIS } from '@/components/API_Service/api-list';
 
 export default function SupervisorDashboard() {
@@ -23,7 +24,7 @@ export default function SupervisorDashboard() {
   // Fetch user profile
   const fetchUserProfile = useCallback(async () => {
     try {
-      const response = await apiRequest(AUTH_APIS.PROFILE, { method: 'GET' });
+      const response = await throttledGet(AUTH_APIS.PROFILE);
       
       if (response.success) {
         const role = response.data.primary_role?.name;
@@ -38,6 +39,13 @@ export default function SupervisorDashboard() {
       }
     } catch (error) {
       console.error('Error fetching user profile:', error);
+      
+      // Handle rate limiting errors gracefully
+      if (error.message.includes('429') || error.message.includes('Too Many Requests')) {
+        console.warn('Rate limited while fetching profile - will retry');
+        return null;
+      }
+      
       router.push('/supervisor');
       return null;
     }

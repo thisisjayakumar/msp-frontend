@@ -63,6 +63,9 @@ export default function DashboardStats({ stats }) {
 
   const moStats = stats.manufacturingOrders || {};
   const poStats = stats.purchaseOrders || {};
+  
+  // Check if PO stats have permission error
+  const hasPOError = poStats.error === 'Permission denied';
 
   const statCards = [
     // Manufacturing Orders
@@ -101,35 +104,39 @@ export default function DashboardStats({ stats }) {
     // Purchase Orders
     {
       title: "Total POs",
-      value: animatedStats.po_total || 0,
+      value: hasPOError ? "N/A" : (animatedStats.po_total || 0),
       icon: "📦",
       color: "from-purple-500 to-purple-600",
       bgColor: "bg-purple-50",
-      textColor: "text-purple-700"
+      textColor: "text-purple-700",
+      subtitle: hasPOError ? "Access Restricted" : undefined
     },
     {
       title: "GM Approved",
-      value: animatedStats.po_gm_approved || 0,
+      value: hasPOError ? "N/A" : (animatedStats.po_gm_approved || 0),
       icon: "👍",
       color: "from-indigo-500 to-indigo-600",
       bgColor: "bg-indigo-50",
-      textColor: "text-indigo-700"
+      textColor: "text-indigo-700",
+      subtitle: hasPOError ? "Access Restricted" : undefined
     },
     {
       title: "Completed POs",
-      value: animatedStats.po_completed || 0,
+      value: hasPOError ? "N/A" : (animatedStats.po_completed || 0),
       icon: "📋",
       color: "from-teal-500 to-teal-600",
       bgColor: "bg-teal-50",
-      textColor: "text-teal-700"
+      textColor: "text-teal-700",
+      subtitle: hasPOError ? "Access Restricted" : undefined
     },
     {
       title: "Total Value",
-      value: `₹${(animatedStats.po_total_value || 0).toLocaleString()}`,
+      value: hasPOError ? "N/A" : `₹${(animatedStats.po_total_value || 0).toLocaleString()}`,
       icon: "💰",
       color: "from-emerald-500 to-emerald-600",
       bgColor: "bg-emerald-50",
-      textColor: "text-emerald-700"
+      textColor: "text-emerald-700",
+      subtitle: hasPOError ? "Access Restricted" : undefined
     }
   ];
 
@@ -153,6 +160,9 @@ export default function DashboardStats({ stats }) {
               <p className={`text-3xl font-bold ${card.textColor}`}>
                 {typeof card.value === 'string' ? card.value : card.value.toLocaleString()}
               </p>
+              {card.subtitle && (
+                <p className="text-xs text-red-500 font-medium">{card.subtitle}</p>
+              )}
             </div>
           </div>
         ))}
