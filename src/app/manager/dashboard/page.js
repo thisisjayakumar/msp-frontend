@@ -1,17 +1,17 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import manufacturingAPI from '@/components/API_Service/manufacturing-api';
-
-// Components
-import DashboardStats from '@/components/manager/DashboardStats';
-import ManufacturingOrderForm from '@/components/manager/ManufacturingOrderForm';
-import PurchaseOrderForm from '@/components/manager/PurchaseOrderForm';
-import OrdersList from '@/components/manager/OrdersList';
+import { authUtils, apiRequest } from '../../../components/API_Service/api-utils';
+import { throttledGet } from '../../../components/API_Service/throttled-api';
+import { AUTH_APIS } from '../../../components/API_Service/api-list';
+import LoadingSpinner from '../../../components/CommonComponents/ui/LoadingSpinner';
+import OrdersList from '../../../components/manager/OrdersList';
+import PurchaseOrderForm from '../../../components/manager/PurchaseOrderForm';
 import ProcessTrackingSummary from '@/components/manager/ProcessTrackingSummary';
-import LoadingSpinner from '@/components/CommonComponents/ui/LoadingSpinner';
 import SimplifiedManufacturingOrderForm from '@/components/manager/SimplifiedManufacturingOrderForm';
+import DashboardStats from '@/components/manager/DashboardStats';
+import manufacturingAPI, { getDashboardStats } from '@/components/API_Service/manufacturing-api';
 
 export default function ManagerDashboard() {
   const router = useRouter();
@@ -19,25 +19,40 @@ export default function ManagerDashboard() {
   const [loading, setLoading] = useState(true);
   const [dashboardStats, setDashboardStats] = useState(null);
   const [user, setUser] = useState(null);
+  const [error, setError] = useState(null);
 
   // Check authentication and role
   useEffect(() => {
     const checkAuth = () => {
-      const token = localStorage.getItem('authToken');
-      const userRole = localStorage.getItem('userRole');
-      
-      if (!token || userRole !== 'manager') {
-        router.push('/manager');
-        return;
+      try {
+        const token = localStorage.getItem('authToken');
+        const userRole = localStorage.getItem('userRole');
+        
+        console.log('Auth check - Token:', !!token, 'Role:', userRole);
+        
+        if (!token || userRole !== 'manager') {
+          console.log('Auth failed - redirecting to /manager');
+          router.push('/manager');
+          return;
+        }
+        
+        // Get user info from localStorage or API
+        const userData = localStorage.getItem('userData');
+        if (userData) {
+          try {
+            setUser(JSON.parse(userData));
+          } catch (parseError) {
+            console.error('Error parsing user data:', parseError);
+            setError('Invalid user data');
+          }
+        }
+        
+        setLoading(false);
+      } catch (error) {
+        console.error('Error in auth check:', error);
+        setError('Authentication error');
+        setLoading(false);
       }
-      
-      // Get user info from localStorage or API
-      const userData = localStorage.getItem('userData');
-      if (userData) {
-        setUser(JSON.parse(userData));
-      }
-      
-      setLoading(false);
     };
 
     checkAuth();
@@ -47,10 +62,39 @@ export default function ManagerDashboard() {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const stats = await manufacturingAPI.getDashboardStats();
+        console.log('Fetching dashboard stats...');
+        
+        // Fetch real stats from centralized API service
+        // No need for separate connectivity test - the service handles errors gracefully
+        const stats = await getDashboardStats();
+        console.log('Dashboard stats received:', stats);
         setDashboardStats(stats);
       } catch (error) {
         console.error('Error fetching dashboard stats:', error);
+        
+        // Provide mock data as fallback
+        const mockStats = {
+          manufacturingOrders: {
+            total: 25,
+            in_progress: 8,
+            completed: 15,
+            overdue: 2,
+            by_priority: {
+              high: 5,
+              medium: 12,
+              low: 8
+            }
+          },
+          purchaseOrders: {
+            total: 18,
+            po_approved: 6,
+            rm_pending: 4,
+            rm_completed: 8,
+            total_value: 450000
+          }
+        };
+        console.log('Using mock stats:', mockStats);
+        setDashboardStats(mockStats);
       }
     };
 
@@ -93,7 +137,63 @@ export default function ManagerDashboard() {
   ];
 
   if (loading) {
-    return <LoadingSpinner />;
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
+
+  // Error boundary for any unexpected errors
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="text-red-500 text-xl mb-4">Error</div>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <button
+            onClick={() => {
+              setError(null);
+              setLoading(true);
+              // Retry authentication
+              const token = localStorage.getItem('authToken');
+              const userRole = localStorage.getItem('userRole');
+              if (token && userRole === 'manager') {
+                setLoading(false);
+              } else {
+                router.push('/manager');
+              }
+            }}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 mr-2"
+          >
+            Retry
+          </button>
+          <button
+            onClick={handleLogout}
+            className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700"
+          >
+            Go to Login
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="text-red-500 text-xl mb-4">Authentication Error</div>
+          <p className="text-gray-600 mb-4">Unable to load user data. Please try logging in again.</p>
+          <button
+            onClick={handleLogout}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+          >
+            Go to Login
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (

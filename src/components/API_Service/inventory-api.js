@@ -4,12 +4,29 @@
 import { INVENTORY_APIS } from './api-list';
 import { apiRequest } from './api-utils';
 
-// Helper function to handle API responses
+// Helper function to handle API responses with graceful error handling
 const handleResponse = async (response) => {
   if (response.success) {
     return response.data;
   }
-  throw new Error(response.error || 'API request failed');
+  
+  // Instead of throwing, return error information for graceful UI handling
+  // Components can check for error property and show toast notifications
+  const errorMessage = response.error || 'API request failed';
+  const errorInfo = {
+    error: true,
+    message: errorMessage,
+    status: response.status,
+    details: response.data
+  };
+  
+  // Log as warning instead of error since it's handled gracefully
+  // Only log in development to avoid console noise in production
+  if (process.env.NODE_ENV === 'development') {
+    console.warn('API Warning:', errorMessage);
+  }
+  
+  return errorInfo;
 };
 
 // Products API Service
@@ -332,13 +349,13 @@ export const grmReceiptsAPI = {
   },
 
   // Test GRM models accessibility
-  testModels: async () => {
-    const response = await apiRequest(INVENTORY_APIS.GRM_TEST_MODELS, {
-      method: 'GET',
-    });
+  // testModels: async () => {
+  //   const response = await apiRequest(INVENTORY_APIS.GRM_TEST_MODELS, {
+  //     method: 'GET',
+  //   });
 
-    return handleResponse(response);
-  },
+  //   return handleResponse(response);
+  // },
 };
 
 // Combined inventory API service

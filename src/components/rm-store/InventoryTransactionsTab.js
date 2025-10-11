@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { inventoryAPI } from '../API_Service/inventory-api';
 import DashboardLoader from '../CommonComponents/ui/DashboardLoader';
 import Button from '../CommonComponents/ui/Button';
@@ -35,6 +35,9 @@ export default function InventoryTransactionsTab() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
+  
+  // Prevent duplicate API calls in React Strict Mode
+  const hasFetchedRef = useRef(false);
 
   const fetchTransactions = async () => {
     try {
@@ -65,6 +68,10 @@ export default function InventoryTransactionsTab() {
   };
 
   useEffect(() => {
+    // Prevent duplicate calls in React Strict Mode (development only)
+    if (hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
+    
     fetchTransactions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

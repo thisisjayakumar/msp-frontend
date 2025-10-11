@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { inventoryAPI } from '../API_Service/inventory-api';
 import DashboardLoader from '../CommonComponents/ui/DashboardLoader';
 import { Card } from '../CommonComponents/ui/Card';
@@ -22,6 +22,9 @@ export default function RMStoreDashboard() {
   const [filterType, setFilterType] = useState('all');
   const [showStockModal, setShowStockModal] = useState(false);
   const [selectedMaterial, setSelectedMaterial] = useState(null);
+  
+  // Prevent duplicate API calls in React Strict Mode
+  const hasFetchedRef = useRef(false);
 
   // Fetch dashboard data
   const fetchDashboardData = async () => {
@@ -51,6 +54,10 @@ export default function RMStoreDashboard() {
   };
 
   useEffect(() => {
+    // Prevent duplicate calls in React Strict Mode (development only)
+    if (hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
+    
     fetchDashboardData();
   }, []);
 
@@ -215,7 +222,7 @@ export default function RMStoreDashboard() {
                 placeholder="Search raw materials..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                className="w-full pl-10 text-slate-800 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
               />
               <svg className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -226,7 +233,7 @@ export default function RMStoreDashboard() {
             <select
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+              className="px-4 py-2 border text-slate-800 border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
             >
               <option value="all">All Materials</option>
               <option value="in_stock">In Stock</option>

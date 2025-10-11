@@ -3,9 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { BellIcon, XMarkIcon } from '@heroicons/react/24/outline';
-import { apiRequest } from '@/components/API_Service/api-utils';
-import { throttledGet } from '@/components/API_Service/throttled-api';
-import { NOTIFICATIONS_APIS } from '@/components/API_Service/api-list';
+import { notificationsAPI } from '@/components/API_Service/notifications-api';
 
 export default function NotificationBell({ onNotificationClick }) {
   const router = useRouter();
@@ -15,16 +13,16 @@ export default function NotificationBell({ onNotificationClick }) {
   const [loading, setLoading] = useState(false);
   const dropdownRef = useRef(null);
 
-  // Fetch notifications (THROTTLED)
+  // Fetch notifications using centralized API service
   const fetchNotifications = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await throttledGet(NOTIFICATIONS_APIS.MY_NOTIFICATIONS);
+      // Use notificationsAPI service for cleaner, centralized API calls
+      const data = await notificationsAPI.getMyNotifications();
       
-      if (response.success) {
-        setNotifications(response.data.notifications || []);
-        setUnreadCount(response.data.count || 0);
-      }
+      // Handle the response data
+      setNotifications(data.notifications || []);
+      setUnreadCount(data.count || 0);
     } catch (error) {
       console.error('Error fetching notifications:', error);
       
@@ -60,9 +58,8 @@ export default function NotificationBell({ onNotificationClick }) {
   const handleNotificationClick = async (notification) => {
     // Acknowledge the notification
     try {
-      await apiRequest(NOTIFICATIONS_APIS.ACKNOWLEDGE_ALERT(notification.id), {
-        method: 'POST'
-      });
+      // Use notificationsAPI service for cleaner, centralized API calls
+      await notificationsAPI.acknowledgeAlert(notification.id);
       
       // Refresh notifications
       await fetchNotifications();
@@ -84,9 +81,8 @@ export default function NotificationBell({ onNotificationClick }) {
     event.stopPropagation();
     
     try {
-      await apiRequest(NOTIFICATIONS_APIS.DISMISS_ALERT(notificationId), {
-        method: 'POST'
-      });
+      // Use notificationsAPI service for cleaner, centralized API calls
+      await notificationsAPI.dismissAlert(notificationId);
       
       // Refresh notifications
       await fetchNotifications();

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Button from '../CommonComponents/ui/Button';
 import { toast } from '@/utils/notifications';
 import { grmReceiptsAPI } from '../API_Service/inventory-api';
@@ -18,24 +18,29 @@ export default function GRMReceiptsTab() {
   const [showGRMDetailModal, setShowGRMDetailModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  
+  // Prevent duplicate API calls in React Strict Mode
+  const hasFetchedRef = useRef(false);
 
   // Fetch GRM Receipts
   const fetchGRMReceipts = async () => {
     try {
       setLoading(true);
       
-      // Test 1: Basic API connectivity
-      await grmReceiptsAPI.testBasic();
-
-      // Test 2: Model accessibility
-      await grmReceiptsAPI.testModels();
-
-      // Test 3: Fetch actual GRM receipts
+      // Fetch GRM receipts
       const data = await grmReceiptsAPI.getAll();
+      
+      // Check for graceful error response from API service
+      if (data?.error) {
+        setError(data.message || 'Failed to fetch GRM receipts');
+        setGrmReceipts([]);
+        return;
+      }
       
       setGrmReceipts(data.results || data || []);
       setError(null);
     } catch (err) {
+      console.error('Error fetching GRM receipts:', err);
       setError(err.message || 'Failed to fetch GRM receipts');
       // Set empty array as fallback
       setGrmReceipts([]);
@@ -45,6 +50,10 @@ export default function GRMReceiptsTab() {
   };
 
   useEffect(() => {
+    // Prevent duplicate calls in React Strict Mode (development only)
+    if (hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
+    
     fetchGRMReceipts();
   }, []);
 
@@ -133,67 +142,9 @@ export default function GRMReceiptsTab() {
         </div>
         <h3 className="text-lg font-semibold text-slate-800 mb-2">Error Loading GRM Receipts</h3>
         <p className="text-slate-600 mb-4">{error}</p>
-        <div className="space-x-3">
-          <Button onClick={fetchGRMReceipts} variant="primary">
-            Retry
-          </Button>
-          <Button 
-            onClick={async () => {
-              try {
-                await grmReceiptsAPI.testBasic();
-                toast.success('Basic API test passed');
-              } catch (err) {
-                toast.error('Basic API test failed');
-              }
-            }} 
-            variant="secondary"
-          >
-            Test Basic API
-          </Button>
-          <Button 
-            onClick={async () => {
-              try {
-                await grmReceiptsAPI.testModels();
-                toast.success('Models test passed');
-              } catch (err) {
-                toast.error('Models test failed');
-              }
-            }} 
-            variant="secondary"
-          >
-            Test Models
-          </Button>
-          <Button 
-            onClick={async () => {
-              try {
-                await grmReceiptsAPI.getAll();
-                toast.success('GRM endpoint test passed');
-              } catch (err) {
-                toast.error('GRM endpoint test failed');
-              }
-            }} 
-            variant="secondary"
-          >
-            Test GRM Endpoint
-          </Button>
-        </div>
-        <div className="mt-4 text-sm text-gray-500">
-          <p>If the error persists, please check:</p>
-          <ul className="text-left max-w-md mx-auto mt-2">
-            <li>• You are logged in with a valid account</li>
-            <li>• Your account has RM Store permissions</li>
-            <li>• Database migrations are applied</li>
-            <li>• Backend server is running</li>
-            <li>• API endpoints are properly configured</li>
-          </ul>
-          {error && error.includes('Authentication') && (
-            <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-              <p className="text-yellow-800 text-sm">
-                <strong>Authentication Issue:</strong> Please log out and log back in, or contact your administrator to ensure your account has RM Store access.
-              </p>
-            </div>
-          )}
-        </div>
+        <Button onClick={fetchGRMReceipts} variant="primary">
+          Retry
+        </Button>
       </div>
     );
   }
@@ -306,6 +257,9 @@ export default function GRMReceiptsTab() {
                       <div className="text-sm text-gray-900">{grm.purchase_order_po_id}</div>
                       <div className="text-xs text-gray-500">
                         {grm.vendor_name}
+                      </div>
+                      <div className="text-xs text-blue-600">
+                        Received: {grm.quantity_received || 0} / {grm.quantity_ordered || 0}
                       </div>
                     </td>
                     <td className="px-6 py-4">
@@ -421,6 +375,17 @@ export default function GRMReceiptsTab() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Vendor</label>
                     <p className="mt-1 text-sm text-gray-900">{selectedGRM.vendor_name}</p>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Quantity Ordered</label>
+                    <p className="mt-1 text-sm text-gray-900">{selectedGRM.quantity_ordered || 0}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Quantity Received</label>
+                    <p className="mt-1 text-sm text-gray-900">{selectedGRM.quantity_received || 0}</p>
                   </div>
                 </div>
                 

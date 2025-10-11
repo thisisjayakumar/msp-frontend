@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import manufacturingAPI from '../API_Service/manufacturing-api';
 import Button from '../CommonComponents/ui/Button';
 import { Card } from '../CommonComponents/ui/Card';
@@ -13,14 +13,20 @@ export default function MODetailModal({ mo, onClose, onRefresh, onCreateBatch })
   const [scrapModal, setScrapModal] = useState({ show: false, scrapKg: '', sendAll: false });
   const [submittingScrap, setSubmittingScrap] = useState(false);
   const [completingAllocation, setCompletingAllocation] = useState(false);
+  
+  // Use ref to track if data has been fetched for this MO ID to prevent duplicate calls
+  const fetchedMOId = useRef(null);
 
-  useEffect(() => {
-    fetchBatchData();
-  }, [mo.id]);
-
-  const fetchBatchData = async () => {
+  const fetchBatchData = useCallback(async () => {
+    // Prevent duplicate calls for the same MO
+    if (fetchedMOId.current === mo.id && batches.length > 0) {
+      return;
+    }
+    
     try {
       setLoadingBatches(true);
+      fetchedMOId.current = mo.id;
+      
       const [batchesData, summary] = await Promise.all([
         manufacturingAPI.batches.getByMO(mo.id),
         manufacturingAPI.batches.getMOBatchSummary(mo.id)
@@ -29,10 +35,19 @@ export default function MODetailModal({ mo, onClose, onRefresh, onCreateBatch })
       setBatchSummary(summary);
     } catch (err) {
       console.error('Error fetching batch data:', err);
+      // Reset on error so it can be retried
+      fetchedMOId.current = null;
     } finally {
       setLoadingBatches(false);
     }
-  };
+  }, [mo.id, batches.length]);
+
+  useEffect(() => {
+    // Only fetch if we haven't already fetched for this MO ID
+    if (fetchedMOId.current !== mo.id) {
+      fetchBatchData();
+    }
+  }, [mo.id, fetchBatchData]);
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
@@ -228,6 +243,15 @@ export default function MODetailModal({ mo, onClose, onRefresh, onCreateBatch })
                     <span className="text-sm text-slate-600">Material Name:</span>
                     <span className="text-sm font-medium text-slate-800">{mo.material_name || 'N/A'}</span>
                   </div>
+                  {mo.remaining_rm !== null && mo.remaining_rm !== undefined && (
+                    <div className="flex justify-between pt-2 mt-2 border-t border-gray-200">
+                      <span className="text-sm text-slate-600 font-medium">Remaining RM:</span>
+                      <span className={`text-sm font-bold ${mo.can_create_batch ? 'text-blue-600' : 'text-green-600'}`}>
+                        {mo.remaining_rm.toFixed(mo.material_type === 'coil' ? 2 : 0)} {mo.rm_unit || 'kg'}
+                        {mo.can_create_batch === false && ' ✓'}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -419,15 +443,28 @@ export default function MODetailModal({ mo, onClose, onRefresh, onCreateBatch })
 
           {/* Footer */}
           <div className="bg-gray-50 px-6 py-4 flex justify-between items-center">
-            <div>
+            <div className="flex items-center gap-4">
               {(mo.status === 'on_hold' || mo.status === 'in_progress') && (
-                <Button
-                  onClick={() => onCreateBatch && onCreateBatch(mo)}
-                  className="bg-cyan-600 hover:bg-cyan-700 text-white"
-                >
-                  <PlusCircleIcon className="h-5 w-5 mr-2" />
-                  Create Batch
-                </Button>
+                <>
+                  <Button
+                    onClick={() => onCreateBatch && onCreateBatch(mo)}
+                    disabled={mo.can_create_batch === false}
+                    className={`${
+                      mo.can_create_batch === false
+                        ? 'bg-gray-400 cursor-not-allowed'
+                        : 'bg-cyan-600 hover:bg-cyan-700'
+                    } text-white`}
+                    title={mo.can_create_batch === false ? 'All RM has been allocated. No more batches can be created.' : 'Create a new batch'}
+                  >
+                    <PlusCircleIcon className="h-5 w-5 mr-2" />
+                    Create Batch
+                  </Button>
+                  {mo.can_create_batch === false && (
+                    <span className="text-sm text-green-600 font-medium">
+                      ✓ All RM Allocated - Ready for Completion
+                    </span>
+                  )}
+                </>
               )}
             </div>
             <Button onClick={onClose} variant="secondary">

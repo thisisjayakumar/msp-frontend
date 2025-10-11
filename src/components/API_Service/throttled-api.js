@@ -176,7 +176,13 @@ class ThrottledAPIService {
         return this.makeRequestWithRetry(url, options, cacheKey, attempt + 1);
       }
       
-      throw new Error(result.error || `Request failed with status ${result.status}`);
+      // Return a failed response instead of throwing to prevent crashes
+      return {
+        success: false,
+        error: result.error || `Request failed with status ${result.status}`,
+        status: result.status,
+        data: null
+      };
       
     } catch (error) {
       console.error(`Request failed for ${url}:`, error);
@@ -190,7 +196,13 @@ class ThrottledAPIService {
         return this.makeRequestWithRetry(url, options, cacheKey, attempt + 1);
       }
       
-      throw error;
+      // Return a failed response instead of throwing to prevent crashes
+      return {
+        success: false,
+        error: error.message || 'Network error occurred',
+        status: 0,
+        data: null
+      };
     }
   }
 

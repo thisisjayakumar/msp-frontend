@@ -110,8 +110,6 @@ export const INVENTORY_APIS = {
   GRM_RECEIPTS_DETAIL: (id) => `${API_BASE_URL}/inventory/grm-receipts/${id}/`,
   GRM_RECEIPTS_QUALITY_CHECK: (id) => `${API_BASE_URL}/inventory/grm-receipts/${id}/quality_check/`,
   GRM_RECEIPTS_COMPLETE: (id) => `${API_BASE_URL}/inventory/grm-receipts/${id}/complete_receipt/`,
-  GRM_TEST_BASIC: `${API_BASE_URL}/inventory/test-grm/`,
-  GRM_TEST_MODELS: `${API_BASE_URL}/inventory/test-grm-models/`,
 };
 
 // Notifications APIs

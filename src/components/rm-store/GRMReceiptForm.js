@@ -5,7 +5,6 @@ import { toast } from '@/utils/notifications';
 import Button from '../CommonComponents/ui/Button';
 import { apiRequest } from '../API_Service/api-utils';
 import { INVENTORY_APIS } from '../API_Service/api-list';
-import { rawMaterialsAPI } from '../API_Service/inventory-api';
 import { 
   TruckIcon, PlusIcon, XMarkIcon, 
   CheckCircleIcon, ExclamationTriangleIcon
@@ -19,26 +18,14 @@ export default function GRMReceiptForm({ purchaseOrder, onSuccess, onCancel }) {
   });
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
-  const [rawMaterials, setRawMaterials] = useState([]);
+  const [showWeightWarning, setShowWeightWarning] = useState(false);
+  const [pendingSubmission, setPendingSubmission] = useState(false);
 
-  // Initialize with one heat number and load raw materials
+  // Initialize with one heat number
   useEffect(() => {
     if (formData.heat_numbers.length === 0) {
       addHeatNumber();
     }
-    
-    // Load raw materials
-    const loadRawMaterials = async () => {
-      try {
-        const materials = await rawMaterialsAPI.getDropdown();
-        setRawMaterials(materials);
-      } catch (err) {
-        console.error('Error loading raw materials:', err);
-        toast.error('Failed to load raw materials');
-      }
-    };
-    
-    loadRawMaterials();
   }, []);
 
   const addHeatNumber = () => {
@@ -48,11 +35,11 @@ export default function GRMReceiptForm({ purchaseOrder, onSuccess, onCancel }) {
         ...prev.heat_numbers,
         {
           heat_number: '',
-          raw_material: '',
-          coils_received: '',
           total_weight_kg: '',
-          sheets_received: '',
-          test_certificate_date: ''
+          test_certificate_date: '',
+          material_type: purchaseOrder.rm_code?.material_type || 'coil',
+          total_quantity: '',
+          items: [] // Dynamic coil/sheet items
         }
       ]
     }));
@@ -76,6 +63,127 @@ export default function GRMReceiptForm({ purchaseOrder, onSuccess, onCancel }) {
     }));
   };
 
+  // Apply total quantity to generate dynamic input rows
+  const applyTotalQuantity = (heatIndex) => {
+    const heat = formData.heat_numbers[heatIndex];
+    const quantity = parseInt(heat.total_quantity);
+    
+    if (quantity && quantity > 0) {
+      const newItems = Array.from({ length: quantity }, (_, i) => ({
+        id: i + 1,
+        number: '',
+        weight: ''
+      }));
+      
+      updateHeatNumber(heatIndex, 'items', newItems);
+      // Clear total weight as it will be calculated from individual items
+      updateHeatNumber(heatIndex, 'total_weight_kg', '');
+    }
+  };
+
+  // Update individual coil/sheet item
+  const updateItem = (heatIndex, itemIndex, field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      heat_numbers: prev.heat_numbers.map((heat, i) => {
+        if (i === heatIndex) {
+          const updatedItems = heat.items.map((item, j) => 
+            j === itemIndex ? { ...item, [field]: value } : item
+          );
+          
+          // Calculate total weight
+          const totalWeight = updatedItems.reduce((sum, item) => {
+            const weight = parseFloat(item.weight) || 0;
+            return sum + weight;
+          }, 0);
+          
+          return {
+            ...heat,
+            items: updatedItems,
+            total_weight_kg: totalWeight > 0 ? totalWeight.toString() : ''
+          };
+        }
+        return heat;
+      })
+    }));
+  };
+
+  // Add a new coil/sheet item
+  const addItem = (heatIndex) => {
+    setFormData(prev => ({
+      ...prev,
+      heat_numbers: prev.heat_numbers.map((heat, i) => {
+        if (i === heatIndex) {
+          const newItem = {
+            id: heat.items.length + 1,
+            number: '',
+            weight: ''
+          };
+          return {
+            ...heat,
+            items: [...heat.items, newItem]
+          };
+        }
+        return heat;
+      })
+    }));
+  };
+
+  // Remove a coil/sheet item
+  const removeItem = (heatIndex, itemIndex) => {
+    setFormData(prev => ({
+      ...prev,
+      heat_numbers: prev.heat_numbers.map((heat, i) => {
+        if (i === heatIndex) {
+          const updatedItems = heat.items.filter((_, j) => j !== itemIndex);
+          
+          // Recalculate total weight
+          const totalWeight = updatedItems.reduce((sum, item) => {
+            const weight = parseFloat(item.weight) || 0;
+            return sum + weight;
+          }, 0);
+          
+          return {
+            ...heat,
+            items: updatedItems,
+            total_weight_kg: totalWeight > 0 ? totalWeight.toString() : ''
+          };
+        }
+        return heat;
+      })
+    }));
+  };
+
+  // Calculate total quantity received from all heat numbers
+  const calculateTotalQuantityReceived = () => {
+    return formData.heat_numbers.reduce((total, heat) => {
+      const heatWeight = parseFloat(heat.total_weight_kg) || 0;
+      return total + heatWeight;
+    }, 0);
+  };
+
+  // Check if there's a significant weight difference that requires warning
+  const checkWeightDifference = () => {
+    const totalWeight = calculateTotalQuantityReceived();
+    const orderedQuantity = purchaseOrder.quantity_ordered;
+    
+    // Allow 10% tolerance
+    const tolerance = orderedQuantity * 0.1;
+    const minAllowed = orderedQuantity - tolerance;
+    const maxAllowed = orderedQuantity + tolerance;
+    
+    return totalWeight < minAllowed || totalWeight > maxAllowed;
+  };
+
+  // Get weight difference percentage
+  const getWeightDifferencePercentage = () => {
+    const totalWeight = calculateTotalQuantityReceived();
+    const orderedQuantity = purchaseOrder.quantity_ordered;
+    
+    if (orderedQuantity === 0) return 0;
+    return ((totalWeight - orderedQuantity) / orderedQuantity) * 100;
+  };
+
   const validateForm = () => {
     const newErrors = {};
 
@@ -92,9 +200,6 @@ export default function GRMReceiptForm({ purchaseOrder, onSuccess, onCancel }) {
       if (!heat.heat_number.trim()) {
         newErrors[`heat_${index}_number`] = 'Heat number is required';
       }
-      if (!heat.raw_material) {
-        newErrors[`heat_${index}_material`] = 'Raw material is required';
-      }
       
       // Validate total weight - it's required
       if (!heat.total_weight_kg || heat.total_weight_kg.trim() === '') {
@@ -103,25 +208,18 @@ export default function GRMReceiptForm({ purchaseOrder, onSuccess, onCancel }) {
         newErrors[`heat_${index}_weight`] = 'Total weight must be greater than 0';
       }
       
-      // Find the raw material to check its type
-      const selectedMaterial = rawMaterials.find(m => m.id === parseInt(heat.raw_material));
-      if (selectedMaterial) {
-        // Validate quantities based on material type
-        if (selectedMaterial.material_type === 'coil') {
-          if (!heat.coils_received || parseInt(heat.coils_received) <= 0) {
-            newErrors[`heat_${index}_coils`] = 'Number of coils is required for coil materials';
+      // Validate individual items
+      if (!heat.items || heat.items.length === 0) {
+        newErrors[`heat_${index}_items`] = 'At least one item is required';
+      } else {
+        heat.items.forEach((item, itemIndex) => {
+          if (!item.number.trim()) {
+            newErrors[`heat_${index}_item_${itemIndex}_number`] = 'Item number is required';
           }
-          if (heat.sheets_received && parseInt(heat.sheets_received) > 0) {
-            newErrors[`heat_${index}_sheets`] = 'Sheets should not be specified for coil materials';
+          if (!item.weight || parseFloat(item.weight) <= 0) {
+            newErrors[`heat_${index}_item_${itemIndex}_weight`] = 'Item weight must be greater than 0';
           }
-        } else if (selectedMaterial.material_type === 'sheet') {
-          if (!heat.sheets_received || parseInt(heat.sheets_received) <= 0) {
-            newErrors[`heat_${index}_sheets`] = 'Number of sheets is required for sheet materials';
-          }
-          if (heat.coils_received && parseInt(heat.coils_received) > 0) {
-            newErrors[`heat_${index}_coils`] = 'Coils should not be specified for sheet materials';
-          }
-        }
+        });
       }
     });
 
@@ -132,8 +230,36 @@ export default function GRMReceiptForm({ purchaseOrder, onSuccess, onCancel }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    // Check for weight difference warning
+    if (checkWeightDifference() && !pendingSubmission) {
+      setShowWeightWarning(true);
+      return;
+    }
+    
+    // If no warning needed, proceed with submission
+    await performSubmission();
+  };
+
+  // Handle confirmation of weight difference
+  const handleConfirmWeightDifference = async () => {
+    setShowWeightWarning(false);
+    setPendingSubmission(true);
+    
+    // Call the actual submission logic directly
+    await performSubmission();
+  };
+
+  // Handle cancellation of weight difference warning
+  const handleCancelWeightDifference = () => {
+    setShowWeightWarning(false);
+    setPendingSubmission(false);
+  };
+
+  // Extract the actual submission logic into a separate function
+  const performSubmission = async () => {
     if (!validateForm()) {
       toast.error('Please fix the errors before submitting');
+      setPendingSubmission(false);
       return;
     }
 
@@ -141,29 +267,24 @@ export default function GRMReceiptForm({ purchaseOrder, onSuccess, onCancel }) {
     try {
       // Convert string values to proper types for API
       const processedHeatNumbers = formData.heat_numbers.map((heat, index) => {
-        // Find the raw material to determine proper quantities
-        const selectedMaterial = rawMaterials.find(m => m.id === parseInt(heat.raw_material));
-        
         const processedHeat = {
           heat_number: heat.heat_number.trim(),
-          raw_material: parseInt(heat.raw_material),
+          raw_material: purchaseOrder.rm_code.id, // Use material from PO
           total_weight_kg: parseFloat(heat.total_weight_kg), // This is required and validated
-          test_certificate_date: heat.test_certificate_date || null
+          test_certificate_date: heat.test_certificate_date || null,
+          items: heat.items.map(item => ({
+            number: item.number.trim(),
+            weight: parseFloat(item.weight)
+          }))
         };
         
-        // Set quantities based on material type
-        if (selectedMaterial) {
-          if (selectedMaterial.material_type === 'coil') {
-            processedHeat.coils_received = parseInt(heat.coils_received) || 0;
-            processedHeat.sheets_received = 0; // Always 0 for coil materials
-          } else if (selectedMaterial.material_type === 'sheet') {
-            processedHeat.sheets_received = parseInt(heat.sheets_received) || 0;
-            processedHeat.coils_received = 0; // Always 0 for sheet materials
-          }
-        } else {
-          // Fallback if material not found
-          processedHeat.coils_received = parseInt(heat.coils_received) || 0;
-          processedHeat.sheets_received = parseInt(heat.sheets_received) || 0;
+        // Set quantities based on material type from PO
+        if (heat.material_type === 'coil') {
+          processedHeat.coils_received = heat.items.length;
+          processedHeat.sheets_received = 0;
+        } else if (heat.material_type === 'sheet') {
+          processedHeat.sheets_received = heat.items.length;
+          processedHeat.coils_received = 0;
         }
         
         return processedHeat;
@@ -176,7 +297,6 @@ export default function GRMReceiptForm({ purchaseOrder, onSuccess, onCancel }) {
         heat_numbers_data: processedHeatNumbers
       };
 
-
       const result = await apiRequest(INVENTORY_APIS.GRM_RECEIPTS_CREATE, {
         method: 'POST',
         headers: {
@@ -185,8 +305,8 @@ export default function GRMReceiptForm({ purchaseOrder, onSuccess, onCancel }) {
         body: JSON.stringify(requestData),
       });
 
-      toast.success('GRM Receipt created successfully');
-      onSuccess(result);
+      // Let parent component handle success toast message
+      onSuccess(result.data || result);
     } catch (err) {
       console.error('Error creating GRM Receipt:', err);
       
@@ -225,6 +345,7 @@ export default function GRMReceiptForm({ purchaseOrder, onSuccess, onCancel }) {
       toast.error(errorMessage);
     } finally {
       setLoading(false);
+      setPendingSubmission(false);
     }
   };
 
@@ -296,6 +417,41 @@ export default function GRMReceiptForm({ purchaseOrder, onSuccess, onCancel }) {
               </div>
             </div>
 
+            {/* Total Quantity Received Summary */}
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <h4 className="text-md font-semibold text-slate-700 mb-4">Quantity Summary</h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Quantity Ordered
+                  </label>
+                  <div className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-100 text-slate-700">
+                    {purchaseOrder.quantity_ordered} {purchaseOrder.rm_code?.material_type === 'coil' ? 'coils' : 'sheets'}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Total Quantity Received (KG)
+                  </label>
+                  <div className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-green-100 text-green-800 font-semibold">
+                    {calculateTotalQuantityReceived().toFixed(2)} KG
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Status
+                  </label>
+                  <div className={`w-full border rounded-lg px-3 py-2 font-semibold ${
+                    calculateTotalQuantityReceived() > 0 
+                      ? 'bg-green-100 text-green-800 border-green-300' 
+                      : 'bg-yellow-100 text-yellow-800 border-yellow-300'
+                  }`}>
+                    {calculateTotalQuantityReceived() > 0 ? 'Ready to Submit' : 'Add Heat Numbers'}
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Heat Numbers */}
             <div>
               <div className="flex items-center justify-between mb-4">
@@ -330,7 +486,35 @@ export default function GRMReceiptForm({ purchaseOrder, onSuccess, onCancel }) {
                       )}
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {/* Material Information from PO */}
+                    <div className="bg-blue-50 p-3 rounded-lg mb-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">
+                            Material Information
+                          </label>
+                          <p className="text-sm text-slate-800 font-medium">
+                            {purchaseOrder.rm_code?.material_name} - {purchaseOrder.rm_code?.grade}
+                          </p>
+                          <p className="text-xs text-slate-600">
+                            Code: {purchaseOrder.rm_code?.material_code} | Type: {purchaseOrder.rm_code?.material_type_display}
+                          </p>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">
+                            Test Certificate Date
+                          </label>
+                          <input
+                            type="date"
+                            value={heat.test_certificate_date}
+                            onChange={(e) => updateHeatNumber(index, 'test_certificate_date', e.target.value)}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                       <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">
                           Heat Number *
@@ -351,101 +535,119 @@ export default function GRMReceiptForm({ purchaseOrder, onSuccess, onCancel }) {
 
                       <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">
-                          Raw Material *
+                          Total {heat.material_type === 'coil' ? 'Coils' : 'Sheets'} Received *
                         </label>
-                        <select
-                          value={heat.raw_material}
-                          onChange={(e) => updateHeatNumber(index, 'raw_material', e.target.value)}
-                          className={`w-full border rounded-lg px-3 py-2 text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                            errors[`heat_${index}_material`] ? 'border-red-500' : 'border-gray-300'
-                          }`}
-                        >
-                          <option value="">Select Raw Material</option>
-                          {rawMaterials.map((material) => (
-                            <option key={material.id} value={material.id}>
-                              {material.material_name} - {material.grade}
-                            </option>
-                          ))}
-                        </select>
-                        {errors[`heat_${index}_material`] && (
-                          <p className="text-red-500 text-xs mt-1">{errors[`heat_${index}_material`]}</p>
+                        <div className="flex gap-2">
+                          <input
+                            type="number"
+                            min="1"
+                            value={heat.total_quantity || ''}
+                            onChange={(e) => updateHeatNumber(index, 'total_quantity', e.target.value)}
+                            className={`flex-1 border rounded-lg px-3 py-2 text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                              errors[`heat_${index}_items`] ? 'border-red-500' : 'border-gray-300'
+                            }`}
+                            placeholder={`Enter number of ${heat.material_type === 'coil' ? 'coils' : 'sheets'}`}
+                          />
+                          <Button
+                            type="button"
+                            onClick={() => applyTotalQuantity(index)}
+                            variant="secondary"
+                            size="sm"
+                            className="px-3"
+                          >
+                            Apply
+                          </Button>
+                        </div>
+                        {errors[`heat_${index}_items`] && (
+                          <p className="text-red-500 text-xs mt-1">{errors[`heat_${index}_items`]}</p>
                         )}
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">
-                          Total Weight (KG) *
-                        </label>
-                        <input
-                          type="text"
-                          value={heat.total_weight_kg || ''}
-                          onChange={(e) => updateHeatNumber(index, 'total_weight_kg', e.target.value)}
-                          className={`w-full border rounded-lg px-3 py-2 text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                            errors[`heat_${index}_weight`] ? 'border-red-500' : 'border-gray-300'
-                          }`}
-                          placeholder="Enter weight"
-                        />
-                        {errors[`heat_${index}_weight`] && (
-                          <p className="text-red-500 text-xs mt-1">{errors[`heat_${index}_weight`]}</p>
-                        )}
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">
-                          Coils Received
-                          {(() => {
-                            const selectedMaterial = rawMaterials.find(m => m.id === parseInt(heat.raw_material));
-                            return selectedMaterial?.material_type === 'coil' ? ' *' : '';
-                          })()}
-                        </label>
-                        <input
-                          type="text"
-                          value={heat.coils_received || ''}
-                          onChange={(e) => updateHeatNumber(index, 'coils_received', e.target.value)}
-                          className={`w-full border rounded-lg px-3 py-2 text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                            errors[`heat_${index}_coils`] ? 'border-red-500' : 'border-gray-300'
-                          }`}
-                          placeholder="Enter number of coils"
-                        />
-                        {errors[`heat_${index}_coils`] && (
-                          <p className="text-red-500 text-xs mt-1">{errors[`heat_${index}_coils`]}</p>
-                        )}
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">
-                          Sheets Received
-                          {(() => {
-                            const selectedMaterial = rawMaterials.find(m => m.id === parseInt(heat.raw_material));
-                            return selectedMaterial?.material_type === 'sheet' ? ' *' : '';
-                          })()}
-                        </label>
-                        <input
-                          type="text"
-                          value={heat.sheets_received || ''}
-                          onChange={(e) => updateHeatNumber(index, 'sheets_received', e.target.value)}
-                          className={`w-full border rounded-lg px-3 py-2 text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                            errors[`heat_${index}_sheets`] ? 'border-red-500' : 'border-gray-300'
-                          }`}
-                          placeholder="Enter number of sheets"
-                        />
-                        {errors[`heat_${index}_sheets`] && (
-                          <p className="text-red-500 text-xs mt-1">{errors[`heat_${index}_sheets`]}</p>
-                        )}
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">
-                          Test Certificate Date
-                        </label>
-                        <input
-                          type="date"
-                          value={heat.test_certificate_date}
-                          onChange={(e) => updateHeatNumber(index, 'test_certificate_date', e.target.value)}
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
                       </div>
                     </div>
+
+                    {/* Dynamic Items Input */}
+                    {heat.items && heat.items.length > 0 && (
+                      <div className="mb-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <h6 className="text-sm font-semibold text-slate-700">
+                            {heat.material_type === 'coil' ? 'Coil' : 'Sheet'} Details
+                          </h6>
+                          <Button
+                            type="button"
+                            onClick={() => addItem(index)}
+                            variant="secondary"
+                            size="sm"
+                            className="flex items-center"
+                          >
+                            <PlusIcon className="w-4 h-4 mr-1" />
+                            Add {heat.material_type === 'coil' ? 'Coil' : 'Sheet'}
+                          </Button>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          {heat.items.map((item, itemIndex) => (
+                            <div key={itemIndex} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                              <div className="flex-1">
+                                <label className="block text-xs font-medium text-slate-600 mb-1">
+                                  {heat.material_type === 'coil' ? 'Coil' : 'Sheet'} Number *
+                                </label>
+                                <input
+                                  type="text"
+                                  value={item.number}
+                                  onChange={(e) => updateItem(index, itemIndex, 'number', e.target.value)}
+                                  className={`w-full border rounded px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                                    errors[`heat_${index}_item_${itemIndex}_number`] ? 'border-red-500' : 'border-gray-300'
+                                  }`}
+                                  placeholder={`Enter ${heat.material_type === 'coil' ? 'coil' : 'sheet'} number`}
+                                />
+                                {errors[`heat_${index}_item_${itemIndex}_number`] && (
+                                  <p className="text-red-500 text-xs mt-1">{errors[`heat_${index}_item_${itemIndex}_number`]}</p>
+                                )}
+                              </div>
+                              <div className="flex-1">
+                                <label className="block text-xs font-medium text-slate-600 mb-1">
+                                  Weight (KG) *
+                                </label>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  value={item.weight}
+                                  onChange={(e) => updateItem(index, itemIndex, 'weight', e.target.value)}
+                                  className={`w-full border rounded px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                                    errors[`heat_${index}_item_${itemIndex}_weight`] ? 'border-red-500' : 'border-gray-300'
+                                  }`}
+                                  placeholder="Enter weight"
+                                />
+                                {errors[`heat_${index}_item_${itemIndex}_weight`] && (
+                                  <p className="text-red-500 text-xs mt-1">{errors[`heat_${index}_item_${itemIndex}_weight`]}</p>
+                                )}
+                              </div>
+                              {heat.items.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => removeItem(index, itemIndex)}
+                                  className="text-red-500 hover:text-red-700 mt-6"
+                                >
+                                  <XMarkIcon className="w-4 h-4" />
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Total Weight Display */}
+                    {heat.total_weight_kg && (
+                      <div className="bg-green-50 p-3 rounded-lg">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-slate-700">Total Weight:</span>
+                          <span className="text-lg font-semibold text-green-700">
+                            {parseFloat(heat.total_weight_kg).toFixed(2)} KG
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -473,6 +675,54 @@ export default function GRMReceiptForm({ purchaseOrder, onSuccess, onCancel }) {
           </form>
         </div>
       </div>
+
+      {/* Weight Difference Warning Modal */}
+      {showWeightWarning && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-75 overflow-y-auto h-full w-full z-60">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <div className="flex items-center justify-center w-12 h-12 mx-auto bg-yellow-100 rounded-full mb-4">
+                <ExclamationTriangleIcon className="h-6 w-6 text-yellow-600" />
+              </div>
+              
+              <div className="text-center">
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  Weight Difference Warning
+                </h3>
+                <div className="text-sm text-gray-600 mb-4">
+                  <p className="mb-2">
+                    The total weight received ({calculateTotalQuantityReceived().toFixed(2)} kg) 
+                    differs significantly from the ordered quantity ({purchaseOrder.quantity_ordered} {purchaseOrder.rm_code?.material_type === 'coil' ? 'coils' : 'sheets'}).
+                  </p>
+                  <p className="font-semibold text-yellow-700">
+                    Difference: {getWeightDifferencePercentage().toFixed(1)}%
+                  </p>
+                </div>
+                
+                <div className="flex justify-center space-x-3">
+                  <Button
+                    type="button"
+                    onClick={handleCancelWeightDifference}
+                    variant="secondary"
+                    className="px-4 py-2"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={handleConfirmWeightDifference}
+                    variant="primary"
+                    className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700"
+                    disabled={loading}
+                  >
+                    {loading ? 'Creating...' : 'Confirm & Create GRM'}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

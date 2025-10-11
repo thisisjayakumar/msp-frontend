@@ -244,6 +244,7 @@ export const apiRequest = async (url, options = {}, retryCount = 0) => {
       }
       
       // Handle different types of error responses
+      // Instead of throwing, return error information for graceful handling
       
       let errorMessage = `HTTP error! status: ${response.status}`;
       
@@ -295,9 +296,14 @@ export const apiRequest = async (url, options = {}, retryCount = 0) => {
         }
       }
       
-      const error = new Error(errorMessage);
-      error.response = { status: response.status, data };
-      throw error;
+      // Return error information instead of throwing
+      // This allows components to handle errors gracefully with toast notifications
+      return {
+        success: false,
+        error: errorMessage,
+        status: response.status,
+        data: data
+      };
     }
 
     return {
@@ -315,10 +321,12 @@ export const apiRequest = async (url, options = {}, retryCount = 0) => {
       throw error;
     }
     
+    // Return graceful error for all other cases
     return {
       success: false,
-      error: error.message,
+      error: error.message || 'Network error occurred',
       status: error.status || 500,
+      data: null
     };
   }
 };

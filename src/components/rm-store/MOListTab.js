@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import manufacturingAPI from '../API_Service/manufacturing-api';
 import Button from '../CommonComponents/ui/Button';
@@ -28,13 +28,50 @@ export default function MOListTab() {
   const [selectedMO, setSelectedMO] = useState(null);
   const [showMODetailModal, setShowMODetailModal] = useState(false);
   const [showBatchCreateModal, setShowBatchCreateModal] = useState(false);
+  
+  // Prevent duplicate API calls in React Strict Mode
+  const hasFetchedRef = useRef(false);
 
   // Fetch MO list for RM Store
   const fetchMOList = async () => {
     try {
       setLoading(true);
       const data = await manufacturingAPI.manufacturingOrders.getRMStoreDashboard();
-      setMoData(data);
+      
+      // Reorganize MOs based on remaining RM
+      // MOs with can_create_batch: false should go to completed tab (ready for completion)
+      const reorganizedData = {
+        on_hold: [],
+        in_progress: [],
+        completed: [],
+        summary: data.summary
+      };
+      
+      // Process all MOs from all tabs
+      const allMOs = [
+        ...(data.on_hold || []),
+        ...(data.in_progress || []),
+        ...(data.completed || [])
+      ];
+      
+      allMOs.forEach(mo => {
+        // If MO is already completed (status), keep it in completed
+        if (mo.status === 'completed') {
+          reorganizedData.completed.push(mo);
+        }
+        // If MO cannot create more batches (RM fully allocated), move to completed tab
+        else if (mo.can_create_batch === false) {
+          reorganizedData.completed.push(mo);
+        }
+        // Otherwise, keep in original status tab
+        else if (mo.status === 'on_hold') {
+          reorganizedData.on_hold.push(mo);
+        } else if (mo.status === 'in_progress') {
+          reorganizedData.in_progress.push(mo);
+        }
+      });
+      
+      setMoData(reorganizedData);
       setError(null);
     } catch (err) {
       console.error('Error fetching MO list:', err);
@@ -45,6 +82,10 @@ export default function MOListTab() {
   };
 
   useEffect(() => {
+    // Prevent duplicate calls in React Strict Mode (development only)
+    if (hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
+    
     fetchMOList();
   }, []);
 
@@ -65,7 +106,7 @@ export default function MOListTab() {
   const handleBatchCreated = async () => {
     setShowBatchCreateModal(false);
     setSelectedMO(null);
-    toast.success('Batch created successfully!');
+    // Toast is already shown by BatchCreateModal with more details
     await fetchMOList();
   };
 
@@ -249,6 +290,11 @@ export default function MOListTab() {
                       Batches
                     </th>
                   )}
+                  {(activeTab === 'in_progress' || activeTab === 'completed') && (
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-800 uppercase tracking-wider">
+                      Remaining RM
+                    </th>
+                  )}
                   <th className="px-6 py-3 text-right text-xs font-medium text-slate-800 uppercase tracking-wider">
                     Actions
                   </th>
@@ -298,6 +344,20 @@ export default function MOListTab() {
                         </div>
                       </td>
                     )}
+                    {(activeTab === 'in_progress' || activeTab === 'completed') && (
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className={`text-sm font-medium ${mo.can_create_batch ? 'text-blue-600' : 'text-green-600'}`}>
+                          {mo.remaining_rm !== null && mo.remaining_rm !== undefined
+                            ? `${mo.remaining_rm.toFixed(mo.material_type === 'coil' ? 2 : 0)} ${mo.rm_unit || 'kg'}`
+                            : 'N/A'}
+                        </div>
+                        {mo.can_create_batch === false && (
+                          <div className="text-xs text-green-600 font-medium">
+                            ✓ Fully Allocated
+                          </div>
+                        )}
+                      </td>
+                    )}
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
                       <Button
                         onClick={() => handleViewDetails(mo)}
@@ -314,10 +374,29 @@ export default function MOListTab() {
                           onClick={() => handleCreateBatch(mo)}
                           variant="primary"
                           size="sm"
-                          className="inline-flex items-center bg-cyan-600 hover:bg-cyan-700"
+                          disabled={mo.can_create_batch === false}
+                          className={`inline-flex items-center ${
+                            mo.can_create_batch === false
+                              ? 'bg-gray-400 cursor-not-allowed'
+                              : 'bg-cyan-600 hover:bg-cyan-700'
+                          }`}
+                          title={mo.can_create_batch === false ? 'All RM has been allocated. No more batches can be created.' : 'Create a new batch'}
                         >
                           <PlusCircleIcon className="h-4 w-4 mr-1" />
                           Create Batch
+                        </Button>
+                      )}
+                      
+                      {activeTab === 'completed' && mo.status !== 'completed' && mo.can_create_batch === false && (
+                        <Button
+                          onClick={() => {/* TODO: Add complete MO handler */}}
+                          variant="primary"
+                          size="sm"
+                          className="inline-flex items-center bg-green-600 hover:bg-green-700"
+                          title="Mark this MO as completed"
+                        >
+                          <CheckCircleIcon className="h-4 w-4 mr-1" />
+                          Complete MO
                         </Button>
                       )}
                     </td>

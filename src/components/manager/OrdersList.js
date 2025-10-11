@@ -3,11 +3,13 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import manufacturingAPI from '@/components/API_Service/manufacturing-api';
+import { toast } from '@/utils/notifications';
 
 export default function OrdersList({ type }) {
   const router = useRouter();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [userRole, setUserRole] = useState(null);
   const [filters, setFilters] = useState({
     status: '',
     search: '',
@@ -22,6 +24,7 @@ export default function OrdersList({ type }) {
 
   const isMO = type === 'mo';
   const api = isMO ? manufacturingAPI.manufacturingOrders : manufacturingAPI.purchaseOrders;
+  const isManager = userRole === 'manager';
 
   // Fetch orders
   const fetchOrders = async (page = 1) => {
@@ -32,22 +35,50 @@ export default function OrdersList({ type }) {
         page
       };
       
+      console.log(`Fetching ${type} orders with filters:`, queryFilters);
       const response = await api.getAll(queryFilters);
-      setOrders(response.results || []);
-      setPagination({
-        count: response.count || 0,
-        next: response.next,
-        previous: response.previous,
-        current_page: page
-      });
+      console.log(`${type} orders response:`, response);
+      
+      // Handle both successful and failed responses
+      if (response && response.success !== false) {
+        setOrders(response.results || []);
+        setPagination({
+          count: response.count || 0,
+          next: response.next,
+          previous: response.previous,
+          current_page: page
+        });
+      } else {
+        // Handle failed API response
+        console.warn(`API returned failed response for ${type} orders:`, response);
+        setOrders([]);
+        setPagination({
+          count: 0,
+          next: null,
+          previous: null,
+          current_page: 1
+        });
+      }
     } catch (error) {
       console.error(`Error fetching ${type} orders:`, error);
+      // Set empty data on error to prevent crashes
+      setOrders([]);
+      setPagination({
+        count: 0,
+        next: null,
+        previous: null,
+        current_page: 1
+      });
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    // Get user role from localStorage
+    const role = localStorage.getItem('userRole');
+    setUserRole(role);
+    
     fetchOrders();
   }, [filters, type]);
 
@@ -60,29 +91,39 @@ export default function OrdersList({ type }) {
 
   const handleStatusChange = async (orderId, newStatus, notes = '') => {
     try {
+      console.log(`Changing ${type} order ${orderId} status to ${newStatus}`);
       await api.changeStatus(orderId, { status: newStatus, notes });
+      console.log(`Successfully changed ${type} order ${orderId} status`);
       fetchOrders(pagination.current_page);
     } catch (error) {
       console.error('Error changing status:', error);
-      alert('Failed to change status');
+      toast.error(`Failed to change ${type} order status: ${error.message || 'Unknown error'}`);
     }
   };
 
-  const handleMOClick = (order) => {
+  const handleOrderClick = (order) => {
     if (isMO) {
       // Get user role to determine correct route
-      const userRole = localStorage.getItem('userRole');
+      const role = localStorage.getItem('userRole');
       
-      if (userRole === 'production_head') {
+      if (role === 'production_head') {
         router.push(`/production-head/mo-detail/${order.id}`);
       } else {
         router.push(`/manager/mo-detail/${order.id}`);
+      }
+    } else {
+      // Handle PO click - only managers can access PO details
+      if (isManager) {
+        router.push(`/manager/po-detail/${order.id}`);
+      } else {
+        toast.error('Only managers can view purchase order details');
       }
     }
   };
 
   const getStatusColor = (status) => {
     const colors = {
+      // MO Statuses
       draft: 'bg-gray-100 text-gray-700',
       submitted: 'bg-blue-100 text-blue-700',
       gm_approved: 'bg-green-100 text-green-700',
@@ -91,9 +132,14 @@ export default function OrdersList({ type }) {
       completed: 'bg-emerald-100 text-emerald-700',
       cancelled: 'bg-red-100 text-red-700',
       rejected: 'bg-red-100 text-red-700',
-      gm_created_po: 'bg-indigo-100 text-indigo-700',
-      vendor_confirmed: 'bg-teal-100 text-teal-700',
-      partially_received: 'bg-yellow-100 text-yellow-700'
+      on_hold: 'bg-yellow-100 text-yellow-700',
+      mo_approved: 'bg-green-100 text-green-700',
+      // PO Statuses
+      po_initiated: 'bg-blue-100 text-blue-700',
+      po_approved: 'bg-green-100 text-green-700',
+      po_cancelled: 'bg-red-100 text-red-700',
+      rm_pending: 'bg-yellow-100 text-yellow-700',
+      rm_completed: 'bg-gray-100 text-gray-700'
     };
     return colors[status] || 'bg-gray-100 text-gray-700';
   };
@@ -225,21 +271,17 @@ export default function OrdersList({ type }) {
           orders.map((order) => (
             <div 
               key={order.id} 
-              className={`bg-white/80 backdrop-blur-sm rounded-xl shadow-lg shadow-slate-200/50 border border-slate-200/60 p-6 hover:shadow-xl hover:shadow-slate-300/50 transition-all ${
-                isMO ? 'cursor-pointer hover:bg-white/90' : ''
-              }`}
-              onClick={() => handleMOClick(order)}
+              className="bg-white/80 backdrop-blur-sm rounded-xl shadow-lg shadow-slate-200/50 border border-slate-200/60 p-6 hover:shadow-xl hover:shadow-slate-300/50 transition-all cursor-pointer hover:bg-white/90"
+              onClick={() => handleOrderClick(order)}
             >
               <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-4">
                 <div className="flex-1">
                   <div className="flex items-center space-x-3 mb-2">
                     <h3 className="text-lg font-bold text-slate-800 flex items-center space-x-2">
                       <span>{isMO ? order.mo_id : order.po_id}</span>
-                      {isMO && (
-                        <span className="text-xs text-blue-600 font-normal">
-                          → View Details
-                        </span>
-                      )}
+                      <span className="text-xs text-blue-600 font-normal">
+                        → View Details
+                      </span>
                     </h3>
                     <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
                       {order.status_display}
@@ -253,7 +295,7 @@ export default function OrdersList({ type }) {
                   <p className="text-slate-600">
                     {isMO 
                       ? `${order.product_code?.display_name || order.product_code?.product_code} - Qty: ${order.quantity}`
-                      : `${order.rm_code?.display_name || order.rm_code?.product_code} - Qty: ${order.quantity_ordered}`
+                      : `${order.rm_code?.material_name || order.rm_code?.material_code || 'N/A'} - Qty: ${order.quantity_ordered}`
                     }
                   </p>
                 </div>
@@ -265,21 +307,86 @@ export default function OrdersList({ type }) {
                     </div>
                   )}
                   <div className="flex space-x-2">
-                    {order.status === 'draft' && (
-                      <button
-                        onClick={() => handleStatusChange(order.id, 'submitted', 'Submitted for approval')}
-                        className="px-3 py-1 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors"
-                      >
-                        Submit
-                      </button>
-                    )}
-                    {order.status === 'submitted' && (
-                      <button
-                        onClick={() => handleStatusChange(order.id, 'gm_approved', 'Approved by GM')}
-                        className="px-3 py-1 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition-colors"
-                      >
-                        Approve
-                      </button>
+                    {isMO ? (
+                      <>
+                        {order.status === 'draft' && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleStatusChange(order.id, 'submitted', 'Submitted for approval');
+                            }}
+                            className="px-3 py-1 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors"
+                          >
+                            Submit
+                          </button>
+                        )}
+                        {order.status === 'submitted' && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleStatusChange(order.id, 'gm_approved', 'Approved by GM');
+                            }}
+                            className="px-3 py-1 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition-colors"
+                          >
+                            Approve
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      // PO Actions - Only for Managers
+                      isManager ? (
+                        <>
+                          {order.status === 'po_initiated' && (
+                            <>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleStatusChange(order.id, 'po_approved', 'Approved by GM');
+                                }}
+                                className="px-3 py-1 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition-colors"
+                              >
+                                Approve PO
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleStatusChange(order.id, 'po_cancelled', 'Cancelled by Manager');
+                                }}
+                                className="px-3 py-1 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 transition-colors"
+                              >
+                                Cancel
+                              </button>
+                            </>
+                          )}
+                          {order.status === 'po_approved' && (
+                            <>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleStatusChange(order.id, 'rm_pending', 'Sent to RM Store');
+                                }}
+                                className="px-3 py-1 bg-yellow-600 text-white rounded-lg text-sm hover:bg-yellow-700 transition-colors"
+                              >
+                                Send to RM
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleStatusChange(order.id, 'po_cancelled', 'Cancelled by Manager');
+                                }}
+                                className="px-3 py-1 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 transition-colors"
+                              >
+                                Cancel
+                              </button>
+                            </>
+                          )}
+                        </>
+                      ) : (
+                        // Non-manager users see read-only status
+                        <span className="px-3 py-1 bg-gray-100 text-gray-600 rounded-lg text-sm">
+                          View Only
+                        </span>
+                      )
                     )}
                   </div>
                 </div>
@@ -315,7 +422,7 @@ export default function OrdersList({ type }) {
                   <>
                     <div>
                       <span className="text-slate-500 font-medium">Vendor:</span>
-                      <span className="ml-2 text-slate-700">{order.vendor_name?.name}</span>
+                      <span className="ml-2 text-slate-700">{order.vendor_name?.name || 'N/A'}</span>
                     </div>
                     <div>
                       <span className="text-slate-500 font-medium">Expected:</span>

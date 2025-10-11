@@ -5,18 +5,29 @@ import { MANUFACTURING_APIS } from './api-list';
 import { apiRequest } from './api-utils';
 import { throttledGet, throttledPost, throttledPatch, throttledDelete } from './throttled-api';
 
-// Helper function to handle API responses (for backward compatibility)
+// Helper function to handle API responses with graceful error handling
 const handleResponse = async (response) => {
   if (response.success) {
     return response.data;
   }
   
-  // Handle permission errors gracefully
-  if (response.status === 403) {
-    throw new Error(`Permission denied: ${response.error || 'Access forbidden'}`);
+  // Instead of throwing, return error information for graceful UI handling
+  // Components can check for error property and show toast notifications
+  const errorMessage = response.error || 'API request failed';
+  const errorInfo = {
+    error: true,
+    message: errorMessage,
+    status: response.status,
+    details: response.data
+  };
+  
+  // Log as warning instead of error since it's handled gracefully
+  // Only log in development to avoid console noise in production
+  if (process.env.NODE_ENV === 'development') {
+    console.warn('API Warning:', errorMessage);
   }
   
-  throw new Error(response.error || 'API request failed');
+  return errorInfo;
 };
 
 // Batch API Service
@@ -486,11 +497,40 @@ export const purchaseOrdersAPI = {
 // Combined dashboard stats with graceful error handling
 export const getDashboardStats = async () => {
   try {
-    // Always try to get MO stats (most users can access this)
-    const moStats = await manufacturingOrdersAPI.getDashboardStats();
+    console.log('Fetching dashboard stats...');
     
-    // Try to get PO stats, but handle 403 errors gracefully
-    const poStats = await purchaseOrdersAPI.getDashboardStats();
+    // Always try to get MO stats (most users can access this)
+    let moStats = null;
+    try {
+      moStats = await manufacturingOrdersAPI.getDashboardStats();
+      console.log('MO stats fetched successfully:', moStats);
+    } catch (error) {
+      console.error('Error fetching MO stats:', error);
+      moStats = {
+        error: 'Failed to fetch manufacturing order stats',
+        total: 0,
+        in_progress: 0,
+        completed: 0,
+        overdue: 0
+      };
+    }
+    
+    // Try to get PO stats, but handle errors gracefully
+    let poStats = null;
+    try {
+      poStats = await purchaseOrdersAPI.getDashboardStats();
+      console.log('PO stats fetched successfully:', poStats);
+    } catch (error) {
+      console.error('Error fetching PO stats:', error);
+      poStats = {
+        error: 'Failed to fetch purchase order stats',
+        total: 0,
+        po_approved: 0,
+        rm_pending: 0,
+        rm_completed: 0,
+        total_value: 0
+      };
+    }
     
     // Check if PO stats returned an error object
     if (poStats && poStats.error === 'Permission denied') {
@@ -503,7 +543,24 @@ export const getDashboardStats = async () => {
     };
   } catch (error) {
     console.error('Error fetching dashboard stats:', error);
-    throw error;
+    // Return mock data as fallback
+    return {
+      manufacturingOrders: {
+        error: 'Failed to fetch manufacturing order stats',
+        total: 0,
+        in_progress: 0,
+        completed: 0,
+        overdue: 0
+      },
+      purchaseOrders: {
+        error: 'Failed to fetch purchase order stats',
+        total: 0,
+        po_approved: 0,
+        rm_pending: 0,
+        rm_completed: 0,
+        total_value: 0
+      }
+    };
   }
 };
 

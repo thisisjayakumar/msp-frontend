@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import manufacturingAPI from '../API_Service/manufacturing-api';
 import Button from '../CommonComponents/ui/Button';
 import { toast } from '@/utils/notifications';
 import { 
@@ -10,15 +9,17 @@ import {
   ExclamationTriangleIcon, ClipboardDocumentListIcon
 } from '@heroicons/react/24/outline';
 import GRMReceiptForm from './GRMReceiptForm';
+import { purchaseOrdersAPI } from '../API_Service/manufacturing-api';
+import { MANUFACTURING_APIS } from '../API_Service/api-list';
 
 export default function POListTab() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState('on_hold'); // 'on_hold', 'approved', 'completed'
+  const [activeTab, setActiveTab] = useState('po_approved'); // 'po_approved', 'rm_pending', 'rm_completed'
   const [poData, setPoData] = useState({
-    summary: { pending_approvals: 0, approved: 0, completed: 0, total: 0 },
-    on_hold: [],
-    approved: [],
-    completed: []
+    summary: { po_approved: 0, rm_pending: 0, rm_completed: 0, total: 0 },
+    po_approved: [],
+    rm_pending: [],
+    rm_completed: []
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -29,48 +30,71 @@ export default function POListTab() {
   const [searchMaterial, setSearchMaterial] = useState('');
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo] = useState('');
+  
+  // Prevent duplicate API calls in React Strict Mode
+  const hasFetchedRef = useRef(false);
 
   // Fetch PO list for RM Store
   const fetchPOList = async () => {
     try {
       setLoading(true);
-      const response = await manufacturingAPI.purchaseOrders.getAll();
+      // Use purchaseOrdersAPI service for cleaner, centralized API calls
+      const response = await purchaseOrdersAPI.getAll();
+      console.log('PO List Response:', response);
       
-      // Handle paginated response
-      const data = Array.isArray(response) ? response : (response.results || []);
+      // Check for graceful error response from API service
+      if (response?.error) {
+        console.error('Error fetching PO list:', response.message);
+        setError(response.message || 'Failed to fetch PO list');
+        toast.error(response.message || 'Failed to fetch PO list');
+        // Set empty data on error to prevent UI issues
+        setPoData({
+          summary: { po_approved: 0, rm_pending: 0, rm_completed: 0, total: 0 },
+          po_approved: [],
+          rm_pending: [],
+          rm_completed: []
+        });
+        return;
+      }
       
-      // Organize POs by status
+      // Handle paginated response - response should already be the data array or paginated object
+      const data = response?.results || response || [];
+      
+      // Organize POs by status (exclude po_initiated for RM Store)
       const organizedData = {
         summary: {
-          pending_approvals: 0,
-          approved: 0,
-          completed: 0,
-          total: data.length || 0
+          po_approved: 0,
+          rm_pending: 0,
+          rm_completed: 0,
+          total: 0
         },
-        on_hold: [],
-        approved: [],
-        completed: []
+        po_approved: [],
+        rm_pending: [],
+        rm_completed: []
       };
-
+      
+      console.log('Processing PO Data:', data);
+      
       if (data && data.length > 0) {
-        data.forEach(po => {
+        // Filter out po_initiated status for RM Store
+        const filteredData = data.filter(po => po.status !== 'po_initiated' && po.status !== 'po_cancelled');
+        
+        organizedData.summary.total = filteredData.length;
+        
+        filteredData.forEach(po => {
           switch (po.status) {
-            case 'on_hold':
-            case 'submitted':
-              organizedData.on_hold.push(po);
-              organizedData.summary.pending_approvals++;
+            case 'po_approved':
+              organizedData.po_approved.push(po);
+              organizedData.summary.po_approved++;
               break;
-            case 'approved':
-              organizedData.approved.push(po);
-              organizedData.summary.approved++;
+            case 'rm_pending':
+              organizedData.rm_pending.push(po);
+              organizedData.summary.rm_pending++;
               break;
-            case 'completed':
-              organizedData.completed.push(po);
-              organizedData.summary.completed++;
+            case 'rm_completed':
+              organizedData.rm_completed.push(po);
+              organizedData.summary.rm_completed++;
               break;
-            default:
-              organizedData.on_hold.push(po);
-              organizedData.summary.pending_approvals++;
           }
         });
       }
@@ -78,14 +102,28 @@ export default function POListTab() {
       setPoData(organizedData);
       setError(null);
     } catch (err) {
-      console.error('Error fetching PO list:', err);
-      setError(err.message || 'Failed to fetch PO list');
+      // Fallback for unexpected errors (shouldn't happen with graceful error handling)
+      console.error('Unexpected error fetching PO list:', err);
+      const errorMessage = err.message || 'Failed to fetch PO list';
+      setError(errorMessage);
+      toast.error(errorMessage);
+      // Set empty data on error to prevent UI issues
+      setPoData({
+        summary: { po_approved: 0, rm_pending: 0, rm_completed: 0, total: 0 },
+        po_approved: [],
+        rm_pending: [],
+        rm_completed: []
+      });
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    // Prevent duplicate calls in React Strict Mode (development only)
+    if (hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
+    
     fetchPOList();
   }, []);
 
@@ -105,33 +143,45 @@ export default function POListTab() {
   const handleGRMReceiptSuccess = (grmReceipt) => {
     setShowGRMForm(false);
     setSelectedPO(null);
-    toast.success(`GRM Receipt ${grmReceipt.grm_number} created successfully`);
+    // Show success message with GRM number if available
+    const grmNumber = grmReceipt?.grm_number || grmReceipt?.data?.grm_number || 'New';
+    toast.success(`GRM Receipt ${grmNumber} created successfully`);
     fetchPOList(); // Refresh PO list
   };
 
   // Handle Status Change
   const handleStatusChange = async (poId, newStatus, notes = '') => {
     try {
-      await manufacturingAPI.purchaseOrders.changeStatus(poId, { 
+      // Use purchaseOrdersAPI service for cleaner, centralized API calls
+      const result = await purchaseOrdersAPI.changeStatus(poId, { 
         status: newStatus, 
         notes 
       });
+      
+      // Check for graceful error response from API service
+      if (result?.error) {
+        toast.error(result.message || 'Failed to change PO status');
+        return;
+      }
+      
       toast.success(`PO status updated to ${newStatus}`);
       await fetchPOList(); // Refresh data
     } catch (err) {
-      console.error('Error changing PO status:', err);
-      toast.error('Failed to change PO status');
+      // Fallback for unexpected errors (shouldn't happen with graceful error handling)
+      console.error('Unexpected error changing PO status:', err);
+      const errorMessage = err.message || 'Failed to change PO status';
+      toast.error(errorMessage);
     }
   };
 
   // Get status color
   const getStatusColor = (status) => {
     const statusColors = {
-      'on_hold': 'bg-yellow-100 text-yellow-800',
-      'submitted': 'bg-blue-100 text-blue-800',
-      'approved': 'bg-green-100 text-green-800',
-      'completed': 'bg-gray-100 text-gray-800',
-      'cancelled': 'bg-red-100 text-red-800'
+      'po_initiated': 'bg-blue-100 text-blue-800',
+      'po_approved': 'bg-green-100 text-green-800',
+      'rm_pending': 'bg-yellow-100 text-yellow-800',
+      'rm_completed': 'bg-gray-100 text-gray-800',
+      'po_cancelled': 'bg-red-100 text-red-800'
     };
     return statusColors[status] || 'bg-gray-100 text-gray-800';
   };
@@ -139,11 +189,11 @@ export default function POListTab() {
   // Get status display text
   const getStatusDisplay = (status) => {
     const statusDisplays = {
-      'on_hold': 'On Hold',
-      'submitted': 'Submitted',
-      'approved': 'Approved',
-      'completed': 'Completed',
-      'cancelled': 'Cancelled'
+      'po_initiated': 'Purchase Order Initiated',
+      'po_approved': 'Approved by GM',
+      'rm_pending': 'Awaiting RM Store Action',
+      'rm_completed': 'Goods Receipt Completed',
+      'po_cancelled': 'Cancelled by Manager'
     };
     return statusDisplays[status] || status;
   };
@@ -226,23 +276,11 @@ export default function POListTab() {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <ExclamationTriangleIcon className="h-8 w-8 text-orange-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Pending Approval</p>
-              <p className="text-2xl font-semibold text-gray-900">{poData.summary.pending_approvals}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
               <CheckCircleIcon className="h-8 w-8 text-green-600" />
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Approved</p>
-              <p className="text-2xl font-semibold text-gray-900">{poData.summary.approved}</p>
+              <p className="text-sm font-medium text-gray-500">GM Approved</p>
+              <p className="text-2xl font-semibold text-gray-900">{poData.summary.po_approved}</p>
             </div>
           </div>
         </div>
@@ -250,11 +288,23 @@ export default function POListTab() {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <TruckIcon className="h-8 w-8 text-blue-600" />
+              <ExclamationTriangleIcon className="h-8 w-8 text-yellow-600" />
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-500">RM Pending</p>
+              <p className="text-2xl font-semibold text-gray-900">{poData.summary.rm_pending}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <TruckIcon className="h-8 w-8 text-gray-600" />
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-500">Completed</p>
-              <p className="text-2xl font-semibold text-gray-900">{poData.summary.completed}</p>
+              <p className="text-2xl font-semibold text-gray-900">{poData.summary.rm_completed}</p>
             </div>
           </div>
         </div>
@@ -308,34 +358,34 @@ export default function POListTab() {
       <div className="border-b border-gray-200">
         <nav className="-mb-px flex space-x-8">
           <button
-            onClick={() => setActiveTab('on_hold')}
+            onClick={() => setActiveTab('po_approved')}
             className={`${
-              activeTab === 'on_hold'
+              activeTab === 'po_approved'
                 ? 'border-cyan-500 text-cyan-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors`}
           >
-            Pending Approval ({poData.summary.pending_approvals})
+            GM Approved ({poData.summary.po_approved})
           </button>
           <button
-            onClick={() => setActiveTab('approved')}
+            onClick={() => setActiveTab('rm_pending')}
             className={`${
-              activeTab === 'approved'
+              activeTab === 'rm_pending'
                 ? 'border-cyan-500 text-cyan-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors`}
           >
-            Approved ({poData.summary.approved})
+            RM Pending ({poData.summary.rm_pending})
           </button>
           <button
-            onClick={() => setActiveTab('completed')}
+            onClick={() => setActiveTab('rm_completed')}
             className={`${
-              activeTab === 'completed'
+              activeTab === 'rm_completed'
                 ? 'border-cyan-500 text-cyan-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors`}
           >
-            Completed ({poData.summary.completed})
+            Completed ({poData.summary.rm_completed})
           </button>
         </nav>
       </div>
@@ -349,8 +399,8 @@ export default function POListTab() {
             {searchName || searchMaterial || filterDateFrom || filterDateTo
               ? 'No purchase orders match your search criteria.'
               : (
-                  activeTab === 'on_hold' ? 'No pending purchase orders.' :
-                  activeTab === 'approved' ? 'No approved purchase orders.' :
+                  activeTab === 'po_approved' ? 'No GM approved purchase orders.' :
+                  activeTab === 'rm_pending' ? 'No purchase orders awaiting RM action.' :
                   'No completed purchase orders.'
                 )
             }
@@ -451,18 +501,18 @@ export default function POListTab() {
                           View
                         </Button>
                         
-                        {po.status === 'on_hold' && (
+                        {po.status === 'po_approved' && (
                           <Button
-                            onClick={() => handleStatusChange(po.id, 'approved', 'Approved by RM Store')}
+                            onClick={() => handleStatusChange(po.id, 'rm_pending', 'Approved by RM Store')}
                             variant="primary"
                             size="sm"
-                            className="bg-green-600 hover:bg-green-700"
+                            className="bg-yellow-600 hover:bg-yellow-700"
                           >
-                            Approve
+                            Approve for RM
                           </Button>
                         )}
                         
-                        {po.status === 'approved' && (
+                        {po.status === 'rm_pending' && (
                           <>
                             <Button
                               onClick={() => handleCreateGRMReceipt(po)}
@@ -474,7 +524,7 @@ export default function POListTab() {
                               Create GRM
                             </Button>
                             <Button
-                              onClick={() => handleStatusChange(po.id, 'completed', 'Materials received')}
+                              onClick={() => handleStatusChange(po.id, 'rm_completed', 'Materials received')}
                               variant="secondary"
                               size="sm"
                             >
@@ -584,23 +634,23 @@ export default function POListTab() {
                   Close
                 </Button>
                 
-                {selectedPO.status === 'on_hold' && (
+                {selectedPO.status === 'po_approved' && (
                   <Button
                     onClick={() => {
-                      handleStatusChange(selectedPO.id, 'approved', 'Approved by RM Store');
+                      handleStatusChange(selectedPO.id, 'rm_pending', 'Approved by RM Store');
                       setShowPODetailModal(false);
                     }}
                     variant="primary"
-                    className="bg-green-600 hover:bg-green-700"
+                    className="bg-yellow-600 hover:bg-yellow-700"
                   >
-                    Approve PO
+                    Approve for RM
                   </Button>
                 )}
                 
-                {selectedPO.status === 'approved' && (
+                {selectedPO.status === 'rm_pending' && (
                   <Button
                     onClick={() => {
-                      handleStatusChange(selectedPO.id, 'completed', 'Materials received');
+                      handleStatusChange(selectedPO.id, 'rm_completed', 'Materials received');
                       setShowPODetailModal(false);
                     }}
                     variant="primary"
