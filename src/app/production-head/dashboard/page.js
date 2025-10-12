@@ -6,12 +6,9 @@ import manufacturingAPI from '@/components/API_Service/manufacturing-api';
 
 // Components (reusing manager components)
 import DashboardStats from '@/components/manager/DashboardStats';
-import ManufacturingOrderForm from '@/components/manager/ManufacturingOrderForm';
-import PurchaseOrderForm from '@/components/manager/PurchaseOrderForm';
 import OrdersList from '@/components/manager/OrdersList';
 import ProcessTrackingSummary from '@/components/manager/ProcessTrackingSummary';
 import LoadingSpinner from '@/components/CommonComponents/ui/LoadingSpinner';
-import SimplifiedManufacturingOrderForm from '@/components/manager/SimplifiedManufacturingOrderForm';
 
 export default function ProductionHeadDashboard() {
   const router = useRouter();
@@ -74,21 +71,6 @@ export default function ProductionHeadDashboard() {
     { id: 'po-list', label: 'PO List', icon: '📄' },
   ];
 
-  const navigationButtons = [
-    { 
-      id: 'create-mo', 
-      label: 'Create Manufacturing Order', 
-      icon: '🏭', 
-      onClick: () => router.push('/production-head/create-mo')
-    },
-    { 
-      id: 'create-po', 
-      label: 'Create Purchase Order', 
-      icon: '📦', 
-      onClick: () => router.push('/production-head/create-po')
-    },
-  ];
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -123,25 +105,6 @@ export default function ProductionHeadDashboard() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Quick Actions */}
-        {/* <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-4">
-          {navigationButtons.map((button) => (
-            <button
-              key={button.id}
-              onClick={button.onClick}
-              className="bg-white hover:bg-gray-50 border-2 border-amber-500 rounded-xl p-6 transition-all hover:shadow-lg group"
-            >
-              <div className="flex items-center space-x-4">
-                <span className="text-4xl group-hover:scale-110 transition-transform">
-                  {button.icon}
-                </span>
-                <span className="text-lg font-semibold text-gray-800 group-hover:text-amber-600">
-                  {button.label}
-                </span>
-              </div>
-            </button>
-          ))}
-        </div> */}
 
         {/* Tabs */}
         <div className="bg-white rounded-xl shadow-md mb-6">
@@ -169,24 +132,6 @@ export default function ProductionHeadDashboard() {
             {activeTab === 'dashboard' && (
               <div className="space-y-6">
                 <DashboardStats stats={dashboardStats} />
-                
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-                  <div className="bg-white rounded-lg border border-gray-200 p-6">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                      <span className="text-2xl mr-2">🏭</span>
-                      Quick Create MO
-                    </h3>
-                    <SimplifiedManufacturingOrderForm />
-                  </div>
-
-                  <div className="bg-white rounded-lg border border-gray-200 p-6">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                      <span className="text-2xl mr-2">📦</span>
-                      Quick Create PO
-                    </h3>
-                    <PurchaseOrderForm simplified={true} />
-                  </div>
-                </div>
               </div>
             )}
 

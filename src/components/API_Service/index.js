@@ -19,6 +19,7 @@ export {
   INVENTORY_APIS, 
   NOTIFICATIONS_APIS, 
   PROCESS_TRACKING_APIS,
+  ADMIN_APIS,
   API_ENDPOINTS 
 } from './api-list';
 
@@ -46,6 +47,39 @@ export { processTrackingAPI } from './process-tracking-api';
 
 // Import Notifications API services
 export { notificationsAPI } from './notifications-api';
+
+// Import Admin API services
+import adminService from './adminService';
+export {
+  default as adminService,
+  adminAPI,
+  usersAPI,
+  rolesAPI,
+  dashboardAPI as adminDashboardAPI,
+  // Backward compatibility exports
+  fetchUsers,
+  getUserDetails,
+  createUser,
+  updateUser,
+  deleteUser,
+  bulkUserAction,
+  manageUserRoles,
+  resetUserPassword,
+  toggleUserActive,
+  getUsersWithMultipleRoles,
+  getUsersWithoutRoles,
+  fetchRoles,
+  fetchRoleHierarchy,
+  getRoleDetails,
+  createRole,
+  updateRole,
+  deleteRole,
+  getUsersByRole,
+  fetchDashboardStats,
+  fetchDepartmentSummary,
+  fetchRolePermissionsMatrix,
+  syncUserProfiles,
+} from './adminService';
 
 // Import utility functions
 export { 
@@ -94,6 +128,12 @@ export const API_SERVICES = {
     transactions: transactionsAPI,
     grmReceipts: grmReceiptsAPI,
   },
+  
+  // Admin services (new structure)
+  admin: adminAPI,
+  
+  // Admin services (legacy - for backward compatibility)
+  adminLegacy: adminService,
   
   // Process tracking services
   processTracking: processTrackingAPI,

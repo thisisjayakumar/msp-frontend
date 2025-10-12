@@ -185,7 +185,7 @@ export const apiRequest = async (url, options = {}, retryCount = 0) => {
           if (url.includes('/auth/token/refresh/')) {
             console.log('Refresh token endpoint failed, removing tokens');
             removeAuthToken();
-            window?.location?.replace('/operator');
+            window?.location?.replace('/login');
             throw new Error('Refresh token expired');
           }
 
@@ -229,7 +229,7 @@ export const apiRequest = async (url, options = {}, retryCount = 0) => {
             console.error('Token refresh failed:', refreshError);
             processQueue(refreshError, null);
             removeAuthToken();
-            window?.location?.replace('/operator');
+            window?.location?.replace('/login');
             throw new Error('Authentication failed');
           } finally {
             isRefreshing = false;
@@ -238,7 +238,7 @@ export const apiRequest = async (url, options = {}, retryCount = 0) => {
           // No refresh token available, redirect to login
           console.log('No refresh token available, redirecting to login');
           removeAuthToken();
-          window?.location?.replace('/operator');
+          window?.location?.replace('/login');
           throw new Error('No authentication token available');
         }
       }

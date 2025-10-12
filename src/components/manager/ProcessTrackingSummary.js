@@ -52,8 +52,16 @@ export default function ProcessTrackingSummary() {
         page_size: 10
       });
 
+      // Check if response is valid
+      if (mosResponse?.error) {
+        console.warn('Error fetching MOs:', mosResponse.message);
+        setLoading(false);
+        return;
+      }
+
       // Get process executions for active MOs
-      const processPromises = mosResponse.results.map(async (mo) => {
+      const mosList = Array.isArray(mosResponse?.results) ? mosResponse.results : [];
+      const processPromises = mosList.map(async (mo) => {
         try {
           const processData = await processTrackingAPI.getMOWithProcesses(mo.id);
           return processData;
@@ -69,7 +77,8 @@ export default function ProcessTrackingSummary() {
 
       // Get active alerts
       const alertsData = await processTrackingAPI.getActiveAlerts();
-      setAlerts(alertsData.slice(0, 5)); // Show only top 5 alerts
+      const alertsList = alertsData?.error ? [] : (Array.isArray(alertsData) ? alertsData : []);
+      setAlerts(alertsList.slice(0, 5)); // Show only top 5 alerts
 
       // Calculate stats
       const totalActive = validProcesses.length;

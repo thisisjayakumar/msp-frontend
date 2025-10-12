@@ -166,20 +166,42 @@ export default function PurchaseOrderForm({ onSuccess, autoFillData = null }) {
       }
 
       try {
-        const [rawMaterials, vendors] = await Promise.all([
+        const [rawMaterialsResponse, vendorsResponse] = await Promise.all([
           manufacturingAPI.purchaseOrders.getRawMaterials(),
           manufacturingAPI.purchaseOrders.getVendors('rm_vendor')
         ]);
         
+        // Check if responses are error objects
+        // Handle both array and paginated responses
+        const rawMaterials = rawMaterialsResponse?.error 
+          ? [] 
+          : (Array.isArray(rawMaterialsResponse) 
+              ? rawMaterialsResponse 
+              : (Array.isArray(rawMaterialsResponse?.results) ? rawMaterialsResponse.results : []));
+        
+        const vendors = vendorsResponse?.error 
+          ? [] 
+          : (Array.isArray(vendorsResponse) 
+              ? vendorsResponse 
+              : (Array.isArray(vendorsResponse?.results) ? vendorsResponse.results : []));
+        
+        // Show error toast if any API call failed
+        if (rawMaterialsResponse?.error) {
+          toast.error(rawMaterialsResponse.message || 'Failed to load raw materials');
+        }
+        if (vendorsResponse?.error) {
+          toast.error(vendorsResponse.message || 'Failed to load vendors');
+        }
+        
         setDropdownData({ rawMaterials, vendors });
       } catch (error) {
         // Handle permission errors gracefully
-        if (error.message.includes('403') || error.message.includes('Forbidden') || error.message.includes('Permission denied')) {
+        if (error.message?.includes('403') || error.message?.includes('Forbidden') || error.message?.includes('Permission denied')) {
           toast.error(getPermissionMessage('purchaseOrders'));
-          setDropdownData({ rawMaterials: [], vendors: [] });
         } else {
           toast.error('Failed to load purchase order data');
         }
+        setDropdownData({ rawMaterials: [], vendors: [] });
       }
     };
 
@@ -265,20 +287,8 @@ export default function PurchaseOrderForm({ onSuccess, autoFillData = null }) {
       const material = dropdownData.rawMaterials.find(m => m.id === parseInt(materialId));
       
       if (material) {
-        // Set the material from dropdown data first (immediate feedback)
+        // Set the material from dropdown data (already contains all needed info)
         setSelectedMaterial(material);
-        
-        // Try to fetch detailed material info for auto-population
-        if (materialId) {
-          try {
-            const materialDetails = await manufacturingAPI.purchaseOrders.getMaterialDetails(materialId);
-            // Use the detailed data if available, otherwise keep the dropdown data
-            setSelectedMaterial(materialDetails || material);
-          } catch (detailError) {
-            // Keep the dropdown data if detailed fetch fails
-            setSelectedMaterial(material);
-          }
-        }
       }
       
       setFormData(prev => ({
@@ -300,21 +310,8 @@ export default function PurchaseOrderForm({ onSuccess, autoFillData = null }) {
       const vendor = dropdownData.vendors.find(v => v.id === parseInt(vendorId));
       
       if (vendor) {
-        // Set the vendor from dropdown data first (immediate feedback)
+        // Set the vendor from dropdown data (already contains all needed info)
         setSelectedVendor(vendor);
-        
-        // Try to fetch detailed vendor info for auto-population
-        if (vendorId) {
-          try {
-            const vendorDetails = await manufacturingAPI.purchaseOrders.getVendorDetails(vendorId);
-            // Merge detailed data with dropdown data to ensure we have all available fields
-            const mergedVendor = { ...vendor, ...vendorDetails };
-            setSelectedVendor(mergedVendor);
-          } catch (detailError) {
-            // Keep the dropdown data if detailed fetch fails
-            setSelectedVendor(vendor);
-          }
-        }
       }
       
       setFormData(prev => ({
@@ -447,7 +444,7 @@ export default function PurchaseOrderForm({ onSuccess, autoFillData = null }) {
     );
   }
 
-  const rawMaterialOptions = dropdownData.rawMaterials.map((material) => {
+  const rawMaterialOptions = (Array.isArray(dropdownData.rawMaterials) ? dropdownData.rawMaterials : []).map((material) => {
     const baseLabel =
       material.display_name ||
       [material.material_name, material.material_code]
@@ -471,7 +468,7 @@ export default function PurchaseOrderForm({ onSuccess, autoFillData = null }) {
     };
   });
 
-  const vendorOptions = dropdownData.vendors.map((vendor) => {
+  const vendorOptions = (Array.isArray(dropdownData.vendors) ? dropdownData.vendors : []).map((vendor) => {
     const descriptionParts = [];
     if (vendor.vendor_type_display || vendor.vendor_type) {
       descriptionParts.push(vendor.vendor_type_display || vendor.vendor_type);

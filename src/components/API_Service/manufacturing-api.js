@@ -475,23 +475,8 @@ export const purchaseOrdersAPI = {
     return handleResponse(response);
   },
 
-  // Get material details for auto-population
-  getMaterialDetails: async (materialId) => {
-    const response = await apiRequest(`${MANUFACTURING_APIS.PO_MATERIAL_DETAILS}?material_id=${materialId}`, {
-      method: 'GET',
-    });
-    
-    return handleResponse(response);
-  },
-
-  // Get vendor details for auto-population
-  getVendorDetails: async (vendorId) => {
-    const response = await apiRequest(`${MANUFACTURING_APIS.PO_VENDOR_DETAILS}?vendor_id=${vendorId}`, {
-      method: 'GET',
-    });
-    
-    return handleResponse(response);
-  },
+  // Material and vendor details are already included in the dropdown APIs
+  // No need for separate detail endpoints
 };
 
 // Combined dashboard stats with graceful error handling

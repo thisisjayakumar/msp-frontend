@@ -692,7 +692,7 @@ export default function GRMReceiptForm({ purchaseOrder, onSuccess, onCancel }) {
                 <div className="text-sm text-gray-600 mb-4">
                   <p className="mb-2">
                     The total weight received ({calculateTotalQuantityReceived().toFixed(2)} kg) 
-                    differs significantly from the ordered quantity ({purchaseOrder.quantity_ordered} {purchaseOrder.rm_code?.material_type === 'coil' ? 'coils' : 'sheets'}).
+                    differs significantly from the ordered quantity ({purchaseOrder.quantity_ordered} {purchaseOrder.rm_code?.material_type === 'coil' ? 'kg' : 'sheets quantity'}).
                   </p>
                   <p className="font-semibold text-yellow-700">
                     Difference: {getWeightDifferencePercentage().toFixed(1)}%

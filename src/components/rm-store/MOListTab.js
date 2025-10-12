@@ -44,7 +44,11 @@ export default function MOListTab() {
         on_hold: [],
         in_progress: [],
         completed: [],
-        summary: data.summary
+        summary: {
+          pending_approvals: 0,
+          in_progress: 0,
+          completed: 0
+        }
       };
       
       // Process all MOs from all tabs
@@ -58,16 +62,20 @@ export default function MOListTab() {
         // If MO is already completed (status), keep it in completed
         if (mo.status === 'completed') {
           reorganizedData.completed.push(mo);
+          reorganizedData.summary.completed++;
         }
         // If MO cannot create more batches (RM fully allocated), move to completed tab
         else if (mo.can_create_batch === false) {
           reorganizedData.completed.push(mo);
+          reorganizedData.summary.completed++;
         }
         // Otherwise, keep in original status tab
         else if (mo.status === 'on_hold') {
           reorganizedData.on_hold.push(mo);
+          reorganizedData.summary.pending_approvals++;
         } else if (mo.status === 'in_progress') {
           reorganizedData.in_progress.push(mo);
+          reorganizedData.summary.in_progress++;
         }
       });
       
@@ -387,9 +395,8 @@ export default function MOListTab() {
                         </Button>
                       )}
                       
-                      {activeTab === 'completed' && mo.status !== 'completed' && mo.can_create_batch === false && (
+                      {/* {activeTab === 'completed' && mo.status !== 'completed' && mo.can_create_batch === false && (
                         <Button
-                          onClick={() => {/* TODO: Add complete MO handler */}}
                           variant="primary"
                           size="sm"
                           className="inline-flex items-center bg-green-600 hover:bg-green-700"
@@ -398,7 +405,7 @@ export default function MOListTab() {
                           <CheckCircleIcon className="h-4 w-4 mr-1" />
                           Complete MO
                         </Button>
-                      )}
+                      )} */}
                     </td>
                   </tr>
                 ))}

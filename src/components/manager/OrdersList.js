@@ -404,7 +404,7 @@ export default function OrdersList({ type }) {
                     <div>
                       <span className="text-slate-500 font-medium">Supervisor:</span>
                       <span className="ml-2 text-slate-700">
-                        {order.assigned_supervisor?.display_name || 'Not assigned'}
+                        {order.assigned_supervisor?.first_name + ' ' + order.assigned_supervisor?.last_name || 'Not assigned'}
                       </span>
                     </div>
                     <div>

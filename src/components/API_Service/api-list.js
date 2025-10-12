@@ -67,10 +67,8 @@ export const MANUFACTURING_APIS = {
   PO_DELETE: (id) => `${API_BASE_URL}/manufacturing/api/purchase-orders/${id}/`,
   PO_CHANGE_STATUS: (id) => `${API_BASE_URL}/manufacturing/api/purchase-orders/${id}/change_status/`,
   PO_DASHBOARD_STATS: `${API_BASE_URL}/manufacturing/api/purchase-orders/dashboard_stats/`,
-  PO_RAW_MATERIALS: `${API_BASE_URL}/manufacturing/api/purchase-orders/raw_materials/`,
-  PO_VENDORS: `${API_BASE_URL}/manufacturing/api/purchase-orders/vendors/`,
-  PO_MATERIAL_DETAILS: `${API_BASE_URL}/manufacturing/api/purchase-orders/material_details/`,
-  PO_VENDOR_DETAILS: `${API_BASE_URL}/manufacturing/api/purchase-orders/vendor_details/`,
+  PO_RAW_MATERIALS: `${API_BASE_URL}/inventory/raw-materials/`,  // Use existing inventory API
+  PO_VENDORS: `${API_BASE_URL}/third-party/vendors/`,  // Use existing third-party API
 };
 
 // Inventory APIs (RM Store)
@@ -129,6 +127,37 @@ export const PROCESS_TRACKING_APIS = {
   ACTIVE_ALERTS: `${API_BASE_URL}/manufacturing/api/process-alerts/active_alerts/`,
 };
 
+// Admin Dashboard APIs
+export const ADMIN_APIS = {
+  // User Management
+  USERS_LIST: `${API_BASE_URL}/auth/admin/users/`,
+  USERS_CREATE: `${API_BASE_URL}/auth/admin/users/`,
+  USERS_DETAIL: (id) => `${API_BASE_URL}/auth/admin/users/${id}/`,
+  USERS_UPDATE: (id) => `${API_BASE_URL}/auth/admin/users/${id}/`,
+  USERS_DELETE: (id) => `${API_BASE_URL}/auth/admin/users/${id}/`,
+  USERS_BULK_ACTION: `${API_BASE_URL}/auth/admin/users/bulk_action/`,
+  USERS_MANAGE_ROLES: (id) => `${API_BASE_URL}/auth/admin/users/${id}/manage_roles/`,
+  USERS_RESET_PASSWORD: (id) => `${API_BASE_URL}/auth/admin/users/${id}/reset_password/`,
+  USERS_TOGGLE_ACTIVE: (id) => `${API_BASE_URL}/auth/admin/users/${id}/toggle_active/`,
+  USERS_MULTIPLE_ROLES: `${API_BASE_URL}/auth/admin/users/multiple-roles/`,
+  USERS_WITHOUT_ROLES: `${API_BASE_URL}/auth/admin/users/without-roles/`,
+
+  // Role Management
+  ROLES_LIST: `${API_BASE_URL}/auth/admin/roles/`,
+  ROLES_CREATE: `${API_BASE_URL}/auth/admin/roles/`,
+  ROLES_DETAIL: (id) => `${API_BASE_URL}/auth/admin/roles/${id}/`,
+  ROLES_UPDATE: (id) => `${API_BASE_URL}/auth/admin/roles/${id}/`,
+  ROLES_DELETE: (id) => `${API_BASE_URL}/auth/admin/roles/${id}/`,
+  ROLES_USERS: (id) => `${API_BASE_URL}/auth/admin/roles/${id}/users/`,
+  ROLES_HIERARCHY: `${API_BASE_URL}/auth/admin/roles/hierarchy/`,
+
+  // Dashboard Statistics
+  DASHBOARD_STATS: `${API_BASE_URL}/auth/admin/dashboard/stats/`,
+  DEPARTMENT_SUMMARY: `${API_BASE_URL}/auth/admin/department-summary/`,
+  ROLE_PERMISSIONS_MATRIX: `${API_BASE_URL}/auth/admin/role-permissions-matrix/`,
+  SYNC_PROFILES: `${API_BASE_URL}/auth/admin/sync-profiles/`,
+};
+
 // Export all APIs
 export const API_ENDPOINTS = {
   AUTH: AUTH_APIS,
@@ -137,6 +166,7 @@ export const API_ENDPOINTS = {
   INVENTORY: INVENTORY_APIS,
   NOTIFICATIONS: NOTIFICATIONS_APIS,
   PROCESS_TRACKING: PROCESS_TRACKING_APIS,
+  ADMIN: ADMIN_APIS,
 };
 
 export default API_ENDPOINTS;

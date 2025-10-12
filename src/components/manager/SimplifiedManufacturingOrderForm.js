@@ -88,8 +88,8 @@ export default function SimplifiedManufacturingOrderForm({ onSuccess }) {
   };
 
   // Stock validation function
-  const validateStock = (quantity, materials) => {
-    if (!quantity || !materials || materials.length === 0) {
+  const validateStock = (quantity, materials, productDetails) => {
+    if (!quantity || !materials || materials.length === 0 || !productDetails) {
       setStockWarning(null);
       setIsStockInsufficient(false);
       return;
@@ -102,13 +102,25 @@ export default function SimplifiedManufacturingOrderForm({ onSuccess }) {
       return;
     }
 
+    // Get grams per product from product details
+    const gramsPerProduct = parseFloat(productDetails.grams_per_product || productDetails.weight_kg * 1000 || 0);
+    
+    if (!gramsPerProduct || gramsPerProduct <= 0) {
+      setStockWarning('Product weight/grams information not available');
+      setIsStockInsufficient(false);
+      return;
+    }
+
+    // Calculate required material in kg: (number of products × grams per product) / 1000
+    const requiredMaterialKg = (enteredQuantity * gramsPerProduct) / 1000;
+
     // Calculate total available stock (sum all materials)
     const totalAvailableStock = materials.reduce((sum, material) => {
       return sum + (material.available_quantity || 0);
     }, 0);
 
-    if (enteredQuantity > totalAvailableStock) {
-      setStockWarning(`Insufficient stock! Available: ${totalAvailableStock} kg, Required: ${enteredQuantity} kg`);
+    if (requiredMaterialKg > totalAvailableStock) {
+      setStockWarning(`Insufficient stock! Available: ${totalAvailableStock.toFixed(2)} kg, Required: ${requiredMaterialKg.toFixed(2)} kg (for ${enteredQuantity} products)`);
       setIsStockInsufficient(true);
     } else {
       setStockWarning(null);
@@ -118,10 +130,10 @@ export default function SimplifiedManufacturingOrderForm({ onSuccess }) {
 
   // Monitor quantity and stock changes
   useEffect(() => {
-    if (selectedProductDetails?.materials) {
-      validateStock(formData.quantity, selectedProductDetails.materials);
+    if (selectedProductDetails?.materials && selectedProductDetails?.product) {
+      validateStock(formData.quantity, selectedProductDetails.materials, selectedProductDetails.product);
     }
-  }, [formData.quantity, selectedProductDetails?.materials]);
+  }, [formData.quantity, selectedProductDetails?.materials, selectedProductDetails?.product]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -215,19 +227,26 @@ export default function SimplifiedManufacturingOrderForm({ onSuccess }) {
 
   // Handle Create PO from insufficient stock
   const handleCreatePO = () => {
-    if (!selectedProductDetails?.materials || !formData.quantity) return;
+    if (!selectedProductDetails?.materials || !formData.quantity || !selectedProductDetails?.product) return;
 
     const totalAvailableStock = selectedProductDetails.materials.reduce((sum, material) => {
       return sum + (material.available_quantity || 0);
     }, 0);
 
-    const requiredQuantity = parseFloat(formData.quantity);
-    const shortage = requiredQuantity - totalAvailableStock;
+    const productQuantity = parseFloat(formData.quantity);
+    
+    // Get grams per product and calculate required material in kg
+    const gramsPerProduct = parseFloat(selectedProductDetails.product.grams_per_product || selectedProductDetails.product.weight_kg * 1000 || 0);
+    const requiredMaterialKg = (productQuantity * gramsPerProduct) / 1000;
+    
+    const shortage = requiredMaterialKg - totalAvailableStock;
 
     // Prepare auto-fill data for PO form
     const autoFillData = {
       materials: selectedProductDetails.materials,
-      requiredQuantity: requiredQuantity,
+      requiredQuantity: requiredMaterialKg, // Material quantity in kg
+      productQuantity: productQuantity, // Number of products
+      gramsPerProduct: gramsPerProduct, // Grams per product
       availableQuantity: totalAvailableStock,
       shortageQuantity: shortage,
       productDetails: selectedProductDetails.product,
@@ -242,7 +261,7 @@ export default function SimplifiedManufacturingOrderForm({ onSuccess }) {
     
     // Navigate to PO creation page
     setTimeout(() => {
-      router.push('/manager/create-po');
+      router.push('/production-head/create-po');
     }, 1000);
     
     console.log('Auto-fill data for PO:', autoFillData);
@@ -348,9 +367,6 @@ export default function SimplifiedManufacturingOrderForm({ onSuccess }) {
             <div>
               <label className="block text-xs font-medium text-slate-700 mb-1">
                 Quantity <span className="text-red-500">*</span>
-                {/* {stockWarning && (
-                  <span className="ml-2 text-orange-600 font-normal">⚠️ {stockWarning}</span>
-                )} */}
               </label>
               <input
                 type="number"
@@ -372,6 +388,23 @@ export default function SimplifiedManufacturingOrderForm({ onSuccess }) {
                   <span className="mr-1">⚠️</span>
                   {stockWarning}
                 </p>
+              )}
+              {/* Show calculated material requirement */}
+              {formData.quantity && selectedProductDetails?.product && (
+                (() => {
+                  const qty = parseFloat(formData.quantity);
+                  const gramsPerProd = parseFloat(selectedProductDetails.product.grams_per_product || selectedProductDetails.product.weight_kg * 1000 || 0);
+                  if (qty > 0 && gramsPerProd > 0) {
+                    const requiredKg = (qty * gramsPerProd) / 1000;
+                    return (
+                      <p className="text-blue-600 text-xs mt-1 flex items-center">
+                        <span className="mr-1">📊</span>
+                        Material Required: <strong className="ml-1">{requiredKg.toFixed(2)} kg</strong>
+                      </p>
+                    );
+                  }
+                  return null;
+                })()
               )}
             </div>
 
@@ -462,6 +495,17 @@ export default function SimplifiedManufacturingOrderForm({ onSuccess }) {
               <div>
                 <span className="text-blue-600 font-medium">Type:</span>
                 <div className="text-slate-700">{selectedProductDetails.product.product_type_display || 'N/A'}</div>
+              </div>
+              <div>
+                <span className="text-blue-600 font-medium">Grams per Product:</span>
+                <div className="text-slate-700 font-semibold text-green-700">
+                  {selectedProductDetails.product.grams_per_product 
+                    ? `${parseFloat(selectedProductDetails.product.grams_per_product).toFixed(3)} g`
+                    : selectedProductDetails.product.weight_kg 
+                    ? `${(parseFloat(selectedProductDetails.product.weight_kg) * 1000).toFixed(3)} g`
+                    : 'N/A'
+                  }
+                </div>
               </div>
               <div>
                 <span className="text-blue-600 font-medium">Available Stock:</span>
