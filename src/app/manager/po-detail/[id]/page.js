@@ -365,26 +365,15 @@ export default function PODetailPage() {
                 )}
                 
                 {po.status === 'po_approved' && (
-                  <>
-                    <Button
-                      onClick={() => handleStatusChange('rm_pending', 'Sent to RM Store')}
-                      variant="primary"
-                      className="w-full bg-yellow-600 hover:bg-yellow-700 flex items-center justify-center"
-                      disabled={actionLoading}
-                    >
-                      <TruckIcon className="w-4 h-4 mr-2" />
-                      {actionLoading ? 'Sending...' : 'Send to RM Store'}
-                    </Button>
-                    <Button
-                      onClick={() => handleStatusChange('po_cancelled', 'Cancelled by Manager')}
-                      variant="secondary"
-                      className="w-full bg-red-600 hover:bg-red-700 text-white flex items-center justify-center"
-                      disabled={actionLoading}
-                    >
-                      <XMarkIcon className="w-4 h-4 mr-2" />
-                      {actionLoading ? 'Cancelling...' : 'Cancel PO'}
-                    </Button>
-                  </>
+                  <Button
+                    onClick={() => handleStatusChange('po_cancelled', 'Cancelled by Manager')}
+                    variant="secondary"
+                    className="w-full bg-red-600 hover:bg-red-700 text-white flex items-center justify-center"
+                    disabled={actionLoading}
+                  >
+                    <XMarkIcon className="w-4 h-4 mr-2" />
+                    {actionLoading ? 'Cancelling...' : 'Cancel PO'}
+                  </Button>
                 )}
 
                 {(po.status === 'rm_pending' || po.status === 'rm_completed' || po.status === 'po_cancelled') && (

@@ -158,6 +158,31 @@ export const ADMIN_APIS = {
   SYNC_PROFILES: `${API_BASE_URL}/auth/admin/sync-profiles/`,
 };
 
+// Work Center & Supervisor Management APIs
+export const WORK_CENTER_APIS = {
+  // Work Center Masters
+  WC_LIST: `${API_BASE_URL}/processes/api/work-centers/`,
+  WC_CREATE: `${API_BASE_URL}/processes/api/work-centers/`,
+  WC_DETAIL: (id) => `${API_BASE_URL}/processes/api/work-centers/${id}/`,
+  WC_UPDATE: (id) => `${API_BASE_URL}/processes/api/work-centers/${id}/`,
+  WC_DELETE: (id) => `${API_BASE_URL}/processes/api/work-centers/${id}/`,
+  WC_AVAILABLE: `${API_BASE_URL}/processes/api/work-centers/available_work_centers/`,
+  WC_SUPERVISORS: `${API_BASE_URL}/processes/api/work-centers/supervisors/`,
+
+  // Daily Supervisor Status
+  SUPERVISOR_STATUS_LIST: `${API_BASE_URL}/processes/api/supervisor-status/`,
+  SUPERVISOR_STATUS_DETAIL: (id) => `${API_BASE_URL}/processes/api/supervisor-status/${id}/`,
+  SUPERVISOR_STATUS_TODAY: `${API_BASE_URL}/processes/api/supervisor-status/today_dashboard/`,
+  SUPERVISOR_STATUS_MANUAL_UPDATE: (id) => `${API_BASE_URL}/processes/api/supervisor-status/${id}/manual_update/`,
+  SUPERVISOR_STATUS_RUN_CHECK: `${API_BASE_URL}/processes/api/supervisor-status/run_attendance_check/`,
+
+  // Supervisor Activity Logs
+  ACTIVITY_LOG_LIST: `${API_BASE_URL}/processes/api/supervisor-activity/`,
+  ACTIVITY_LOG_DETAIL: (id) => `${API_BASE_URL}/processes/api/supervisor-activity/${id}/`,
+  ACTIVITY_LOG_TODAY: `${API_BASE_URL}/processes/api/supervisor-activity/today/`,
+  ACTIVITY_LOG_SUMMARY: `${API_BASE_URL}/processes/api/supervisor-activity/summary/`,
+};
+
 // Export all APIs
 export const API_ENDPOINTS = {
   AUTH: AUTH_APIS,
@@ -167,6 +192,7 @@ export const API_ENDPOINTS = {
   NOTIFICATIONS: NOTIFICATIONS_APIS,
   PROCESS_TRACKING: PROCESS_TRACKING_APIS,
   ADMIN: ADMIN_APIS,
+  WORK_CENTER: WORK_CENTER_APIS,
 };
 
 export default API_ENDPOINTS;

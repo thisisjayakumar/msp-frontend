@@ -68,6 +68,18 @@ export default function SimplifiedManufacturingOrderForm({ onSuccess }) {
       if (selectedProduct) {
         // Fetch detailed product information with BOM and materials
         const productDetails = await manufacturingAPI.manufacturingOrders.getProductDetails(selectedProduct.product_code);
+        console.log('Product Details Response:', productDetails);
+        
+        // Validate response structure
+        if (!productDetails || !productDetails.product) {
+          console.error('Invalid product details response:', productDetails);
+          setErrors(prev => ({
+            ...prev,
+            product_code_id: 'Invalid product details received. Please contact support.'
+          }));
+          return;
+        }
+        
         setSelectedProductDetails(productDetails);
         
         // Auto-populate customer name from product details
@@ -479,7 +491,7 @@ export default function SimplifiedManufacturingOrderForm({ onSuccess }) {
         </div>
 
         {/* Auto-populated Product Details - Single Compact Box */}
-        {selectedProductDetails && (
+        {selectedProductDetails && selectedProductDetails.product && (
           <div className="bg-blue-50 rounded-lg border border-blue-200 p-3">
             <h3 className="text-sm font-medium text-blue-800 mb-2 flex items-center space-x-1">
               <span>🔧</span>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   PlayIcon, 
@@ -27,6 +27,10 @@ export default function ProcessTrackingSummary() {
   });
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState(null);
+  
+  // Use ref to prevent duplicate fetches
+  const isFetching = useRef(false);
+  const hasFetched = useRef(false);
 
   useEffect(() => {
     const storedRole = localStorage.getItem('userRole');
@@ -42,6 +46,14 @@ export default function ProcessTrackingSummary() {
 
   // Fetch process tracking data
   const fetchData = async () => {
+    // Prevent duplicate fetches
+    if (isFetching.current) {
+      console.log('ProcessTrackingSummary: Already fetching, skipping...');
+      return;
+    }
+
+    isFetching.current = true;
+    
     try {
       setLoading(true);
       
@@ -105,21 +117,36 @@ export default function ProcessTrackingSummary() {
         overdue: overdue
       });
 
+      hasFetched.current = true;
+
     } catch (error) {
       console.error('Error fetching process tracking data:', error);
     } finally {
       setLoading(false);
+      isFetching.current = false;
     }
   };
 
+  // Fetch data only once on mount
   useEffect(() => {
-    fetchData();
+    // Only fetch if we haven't fetched yet
+    if (!hasFetched.current && !isFetching.current) {
+      console.log('ProcessTrackingSummary: Initial fetch');
+      fetchData();
+    }
     
     // Set up polling for real-time updates (increased interval)
-    const interval = setInterval(fetchData, 60000); // Poll every 60 seconds (increased from 30 seconds) // Update every 30 seconds
+    const interval = setInterval(() => {
+      console.log('ProcessTrackingSummary: Polling refresh');
+      fetchData();
+    }, 60000); // Poll every 60 seconds
     
-    return () => clearInterval(interval);
-  }, []);
+    return () => {
+      clearInterval(interval);
+      // Reset on unmount
+      isFetching.current = false;
+    };
+  }, []); // Empty dependency array - only run on mount
 
   const getStatusIcon = (status) => {
     const icons = {

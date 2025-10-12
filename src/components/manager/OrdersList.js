@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import manufacturingAPI from '@/components/API_Service/manufacturing-api';
 import { toast } from '@/utils/notifications';
@@ -13,7 +13,9 @@ export default function OrdersList({ type }) {
   const [filters, setFilters] = useState({
     status: '',
     search: '',
-    ordering: '-created_at'
+    ordering: '-created_at',
+    start_date: '',
+    end_date: ''
   });
   const [pagination, setPagination] = useState({
     count: 0,
@@ -22,8 +24,15 @@ export default function OrdersList({ type }) {
     current_page: 1
   });
 
+  // Use ref to track if initial fetch is done
+  const initialFetchDone = useRef(false);
+  const lastFiltersRef = useRef(filters);
+
   const isMO = type === 'mo';
-  const api = isMO ? manufacturingAPI.manufacturingOrders : manufacturingAPI.purchaseOrders;
+  const api = useMemo(() => 
+    isMO ? manufacturingAPI.manufacturingOrders : manufacturingAPI.purchaseOrders,
+    [isMO]
+  );
   const isManager = userRole === 'manager';
 
   // Fetch orders
@@ -74,13 +83,28 @@ export default function OrdersList({ type }) {
     }
   };
 
+  // Fetch user role on mount only
   useEffect(() => {
-    // Get user role from localStorage
     const role = localStorage.getItem('userRole');
     setUserRole(role);
-    
-    fetchOrders();
-  }, [filters, type]);
+  }, []);
+
+  // Fetch orders when filters or type change - with duplicate prevention
+  useEffect(() => {
+    // Check if filters have actually changed (deep comparison of values)
+    const filtersChanged = 
+      lastFiltersRef.current.status !== filters.status ||
+      lastFiltersRef.current.search !== filters.search ||
+      lastFiltersRef.current.ordering !== filters.ordering ||
+      lastFiltersRef.current.start_date !== filters.start_date ||
+      lastFiltersRef.current.end_date !== filters.end_date;
+
+    if (!initialFetchDone.current || filtersChanged) {
+      lastFiltersRef.current = filters;
+      initialFetchDone.current = true;
+      fetchOrders();
+    }
+  }, [filters.status, filters.search, filters.ordering, filters.start_date, filters.end_date, type, api]);
 
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({
@@ -179,25 +203,50 @@ export default function OrdersList({ type }) {
 
   return (
     <div className="space-y-6">
-      {/* Filters */}
+      {/* Compact Filters - Single Row */}
       <div className="bg-white/60 backdrop-blur-sm rounded-xl p-4 border border-slate-200/60">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Search</label>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
+          {/* Search - Wider */}
+          <div className="lg:col-span-3">
             <input
               type="text"
               value={filters.search}
               onChange={(e) => handleFilterChange('search', e.target.value)}
-              placeholder={`Search ${isMO ? 'MO ID, product' : 'PO ID, material, vendor'}...`}
-              className="w-full px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder={isMO ? 'MO ID, Product Code...' : 'PO ID, Material, Vendor...'}
+              className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder:text-slate-400"
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Status</label>
+          
+          {/* Date Range - From */}
+          <div className="lg:col-span-2">
+            <input
+              type="date"
+              value={filters.start_date}
+              onChange={(e) => handleFilterChange('start_date', e.target.value)}
+              placeholder="From Date"
+              className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              title="From Date"
+            />
+          </div>
+          
+          {/* Date Range - To */}
+          <div className="lg:col-span-2">
+            <input
+              type="date"
+              value={filters.end_date}
+              onChange={(e) => handleFilterChange('end_date', e.target.value)}
+              placeholder="To Date"
+              className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              title="To Date"
+            />
+          </div>
+          
+          {/* Status */}
+          <div className="lg:col-span-2">
             <select
               value={filters.status}
               onChange={(e) => handleFilterChange('status', e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="">All Status</option>
               {isMO ? (
@@ -223,31 +272,51 @@ export default function OrdersList({ type }) {
               )}
             </select>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Sort By</label>
+          
+          {/* Sort */}
+          <div className="lg:col-span-2">
             <select
               value={filters.ordering}
               onChange={(e) => handleFilterChange('ordering', e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="-created_at">Newest First</option>
               <option value="created_at">Oldest First</option>
               {isMO ? (
                 <>
-                  <option value="-planned_start_date">Start Date (Latest)</option>
-                  <option value="planned_start_date">Start Date (Earliest)</option>
-                  <option value="-delivery_date">Delivery Date (Latest)</option>
-                  <option value="delivery_date">Delivery Date (Earliest)</option>
+                  <option value="-planned_start_date">Start Date ↓</option>
+                  <option value="planned_start_date">Start Date ↑</option>
+                  <option value="-delivery_date">Delivery Date ↓</option>
+                  <option value="delivery_date">Delivery Date ↑</option>
                 </>
               ) : (
                 <>
-                  <option value="-expected_date">Expected Date (Latest)</option>
-                  <option value="expected_date">Expected Date (Earliest)</option>
-                  <option value="-total_amount">Amount (High to Low)</option>
-                  <option value="total_amount">Amount (Low to High)</option>
+                  <option value="-expected_date">Expected Date ↓</option>
+                  <option value="expected_date">Expected Date ↑</option>
+                  <option value="-total_amount">Amount ↓</option>
+                  <option value="total_amount">Amount ↑</option>
                 </>
               )}
             </select>
+          </div>
+          
+          {/* Clear Filters Button */}
+          <div className="lg:col-span-1 flex items-center">
+            <button
+              onClick={() => {
+                setFilters({
+                  status: '',
+                  search: '',
+                  ordering: '-created_at',
+                  start_date: '',
+                  end_date: ''
+                });
+              }}
+              className="w-full px-3 py-2 text-sm bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors font-medium"
+              title="Clear all filters"
+            >
+              Clear
+            </button>
           </div>
         </div>
       </div>
@@ -359,26 +428,15 @@ export default function OrdersList({ type }) {
                             </>
                           )}
                           {order.status === 'po_approved' && (
-                            <>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleStatusChange(order.id, 'rm_pending', 'Sent to RM Store');
-                                }}
-                                className="px-3 py-1 bg-yellow-600 text-white rounded-lg text-sm hover:bg-yellow-700 transition-colors"
-                              >
-                                Send to RM
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleStatusChange(order.id, 'po_cancelled', 'Cancelled by Manager');
-                                }}
-                                className="px-3 py-1 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 transition-colors"
-                              >
-                                Cancel
-                              </button>
-                            </>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleStatusChange(order.id, 'po_cancelled', 'Cancelled by Manager');
+                              }}
+                              className="px-3 py-1 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 transition-colors"
+                            >
+                              Cancel
+                            </button>
                           )}
                         </>
                       ) : (
@@ -401,7 +459,7 @@ export default function OrdersList({ type }) {
                 </div>
                 {isMO ? (
                   <>
-                    <div>
+                    {/* <div>
                       <span className="text-slate-500 font-medium">Supervisor:</span>
                       <span className="ml-2 text-slate-700">
                         {order.assigned_supervisor?.first_name + ' ' + order.assigned_supervisor?.last_name || 'Not assigned'}
@@ -410,9 +468,9 @@ export default function OrdersList({ type }) {
                     <div>
                       <span className="text-slate-500 font-medium">Shift:</span>
                       <span className="ml-2 text-slate-700">{order.shift_display}</span>
-                    </div>
+                    </div> */}
                     <div>
-                      <span className="text-slate-500 font-medium">Delivery:</span>
+                      <span className="text-slate-500 font-medium">Completed Date:</span>
                       <span className="ml-2 text-slate-700">
                         {order.delivery_date ? new Date(order.delivery_date).toLocaleDateString() : 'Not set'}
                       </span>

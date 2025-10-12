@@ -126,7 +126,10 @@ export default function SupervisorDashboard() {
     return <LoadingSpinner />;
   }
 
-  const { summary, pending_start, in_progress } = dashboardData;
+  // Safely extract data with fallbacks
+  const summary = dashboardData?.summary || { total_assigned: 0, pending_start: 0, in_progress: 0 };
+  const pending_start = dashboardData?.pending_start || [];
+  const in_progress = dashboardData?.in_progress || [];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
@@ -164,7 +167,7 @@ export default function SupervisorDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-slate-600 mb-1">Total Assigned</p>
-                <p className="text-3xl font-bold text-slate-800">{summary.total_assigned}</p>
+                <p className="text-3xl font-bold text-slate-800">{summary?.total_assigned || 0}</p>
               </div>
               <div className="p-3 bg-blue-100 rounded-xl">
                 <ClockIcon className="h-8 w-8 text-blue-600" />
@@ -176,7 +179,7 @@ export default function SupervisorDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-slate-600 mb-1">Pending Start</p>
-                <p className="text-3xl font-bold text-green-600">{summary.pending_start}</p>
+                <p className="text-3xl font-bold text-green-600">{summary?.pending_start || 0}</p>
               </div>
               <div className="p-3 bg-green-100 rounded-xl">
                 <PlayIcon className="h-8 w-8 text-green-600" />
@@ -188,7 +191,7 @@ export default function SupervisorDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-slate-600 mb-1">In Progress</p>
-                <p className="text-3xl font-bold text-blue-600">{summary.in_progress}</p>
+                <p className="text-3xl font-bold text-blue-600">{summary?.in_progress || 0}</p>
               </div>
               <div className="p-3 bg-blue-100 rounded-xl">
                 <CheckCircleIcon className="h-8 w-8 text-blue-600" />

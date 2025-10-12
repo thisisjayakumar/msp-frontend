@@ -41,7 +41,7 @@ export default function ProductionHeadDashboard() {
     checkAuth();
   }, [router]);
 
-  // Fetch dashboard statistics
+  // Fetch dashboard statistics only once when authentication is complete
   useEffect(() => {
     const fetchStats = async () => {
       try {
@@ -52,10 +52,11 @@ export default function ProductionHeadDashboard() {
       }
     };
 
-    if (!loading) {
+    // Only fetch once when component mounts and user is authenticated
+    if (!loading && user && !dashboardStats) {
       fetchStats();
     }
-  }, [loading]);
+  }, [loading, user, dashboardStats]);
 
   const handleLogout = () => {
     localStorage.removeItem('authToken');
@@ -69,6 +70,8 @@ export default function ProductionHeadDashboard() {
     { id: 'process-tracking', label: 'Process Tracking', icon: '🏭' },
     { id: 'mo-list', label: 'MO List', icon: '📋' },
     { id: 'po-list', label: 'PO List', icon: '📄' },
+    { id: 'work-centers', label: 'Work Centers', icon: '⚙️' },
+    { id: 'supervisor-dashboard', label: 'Supervisors', icon: '👥' },
   ];
 
   if (loading) {
@@ -175,6 +178,48 @@ export default function ProductionHeadDashboard() {
                   </button>
                 </div>
                 <OrdersList type="po" />
+              </div>
+            )}
+
+            {activeTab === 'work-centers' && (
+              <div className="text-center py-8">
+                <h3 className="text-xl font-semibold text-gray-800 mb-4">
+                  Work Center Management
+                </h3>
+                <p className="text-gray-600 mb-6">
+                  Configure work centers and supervisor assignments
+                </p>
+                <button
+                  onClick={() => router.push('/manager/work-centers')}
+                  className="inline-flex items-center space-x-3 px-8 py-4 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-xl font-medium hover:shadow-lg transition-all"
+                >
+                  <span className="text-2xl">⚙️</span>
+                  <div className="text-left">
+                    <div className="font-semibold">Manage Work Centers</div>
+                    <div className="text-xs text-amber-100">Configure supervisors and settings</div>
+                  </div>
+                </button>
+              </div>
+            )}
+
+            {activeTab === 'supervisor-dashboard' && (
+              <div className="text-center py-8">
+                <h3 className="text-xl font-semibold text-gray-800 mb-4">
+                  Supervisor Attendance Dashboard
+                </h3>
+                <p className="text-gray-600 mb-6">
+                  Monitor daily supervisor attendance and assignments
+                </p>
+                <button
+                  onClick={() => router.push('/admin/supervisor-dashboard')}
+                  className="inline-flex items-center space-x-3 px-8 py-4 bg-gradient-to-r from-green-600 to-teal-600 text-white rounded-xl font-medium hover:shadow-lg transition-all"
+                >
+                  <span className="text-2xl">👥</span>
+                  <div className="text-left">
+                    <div className="font-semibold">View Supervisor Dashboard</div>
+                    <div className="text-xs text-green-100">Check attendance and manage overrides</div>
+                  </div>
+                </button>
               </div>
             )}
           </div>

@@ -39,6 +39,14 @@ export default function AdminDashboard() {
     }
   }, [router]);
 
+  const handleLogout = () => {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('userData');
+    router.replace('/login');
+  };
+
   if (!user) {
     return <div className="p-6">Loading...</div>;
   }
@@ -47,9 +55,14 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="px-4 py-3">
-          <h1 className="text-xl font-bold text-gray-900">Admin Dashboard</h1>
-          <p className="text-sm text-gray-500">User and Role Management</p>
+        <div className="px-4 py-3 flex justify-between items-center">
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">Admin Dashboard</h1>
+            <p className="text-sm text-gray-500">User and Role Management</p>
+          </div>
+          <button className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors" onClick={handleLogout}>
+            Logout
+          </button>
         </div>
 
         {/* Tabs */}

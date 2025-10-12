@@ -120,9 +120,9 @@ export default function MODetailPage() {
       setProcessesInitialized(data.process_executions && data.process_executions.length > 0);
       
       // Set edit data
+      // NOTE: assigned_supervisor removed - supervisor tracking moved to work center level
       setEditData({
         assigned_rm_store: data.assigned_rm_store || '',
-        assigned_supervisor: data.assigned_supervisor || '',
         shift: data.shift || ''
       });
       
@@ -199,9 +199,9 @@ export default function MODetailPage() {
   // Handle cancel edit
   const handleCancelEdit = () => {
     setIsEditing(false);
+    // NOTE: assigned_supervisor removed - supervisor tracking moved to work center level
     setEditData({
       assigned_rm_store: mo.assigned_rm_store || '',
-      assigned_supervisor: mo.assigned_supervisor || '',
       shift: mo.shift || ''
     });
   };
@@ -230,13 +230,10 @@ export default function MODetailPage() {
 
   // Handle approve MO (Manager/Production Head - starts production)
   const handleApproveMO = async () => {
-    if (!mo.assigned_supervisor) {
-      alert('Please assign a supervisor before approving the MO.');
-      return;
-    }
-
+    // NOTE: Supervisor validation removed - supervisors are now assigned per work center automatically
+    
     const confirmApproval = window.confirm(
-      `Are you sure you want to approve MO ${mo.mo_id} and start production? This will notify the assigned supervisor and consume raw materials.`
+      `Are you sure you want to approve MO ${mo.mo_id} and start production? This will consume raw materials and route to work centers.`
     );
 
     if (!confirmApproval) return;
@@ -250,7 +247,7 @@ export default function MODetailPage() {
       // Response is already unwrapped by handleResponse, so it contains { message, mo }
       if (response && response.mo) {
         setMO(response.mo);
-        alert('MO approved successfully! Production has started and supervisor has been notified.');
+        alert('MO approved successfully! Production has started and routed to work centers.');
       } else {
         alert('Failed to approve MO: Unexpected response format');
       }
@@ -470,27 +467,8 @@ export default function MODetailPage() {
                         <span className="font-medium text-slate-800">{mo.assigned_rm_store_name || 'Not Assigned'}</span>
                       )}
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-slate-600">Supervisor:</span>
-                      {isEditing ? (
-                        <div className="searchable-dropdown-compact flex-1 ml-4">
-                          <SearchableDropdown
-                            options={supervisorsList}
-                            value={editData.assigned_supervisor}
-                            onChange={(value) => handleEditInputChange('assigned_supervisor', value)}
-                            placeholder="Select Supervisor"
-                            displayKey="display_name"
-                            valueKey="id"
-                            searchKeys={["display_name", "username", "email"]}
-                            className="w-full text-slate-800"
-                            loading={supervisorsList.length === 0}
-                            allowClear={true}
-                          />
-                        </div>
-                      ) : (
-                        <span className="font-medium text-slate-800">{mo.assigned_supervisor_name || 'Not Assigned'}</span>
-                      )}
-                    </div>
+                    {/* NOTE: Supervisor field removed - supervisor tracking moved to work center level */}
+                    {/* Supervisors are now automatically assigned per work center based on daily attendance */}
                     <div className="flex justify-between">
                       <span className="text-slate-600">Shift:</span>
                       {isEditing ? (
@@ -647,17 +625,12 @@ export default function MODetailPage() {
                   <CheckCircleIcon className="h-12 w-12 text-green-600 mx-auto mb-2" />
                   <h3 className="text-lg font-semibold text-slate-800">Ready for Production</h3>
                   <p className="text-slate-600">
-                    Raw materials have been allocated. Approve to start production and notify the supervisor.
+                    Raw materials have been allocated. Approve to start production and route to work centers.
                   </p>
-                  {!mo.assigned_supervisor && (
-                    <p className="text-amber-600 text-sm mt-2">
-                      ⚠️ Please assign a supervisor before starting production
-                    </p>
-                  )}
                 </div>
                 <button
                   onClick={handleApproveMO}
-                  disabled={loading || !mo.assigned_supervisor}
+                  disabled={loading}
                   className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {loading ? 'Starting Production...' : 'Start Production'}

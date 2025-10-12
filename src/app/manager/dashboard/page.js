@@ -58,7 +58,7 @@ export default function ManagerDashboard() {
     checkAuth();
   }, [router]);
 
-  // Fetch dashboard statistics
+  // Fetch dashboard statistics only once when authentication is complete
   useEffect(() => {
     const fetchStats = async () => {
       try {
@@ -98,10 +98,11 @@ export default function ManagerDashboard() {
       }
     };
 
-    if (!loading) {
+    // Only fetch once when component mounts and user is authenticated
+    if (!loading && user && !dashboardStats) {
       fetchStats();
     }
-  }, [loading]);
+  }, [loading, user, dashboardStats]);
 
   const handleLogout = () => {
     localStorage.removeItem('authToken');
@@ -115,6 +116,8 @@ export default function ManagerDashboard() {
     { id: 'process-tracking', label: 'Process Tracking', icon: '🏭' },
     { id: 'mo-list', label: 'MO List', icon: '📋' },
     { id: 'po-list', label: 'PO List', icon: '📄' },
+    { id: 'work-centers', label: 'Work Centers', icon: '⚙️' },
+    { id: 'supervisor-dashboard', label: 'Supervisors', icon: '👥' },
   ];
 
   const navigationButtons = [
@@ -304,7 +307,6 @@ export default function ManagerDashboard() {
               </div>
               
               <DashboardStats stats={dashboardStats} />
-              <ProcessTrackingSummary />
             </div>
           )}
 
@@ -384,6 +386,56 @@ export default function ManagerDashboard() {
               </div>
               <div className="p-6">
                 <OrdersList type="po" />
+              </div>
+            </div>
+          )}
+
+          {/* Work Centers Tab */}
+          {activeTab === 'work-centers' && (
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200/60">
+              <div className="p-6 border-b border-slate-200/60">
+                <h2 className="text-2xl font-bold text-slate-800 flex items-center space-x-2">
+                  <span>⚙️</span>
+                  <span>Work Center Management</span>
+                </h2>
+                <p className="text-slate-600 mt-1">Configure work centers and supervisor assignments</p>
+              </div>
+              <div className="p-6 text-center">
+                <button
+                  onClick={() => router.push('/manager/work-centers')}
+                  className="inline-flex items-center space-x-3 px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-medium hover:shadow-lg transition-all"
+                >
+                  <span className="text-2xl">⚙️</span>
+                  <div className="text-left">
+                    <div className="font-semibold">Manage Work Centers</div>
+                    <div className="text-xs text-blue-100">Configure supervisors and settings</div>
+                  </div>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Supervisor Dashboard Tab */}
+          {activeTab === 'supervisor-dashboard' && (
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200/60">
+              <div className="p-6 border-b border-slate-200/60">
+                <h2 className="text-2xl font-bold text-slate-800 flex items-center space-x-2">
+                  <span>👥</span>
+                  <span>Supervisor Attendance Dashboard</span>
+                </h2>
+                <p className="text-slate-600 mt-1">Monitor daily supervisor attendance and assignments</p>
+              </div>
+              <div className="p-6 text-center">
+                <button
+                  onClick={() => router.push('/admin/supervisor-dashboard')}
+                  className="inline-flex items-center space-x-3 px-8 py-4 bg-gradient-to-r from-green-600 to-teal-600 text-white rounded-xl font-medium hover:shadow-lg transition-all"
+                >
+                  <span className="text-2xl">👥</span>
+                  <div className="text-left">
+                    <div className="font-semibold">View Supervisor Dashboard</div>
+                    <div className="text-xs text-green-100">Check attendance and manage overrides</div>
+                  </div>
+                </button>
               </div>
             </div>
           )}
