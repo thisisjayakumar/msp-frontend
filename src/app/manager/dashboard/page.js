@@ -116,6 +116,7 @@ export default function ManagerDashboard() {
     { id: 'process-tracking', label: 'Process Tracking', icon: '🏭' },
     { id: 'mo-list', label: 'MO List', icon: '📋' },
     { id: 'po-list', label: 'PO List', icon: '📄' },
+    { id: 'outsourcing', label: 'Outsourcing', icon: '🚚' },
     { id: 'work-centers', label: 'Work Centers', icon: '⚙️' },
     { id: 'supervisor-dashboard', label: 'Supervisors', icon: '👥' },
   ];
@@ -386,6 +387,39 @@ export default function ManagerDashboard() {
               </div>
               <div className="p-6">
                 <OrdersList type="po" />
+              </div>
+            </div>
+          )}
+
+          {/* Outsourcing Tab */}
+          {activeTab === 'outsourcing' && (
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200/60">
+              <div className="p-6 border-b border-slate-200/60">
+                <h2 className="text-2xl font-bold text-slate-800 flex items-center space-x-2">
+                  <span>🚚</span>
+                  <span>Outsourcing Management</span>
+                </h2>
+                <p className="text-slate-600 mt-1">Track items sent to external vendors for processing</p>
+              </div>
+              <div className="p-6 text-center">
+                <div className="py-8">
+                  <h3 className="text-xl font-semibold text-slate-800 mb-4">
+                    Outsourcing Requests
+                  </h3>
+                  <p className="text-slate-600 mb-6">
+                    Monitor and manage outsourcing requests, track returns, and maintain inventory traceability
+                  </p>
+                  <button
+                    onClick={() => router.push('/manager/outsourcing')}
+                    className="inline-flex items-center space-x-3 px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-medium hover:shadow-lg transition-all"
+                  >
+                    <span className="text-2xl">🚚</span>
+                    <div className="text-left">
+                      <div className="font-semibold">Manage Outsourcing</div>
+                      <div className="text-xs text-blue-100">View requests and track returns</div>
+                    </div>
+                  </button>
+                </div>
               </div>
             </div>
           )}
