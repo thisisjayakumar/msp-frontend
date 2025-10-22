@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import SimplifiedManufacturingOrderForm from '@/components/manager/SimplifiedManufacturingOrderForm';
 import LoadingSpinner from '@/components/CommonComponents/ui/LoadingSpinner';
-import ToastTest from '@/components/ToastTest';
 
 export default function CreateMOPage() {
   const router = useRouter();
@@ -89,7 +88,7 @@ export default function CreateMOPage() {
       </main>
       
       {/* Temporary Toast Test Component */}
-      <ToastTest />
+      {/* <ToastTest /> */}
       
     </div>
   );

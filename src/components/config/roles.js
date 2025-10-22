@@ -56,13 +56,13 @@ export const ROLE_CONFIG = {
     permissions: ['process_management', 'manage_inventory', 'rawmaterials_crud', 'rmstock_management', 'stock_transactions']
   },
   fg_store: {
-    title: 'FG Store Dashboard',
+    title: 'FG Store & Dispatch Dashboard',
     subtitle: 'Finished Goods Management',
-    description: 'Manage process operations and finished goods inventory',
+    description: 'Manage finished goods inventory, dispatch operations, and stock levels',
     primaryColor: '#ea580c', // orange-600
     secondaryColor: '#fdba74', // orange-300
     icon: 'building-storefront',
-    permissions: ['process_management', 'dispatch_orders', 'packaging', 'finished_goods']
+    permissions: ['dispatch_management', 'stock_levels', 'mo_dispatch', 'transactions_log', 'stock_alerts', 'packaging']
   }
 };
 

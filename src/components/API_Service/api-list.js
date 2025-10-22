@@ -40,12 +40,11 @@ export const MANUFACTURING_APIS = {
   MO_RM_STORE_USERS: `${API_BASE_URL}/manufacturing/api/manufacturing-orders/rm_store_users/`,
   MO_CUSTOMERS: `${API_BASE_URL}/manufacturing/api/manufacturing-orders/customers/`,
   MO_UPDATE_DETAILS: (id) => `${API_BASE_URL}/manufacturing/api/manufacturing-orders/${id}/update_mo_details/`,
-  MO_APPROVE: (id) => `${API_BASE_URL}/manufacturing/api/manufacturing-orders/${id}/approve_mo/`,
-  MO_RM_APPROVE: (id) => `${API_BASE_URL}/manufacturing/api/manufacturing-orders/${id}/rm_approve/`,
   MO_RM_STORE_DASHBOARD: `${API_BASE_URL}/manufacturing/api/manufacturing-orders/rm_store_dashboard/`,
   MO_SUPERVISOR_DASHBOARD: `${API_BASE_URL}/manufacturing/api/manufacturing-orders/supervisor_dashboard/`,
   MO_START: (id) => `${API_BASE_URL}/manufacturing/api/manufacturing-orders/${id}/start_mo/`,
   MO_CALCULATE_RM: `${API_BASE_URL}/manufacturing/api/manufacturing-orders/calculate_rm_requirement/`,
+  MO_AVAILABLE_HEAT_NUMBERS: (id) => `${API_BASE_URL}/manufacturing/api/manufacturing-orders/${id}/available-heat-numbers/`,
 
   // Batches
   BATCH_LIST: `${API_BASE_URL}/manufacturing/api/batches/`,
@@ -93,7 +92,10 @@ export const INVENTORY_APIS = {
 
   // Raw Materials
   RAW_MATERIAL_LIST: `${API_BASE_URL}/inventory/raw-materials/`,
+  RAW_MATERIAL_CREATE: `${API_BASE_URL}/inventory/raw-materials/`,
   RAW_MATERIAL_DETAIL: (id) => `${API_BASE_URL}/inventory/raw-materials/${id}/`,
+  RAW_MATERIAL_UPDATE: (id) => `${API_BASE_URL}/inventory/raw-materials/${id}/`,
+  RAW_MATERIAL_DELETE: (id) => `${API_BASE_URL}/inventory/raw-materials/${id}/`,
   RAW_MATERIAL_DROPDOWN: `${API_BASE_URL}/inventory/raw-materials/dropdown/`,
 
   // Dashboard
@@ -108,6 +110,15 @@ export const INVENTORY_APIS = {
   GRM_RECEIPTS_DETAIL: (id) => `${API_BASE_URL}/inventory/grm-receipts/${id}/`,
   GRM_RECEIPTS_QUALITY_CHECK: (id) => `${API_BASE_URL}/inventory/grm-receipts/${id}/quality_check/`,
   GRM_RECEIPTS_COMPLETE: (id) => `${API_BASE_URL}/inventory/grm-receipts/${id}/complete_receipt/`,
+
+  // Heat Numbers
+  HEAT_NUMBERS_LIST: `${API_BASE_URL}/inventory/heat-numbers/`,
+  HEAT_NUMBERS_CREATE: `${API_BASE_URL}/inventory/heat-numbers/`,
+  HEAT_NUMBERS_DETAIL: (id) => `${API_BASE_URL}/inventory/heat-numbers/${id}/`,
+  HEAT_NUMBERS_UPDATE: (id) => `${API_BASE_URL}/inventory/heat-numbers/${id}/`,
+  HEAT_NUMBERS_DELETE: (id) => `${API_BASE_URL}/inventory/heat-numbers/${id}/`,
+  HEAT_NUMBERS_BY_MATERIAL: (materialId) => `${API_BASE_URL}/inventory/heat-numbers/by_material/${materialId}/`,
+  HEAT_NUMBERS_BULK_CREATE: `${API_BASE_URL}/inventory/heat-numbers/bulk_create/`,
 };
 
 // Notifications APIs

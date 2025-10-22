@@ -244,6 +244,45 @@ export const rawMaterialsAPI = {
     return handleResponse(response);
   },
 
+  // Create new raw material
+  create: async (rawMaterialData) => {
+    const response = await apiRequest(INVENTORY_APIS.RAW_MATERIAL_CREATE, {
+      method: 'POST',
+      body: rawMaterialData,
+    });
+    
+    return handleResponse(response);
+  },
+
+  // Update raw material
+  update: async (id, rawMaterialData) => {
+    const response = await apiRequest(INVENTORY_APIS.RAW_MATERIAL_UPDATE(id), {
+      method: 'PUT',
+      body: rawMaterialData,
+    });
+    
+    return handleResponse(response);
+  },
+
+  // Partial update raw material
+  partialUpdate: async (id, rawMaterialData) => {
+    const response = await apiRequest(INVENTORY_APIS.RAW_MATERIAL_UPDATE(id), {
+      method: 'PATCH',
+      body: rawMaterialData,
+    });
+    
+    return handleResponse(response);
+  },
+
+  // Delete raw material
+  delete: async (id) => {
+    const response = await apiRequest(INVENTORY_APIS.RAW_MATERIAL_DELETE(id), {
+      method: 'DELETE',
+    });
+    
+    return handleResponse(response);
+  },
+
   // Get raw materials dropdown
   getDropdown: async () => {
     const response = await apiRequest(INVENTORY_APIS.RAW_MATERIAL_DROPDOWN, {
@@ -358,6 +397,86 @@ export const grmReceiptsAPI = {
   // },
 };
 
+// Heat Numbers API Service
+export const heatNumbersAPI = {
+  // Get all heat numbers with optional filters
+  getAll: async (filters = {}) => {
+    const queryParams = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        queryParams.append(key, value);
+      }
+    });
+
+    const url = queryParams.toString()
+      ? `${INVENTORY_APIS.HEAT_NUMBERS_LIST}?${queryParams}`
+      : INVENTORY_APIS.HEAT_NUMBERS_LIST;
+
+    const response = await apiRequest(url, {
+      method: 'GET',
+    });
+
+    return handleResponse(response);
+  },
+
+  // Get heat number by ID
+  getById: async (id) => {
+    const response = await apiRequest(INVENTORY_APIS.HEAT_NUMBERS_DETAIL(id), {
+      method: 'GET',
+    });
+
+    return handleResponse(response);
+  },
+
+  // Get heat numbers by material ID
+  getByMaterial: async (materialId) => {
+    const response = await apiRequest(INVENTORY_APIS.HEAT_NUMBERS_BY_MATERIAL(materialId), {
+      method: 'GET',
+    });
+
+    return handleResponse(response);
+  },
+
+  // Create new heat number
+  create: async (heatData) => {
+    const response = await apiRequest(INVENTORY_APIS.HEAT_NUMBERS_CREATE, {
+      method: 'POST',
+      body: heatData,
+    });
+
+    return handleResponse(response);
+  },
+
+  // Bulk create heat numbers with child batches
+  bulkCreate: async (heatNumbersData) => {
+    const response = await apiRequest(INVENTORY_APIS.HEAT_NUMBERS_BULK_CREATE, {
+      method: 'POST',
+      body: { heat_numbers: heatNumbersData },
+    });
+
+    return handleResponse(response);
+  },
+
+  // Update heat number
+  update: async (id, heatData) => {
+    const response = await apiRequest(INVENTORY_APIS.HEAT_NUMBERS_UPDATE(id), {
+      method: 'PUT',
+      body: heatData,
+    });
+
+    return handleResponse(response);
+  },
+
+  // Delete heat number
+  delete: async (id) => {
+    const response = await apiRequest(INVENTORY_APIS.HEAT_NUMBERS_DELETE(id), {
+      method: 'DELETE',
+    });
+
+    return handleResponse(response);
+  },
+};
+
 // Combined inventory API service
 export const inventoryAPI = {
   products: productsAPI,
@@ -366,6 +485,7 @@ export const inventoryAPI = {
   dashboard: dashboardAPI,
   transactions: transactionsAPI,
   grmReceipts: grmReceiptsAPI,
+  heatNumbers: heatNumbersAPI,
 };
 
 // Export individual services for convenience
@@ -379,4 +499,5 @@ export {
   dashboardAPI,
   transactionsAPI,
   grmReceiptsAPI,
+  heatNumbersAPI,
 };

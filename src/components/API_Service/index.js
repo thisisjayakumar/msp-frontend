@@ -48,6 +48,9 @@ export { processTrackingAPI } from './process-tracking-api';
 // Import Notifications API services
 export { notificationsAPI } from './notifications-api';
 
+// Import FG Store API services
+export { fgStoreAPI } from './fg-store-api';
+
 // Import Admin API services
 import adminService from './adminService';
 export {
@@ -140,6 +143,9 @@ export const API_SERVICES = {
   
   // Notifications services
   notifications: notificationsAPI,
+  
+  // FG Store services
+  fgStore: fgStoreAPI,
 };
 
 /**

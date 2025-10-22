@@ -145,6 +145,15 @@ export const batchAPI = {
     return handleResponse(response);
   },
 
+  // Get available heat numbers for an MO
+  getAvailableHeatNumbers: async (moId) => {
+    const response = await apiRequest(MANUFACTURING_APIS.MO_AVAILABLE_HEAT_NUMBERS(moId), {
+      method: 'GET',
+    });
+    
+    return handleResponse(response);
+  },
+
   // Add scrap RM to a batch
   addScrapRM: async (batchId, scrapRmKg) => {
     const response = await apiRequest(`${MANUFACTURING_APIS.BATCH_LIST}${batchId}/add-scrap-rm/`, {
@@ -301,7 +310,7 @@ export const manufacturingOrdersAPI = {
     return handleResponse(response);
   },
 
-  // Update MO details (supervisor, shift) - Manager only
+  // Update MO details and handle all MO operations through single endpoint
   updateMODetails: async (id, updateData) => {
     const response = await apiRequest(MANUFACTURING_APIS.MO_UPDATE_DETAILS(id), {
       method: 'PATCH',
@@ -311,21 +320,29 @@ export const manufacturingOrdersAPI = {
     return handleResponse(response);
   },
 
-  // Approve MO - Manager only
+  // Simplified MO workflow - single approval by manager
+  
+  // Approve MO - Manager only (on_hold → mo_approved)
   approveMO: async (id, approvalData) => {
-    const response = await apiRequest(MANUFACTURING_APIS.MO_APPROVE(id), {
-      method: 'POST',
-      body: approvalData,
+    const response = await apiRequest(MANUFACTURING_APIS.MO_UPDATE_DETAILS(id), {
+      method: 'PATCH',
+      body: {
+        action: 'approve',
+        ...approvalData
+      },
     });
     
     return handleResponse(response);
   },
 
-  // RM Approve MO - RM Store user only
-  rmApproveMO: async (id, approvalData) => {
-    const response = await apiRequest(MANUFACTURING_APIS.MO_RM_APPROVE(id), {
-      method: 'POST',
-      body: approvalData,
+  // Start production - Manager only (mo_approved → in_progress)
+  startProduction: async (id, startData) => {
+    const response = await apiRequest(MANUFACTURING_APIS.MO_UPDATE_DETAILS(id), {
+      method: 'PATCH',
+      body: {
+        action: 'start_production',
+        ...startData
+      },
     });
     
     return handleResponse(response);
@@ -365,6 +382,22 @@ export const manufacturingOrdersAPI = {
       method: 'POST',
       body: calculationData,
     });
+    
+    return handleResponse(response);
+  },
+
+  // Assign supervisor to process execution
+  assignSupervisor: async (processExecutionId, supervisorId, notes = '') => {
+    const response = await apiRequest(
+      `${MANUFACTURING_APIS.MO_LIST.replace('manufacturing-orders', 'process-executions')}${processExecutionId}/assign_supervisor/`,
+      {
+        method: 'PUT',
+        body: {
+          assigned_supervisor: supervisorId,
+          notes: notes,
+        },
+      }
+    );
     
     return handleResponse(response);
   },

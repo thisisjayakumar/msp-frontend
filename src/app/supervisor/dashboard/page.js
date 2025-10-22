@@ -145,6 +145,14 @@ export default function SupervisorDashboard() {
             </div>
             
             <div className="flex items-center space-x-4">
+              {/* Navigation Links */}
+              <button
+                onClick={() => router.push('/supervisor/incoming-material-verification')}
+                className="px-4 py-2 text-sm text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                Material Verification
+              </button>
+              
               {/* Notification Bell */}
               <NotificationBell onNotificationClick={handleRefresh} />
               

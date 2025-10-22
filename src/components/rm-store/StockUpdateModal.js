@@ -156,41 +156,41 @@ export default function StockUpdateModal({ material, onSave, onCancel }) {
                 type="button"
                 onClick={() => setQuantity('0')}
                 disabled={loading}
-                className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-2 text-slate-600 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                0
+                +0
               </button>
               <button
                 type="button"
                 onClick={() => setQuantity('50')}
                 disabled={loading}
-                className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-2 text-slate-600 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                50
+                +50
               </button>
               <button
                 type="button"
                 onClick={() => setQuantity('100')}
                 disabled={loading}
-                className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-2 text-slate-600 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                100
+                +100
               </button>
               <button
                 type="button"
                 onClick={() => setQuantity('500')}
                 disabled={loading}
-                className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-2 text-slate-600 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                500
+                +500
               </button>
               <button
                 type="button"
                 onClick={() => setQuantity('1000')}
                 disabled={loading}
-                className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-2 text-slate-600 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                1000
+                +1000
               </button>
             </div>
 

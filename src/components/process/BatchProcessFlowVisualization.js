@@ -57,12 +57,14 @@ export default function BatchProcessFlowVisualization({
     console.log(`Checking batch ${batch.batch_id} in process ${process.process_name}:`);
     console.log(`Batch notes: "${notes}"`);
     console.log(`Batch status: ${batch.status}`);
+    console.log(`Process ID: ${process.id}`);
     
     // Handle both old Python dict format and new string format
     let processStatus = null;
     
     // Check new string format first
     const newProcessKey = `PROCESS_${process.id}_STATUS`;
+    console.log(`Looking for key: ${newProcessKey}:in_progress;`);
     if (notes.includes(`${newProcessKey}:in_progress;`)) {
       processStatus = 'in_progress';
     } else if (notes.includes(`${newProcessKey}:completed;`)) {
@@ -83,6 +85,17 @@ export default function BatchProcessFlowVisualization({
         } else if (processBlock.includes("'status': 'completed'")) {
           processStatus = 'completed';
         }
+      }
+    }
+    
+    // Fallback: if batch is in_process and this is the first process AND batch notes don't show any process started yet
+    // Only use this if we haven't found any process status in notes at all
+    if (!processStatus && batch.status === 'in_process' && processExecutions.findIndex(p => p.id === process.id) === 0) {
+      // Check if notes has ANY process status markers
+      const hasAnyProcessStatus = notes.includes('PROCESS_') && notes.includes('_STATUS:');
+      if (!hasAnyProcessStatus) {
+        console.log(`Batch is in_process and this is first process with no process markers, marking as in_progress`);
+        processStatus = 'in_progress';
       }
     }
     

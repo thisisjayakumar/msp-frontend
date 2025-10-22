@@ -279,6 +279,20 @@ export default function ProcessTrackingSummary() {
                           Active: {activeProcess.process_name}
                         </div>
                       )}
+                      {activeProcess?.batch_counts && (
+                        <div className="text-xs text-slate-500 mt-2 flex flex-wrap gap-2">
+                          <span className="px-2 py-1 bg-gray-100 rounded">📦 {activeProcess.batch_counts.total} batches</span>
+                          {activeProcess.batch_counts.pending > 0 && (
+                            <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded">{activeProcess.batch_counts.pending} pending</span>
+                          )}
+                          {activeProcess.batch_counts.in_progress > 0 && (
+                            <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded">{activeProcess.batch_counts.in_progress} in progress</span>
+                          )}
+                          {activeProcess.batch_counts.completed > 0 && (
+                            <span className="px-2 py-1 bg-green-100 text-green-700 rounded">{activeProcess.batch_counts.completed} completed</span>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
 

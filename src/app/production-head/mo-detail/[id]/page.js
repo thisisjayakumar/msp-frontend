@@ -8,6 +8,7 @@ import { ArrowLeftIcon, PlayIcon, PauseIcon, CheckCircleIcon, ExclamationTriangl
 import ProcessFlowVisualization from '@/components/process/ProcessFlowVisualization';
 import LoadingSpinner from '@/components/CommonComponents/ui/LoadingSpinner';
 import SearchableDropdown from '@/components/CommonComponents/ui/SearchableDropdown';
+import SupervisorAssignmentModal from '@/components/supervisor/SupervisorAssignmentModal';
 
 // API Services
 import manufacturingAPI from '@/components/API_Service/manufacturing-api';
@@ -30,8 +31,9 @@ export default function MODetailPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({});
   const [supervisorsList, setSupervisorsList] = useState([]);
-  const [rmStoreUsersList, setRMStoreUsersList] = useState([]);
   const [userRole, setUserRole] = useState(null);
+  const [showSupervisorModal, setShowSupervisorModal] = useState(false);
+  const [selectedProcessExecution, setSelectedProcessExecution] = useState(null);
 
   // Fetch user profile to get role (THROTTLED)
   const fetchUserProfile = useCallback(async () => {
@@ -78,11 +80,11 @@ export default function MODetailPage() {
     // If role is not available, fetch it from profile
     if (!role) {
       fetchUserProfile().then((fetchedRole) => {
-        if (!['manager', 'production_head', 'rm_store'].includes(fetchedRole)) {
+        if (!['manager', 'production_head'].includes(fetchedRole)) {
           router.push('/production-head');
         }
       });
-    } else if (!['manager', 'production_head', 'rm_store'].includes(role)) {
+    } else if (!['manager', 'production_head'].includes(role)) {
       router.push('/production-head');
       return;
     } else {
@@ -101,15 +103,6 @@ export default function MODetailPage() {
     }
   }, []);
 
-  // Fetch RM store users list
-  const fetchRMStoreUsers = useCallback(async () => {
-    try {
-      const rmStoreUsers = await manufacturingAPI.manufacturingOrders.getRMStoreUsers();
-      setRMStoreUsersList(rmStoreUsers);
-    } catch (error) {
-      console.error('Error fetching RM store users:', error);
-    }
-  }, []);
 
   // Fetch MO data with process tracking
   const fetchMOData = useCallback(async () => {
@@ -122,7 +115,6 @@ export default function MODetailPage() {
       // Set edit data
       // NOTE: assigned_supervisor removed - supervisor tracking moved to work center level
       setEditData({
-        assigned_rm_store: data.assigned_rm_store || '',
         shift: data.shift || ''
       });
       
@@ -144,7 +136,7 @@ export default function MODetailPage() {
     let cleanupFunction = null;
 
     const initializePolling = async () => {
-      await Promise.all([fetchMOData(), fetchSupervisors(), fetchRMStoreUsers()]);
+      await Promise.all([fetchMOData(), fetchSupervisors()]);
 
       // Set up real-time polling for updates
       cleanupFunction = await processTrackingAPI.pollProcessUpdates(moId, (data) => {
@@ -163,7 +155,7 @@ export default function MODetailPage() {
         cleanupFunction();
       }
     };
-  }, [fetchMOData, fetchSupervisors, fetchRMStoreUsers, moId]);
+  }, [fetchMOData, fetchSupervisors, moId]);
 
   // Initialize processes for the MO
   const handleInitializeProcesses = async () => {
@@ -201,7 +193,6 @@ export default function MODetailPage() {
     setIsEditing(false);
     // NOTE: assigned_supervisor removed - supervisor tracking moved to work center level
     setEditData({
-      assigned_rm_store: mo.assigned_rm_store || '',
       shift: mo.shift || ''
     });
   };
@@ -259,32 +250,20 @@ export default function MODetailPage() {
     }
   };
 
-  // Handle RM approve MO (RM Store user - allocates raw materials)
-  const handleRMApproveMO = async () => {
-    const confirmApproval = window.confirm(
-      `Are you sure you want to approve RM allocation for MO ${mo.mo_id}? This will make the MO ready for production approval.`
-    );
+  // Handle opening supervisor assignment modal
+  const handleOpenSupervisorModal = (processExecution) => {
+    setSelectedProcessExecution(processExecution);
+    setShowSupervisorModal(true);
+  };
 
-    if (!confirmApproval) return;
-
-    try {
-      setLoading(true);
-      const response = await manufacturingAPI.manufacturingOrders.rmApproveMO(moId, {
-        notes: 'Raw materials verified and allocated by RM store'
-      });
-      
-      // Response is already unwrapped by handleResponse, so it contains { message, mo }
-      if (response && response.mo) {
-        setMO(response.mo);
-        alert('RM allocation approved successfully! MO is now ready for production approval.');
-      } else {
-        alert('Failed to approve RM allocation: Unexpected response format');
-      }
-    } catch (error) {
-      console.error('Error approving RM allocation:', error);
-      alert('Failed to approve RM allocation: ' + error.message);
-    } finally {
-      setLoading(false);
+  // Handle supervisor assignment success
+  const handleSupervisorAssignmentSuccess = (updatedProcessExecution) => {
+    // Update the MO with the new process execution data
+    if (mo && mo.process_executions) {
+      const updatedProcesses = mo.process_executions.map(pe => 
+        pe.id === updatedProcessExecution.id ? updatedProcessExecution : pe
+      );
+      setMO({ ...mo, process_executions: updatedProcesses });
     }
   };
 
@@ -345,6 +324,7 @@ export default function MODetailPage() {
   const tabs = [
     { id: 'overview', label: 'Overview', icon: '📋' },
     { id: 'processes', label: 'Process Flow', icon: '🏭' },
+    { id: 'assignments', label: 'Supervisor Assignments', icon: '👥' },
     { id: 'alerts', label: 'Alerts', icon: '🚨', count: alerts.length },
   ];
 
@@ -445,27 +425,6 @@ export default function MODetailPage() {
                     <div className="flex justify-between">
                       <span className="text-slate-600">Grade:</span>
                       <span className="font-medium text-slate-800">{mo.grade}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-slate-600">RM Store User:</span>
-                      {isEditing ? (
-                        <div className="searchable-dropdown-compact flex-1 ml-4">
-                          <SearchableDropdown
-                            options={rmStoreUsersList}
-                            value={editData.assigned_rm_store}
-                            onChange={(value) => handleEditInputChange('assigned_rm_store', value)}
-                            placeholder="Select RM Store User"
-                            displayKey="display_name"
-                            valueKey="id"
-                            searchKeys={["display_name", "username", "email"]}
-                            className="w-full text-slate-800"
-                            loading={rmStoreUsersList.length === 0}
-                            allowClear={true}
-                          />
-                        </div>
-                      ) : (
-                        <span className="font-medium text-slate-800">{mo.assigned_rm_store_name || 'Not Assigned'}</span>
-                      )}
                     </div>
                     {/* NOTE: Supervisor field removed - supervisor tracking moved to work center level */}
                     {/* Supervisors are now automatically assigned per work center based on daily attendance */}
@@ -595,28 +554,6 @@ export default function MODetailPage() {
               )}
             </div>
 
-            {/* RM Store Actions */}
-            {userRole === 'rm_store' && mo.status === 'on_hold' && mo.assigned_rm_store && (
-              <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200/60 p-6 text-center">
-                <div className="mb-4">
-                  <CheckCircleIcon className="h-12 w-12 text-orange-600 mx-auto mb-2" />
-                  <h3 className="text-lg font-semibold text-slate-800">RM Allocation Required</h3>
-                  <p className="text-slate-600">
-                    Verify raw material availability and approve allocation for this MO.
-                  </p>
-                  <p className="text-sm text-slate-500 mt-2">
-                    Required: {mo.rm_required_kg} kg of raw material
-                  </p>
-                </div>
-                <button
-                  onClick={handleRMApproveMO}
-                  disabled={loading}
-                  className="px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {loading ? 'Approving...' : 'Approve RM Allocation'}
-                </button>
-              </div>
-            )}
 
             {/* Manager Actions */}
             {['manager', 'production_head'].includes(userRole) && mo.status === 'rm_allocated' && (
@@ -693,6 +630,91 @@ export default function MODetailPage() {
           </div>
         )}
 
+        {/* Supervisor Assignments Tab */}
+        {activeTab === 'assignments' && (
+          <div>
+            {mo.process_executions && mo.process_executions.length > 0 ? (
+              <div className="space-y-4">
+                {mo.process_executions.map((processExecution) => (
+                  <div
+                    key={processExecution.id}
+                    className="bg-white/80 backdrop-blur-sm rounded-xl p-6 border border-slate-200/60 hover:shadow-lg transition-shadow"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-3 mb-3">
+                          <h4 className="text-lg font-semibold text-slate-800">{processExecution.process_name}</h4>
+                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                            processExecution.status === 'pending' ? 'bg-gray-100 text-gray-700' :
+                            processExecution.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
+                            processExecution.status === 'completed' ? 'bg-green-100 text-green-700' :
+                            'bg-yellow-100 text-yellow-700'
+                          }`}>
+                            {processExecution.status_display}
+                          </span>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-4 mb-4">
+                          <div>
+                            <p className="text-xs text-slate-500 mb-1">Current Supervisor</p>
+                            <p className="text-sm font-medium text-slate-800">
+                              {processExecution.assigned_supervisor_name || 'Not assigned'}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-500 mb-1">Sequence Order</p>
+                            <p className="text-sm font-medium text-slate-800">{processExecution.sequence_order}</p>
+                          </div>
+                        </div>
+
+                        {/* Batch Counts */}
+                        {processExecution.batch_counts && (
+                          <div className="flex flex-wrap gap-2">
+                            <span className="px-3 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">
+                              📦 {processExecution.batch_counts.total} batches
+                            </span>
+                            {processExecution.batch_counts.pending > 0 && (
+                              <span className="px-3 py-1 bg-yellow-100 text-yellow-700 text-xs rounded-full">
+                                {processExecution.batch_counts.pending} pending
+                              </span>
+                            )}
+                            {processExecution.batch_counts.in_progress > 0 && (
+                              <span className="px-3 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">
+                                {processExecution.batch_counts.in_progress} in progress
+                              </span>
+                            )}
+                            {processExecution.batch_counts.completed > 0 && (
+                              <span className="px-3 py-1 bg-green-100 text-green-700 text-xs rounded-full">
+                                {processExecution.batch_counts.completed} completed
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Assign Button */}
+                      {['manager', 'production_head'].includes(userRole) && (
+                        <button
+                          onClick={() => handleOpenSupervisorModal(processExecution)}
+                          className="ml-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium whitespace-nowrap"
+                        >
+                          Assign Supervisor
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12 bg-white/80 backdrop-blur-sm rounded-xl">
+                <div className="text-6xl mb-4">👥</div>
+                <h3 className="text-xl font-medium text-slate-600 mb-2">No Process Executions</h3>
+                <p className="text-slate-500">Initialize processes to assign supervisors.</p>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Alerts Tab */}
         {activeTab === 'alerts' && (
           <div className="space-y-4">
@@ -731,6 +753,15 @@ export default function MODetailPage() {
           </div>
         )}
       </main>
+
+      {/* Supervisor Assignment Modal */}
+      <SupervisorAssignmentModal
+        isOpen={showSupervisorModal}
+        onClose={() => setShowSupervisorModal(false)}
+        processExecution={selectedProcessExecution}
+        supervisors={supervisorsList}
+        onSuccess={handleSupervisorAssignmentSuccess}
+      />
 
       {/* Compact styling for SearchableDropdown */}
       <style jsx>{`

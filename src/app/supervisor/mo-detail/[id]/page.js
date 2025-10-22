@@ -93,7 +93,7 @@ export default function SupervisorMODetailPage() {
       setLoading(true);
       const data = await processTrackingAPI.getMOWithProcesses(moId);
       
-      // Filter process executions based on user's department/role
+      // Filter process executions based on user's role
       if (data.process_executions && userProfile) {
         const filteredProcesses = data.process_executions.filter(process => {
           // Admin, manager, production_head can see all processes
@@ -102,11 +102,9 @@ export default function SupervisorMODetailPage() {
             return true;
           }
           
-          // Supervisors can only see processes in their department
+          // Supervisors can only see processes assigned to them
           if (userRole === 'supervisor') {
-            const userDepartment = userProfile.department;
-            const processDepartment = getProcessDepartment(process.process_name);
-            return processDepartment === userDepartment || process.assigned_supervisor === userProfile.id;
+            return process.assigned_supervisor === userProfile.id;
           }
           
           // RM Store and FG Store users can only see processes assigned to them
@@ -143,8 +141,18 @@ export default function SupervisorMODetailPage() {
         return;
       }
       
-      if (error.message.includes('404')) {
-        router.replace('/supervisor/dashboard');
+      // Handle MO not found or not assigned to supervisor
+      if (error.message.includes('404') || error.message.includes('No ManufacturingOrder matches')) {
+        setMO(null);
+        setLoading(false);
+        return;
+      }
+      
+      // Handle permission denied
+      if (error.message.includes('403') || error.message.includes('Permission denied')) {
+        setMO(null);
+        setLoading(false);
+        return;
       }
     } finally {
       setLoading(false);
@@ -349,8 +357,22 @@ export default function SupervisorMODetailPage() {
       // Call API to start batch in specific process
       await processTrackingAPI.startBatchProcess(batch.id, process.id);
       
+      // Add small delay to ensure backend has processed the update
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Refresh both MO data and batch data to get updated status
       await fetchMOData();
-      alert(`Batch "${batch.batch_id}" started in process "${process.process_name}"!`);
+      await fetchBatchInfo();
+      
+      // Force re-render by updating a dummy state
+      setBatchProcessLoadingStates(prev => ({ ...prev }));
+      
+      alert(`Batch "${batch.batch_id}" started in process "${process.process_name}"!\n\nYou can now complete this batch in the Batch Flow tab.`);
+      
+      // Close modal and switch to batch flow tab to show completion UI
+      setShowBatchModal(false);
+      setSelectedProcessForBatch(null);
+      setActiveTab('batch-flow');
     } catch (error) {
       console.error('Error starting batch process:', error);
       
@@ -379,7 +401,16 @@ export default function SupervisorMODetailPage() {
       // Call API to complete batch in specific process
       await processTrackingAPI.completeBatchProcess(batch.id, process.id);
       
+      // Add small delay to ensure backend has processed the update
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Refresh both MO data and batch data to get updated status
       await fetchMOData();
+      await fetchBatchInfo();
+      
+      // Force re-render by updating a dummy state
+      setBatchProcessLoadingStates(prev => ({ ...prev }));
+      
       alert(`Batch "${batch.batch_id}" completed in process "${process.process_name}"! It can now proceed to the next process.`);
     } catch (error) {
       console.error('Error completing batch process:', error);
@@ -431,8 +462,12 @@ export default function SupervisorMODetailPage() {
   if (!mo) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-slate-800 mb-4">Manufacturing Order Not Found</h2>
+        <div className="text-center max-w-md">
+          <div className="text-6xl mb-4">⚠️</div>
+          <h2 className="text-2xl font-bold text-slate-800 mb-2">Manufacturing Order Not Available</h2>
+          <p className="text-slate-600 mb-6">
+            This manufacturing order is either not assigned to you, has been deleted, or you don't have permission to access it.
+          </p>
           <button
             onClick={() => router.replace('/supervisor/dashboard')}
             className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"

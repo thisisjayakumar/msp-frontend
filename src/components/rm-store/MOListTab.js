@@ -6,7 +6,7 @@ import manufacturingAPI from '../API_Service/manufacturing-api';
 import Button from '../CommonComponents/ui/Button';
 import { toast } from '@/utils/notifications';
 import { 
-  CheckCircleIcon, ClockIcon, EyeIcon, PlayCircleIcon, 
+  CheckCircleIcon, EyeIcon, PlayCircleIcon, 
   PlusCircleIcon, CubeIcon 
 } from '@heroicons/react/24/outline';
 import MODetailModal from './MODetailModal';
@@ -14,10 +14,9 @@ import BatchCreateModal from './BatchCreateModal';
 
 export default function MOListTab() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState('on_hold'); // 'on_hold', 'in_progress', 'completed'
+  const [activeTab, setActiveTab] = useState('in_progress'); // 'in_progress', 'completed'
   const [moData, setMoData] = useState({
-    summary: { pending_approvals: 0, in_progress: 0, completed: 0, total: 0 },
-    on_hold: [],
+    summary: { in_progress: 0, completed: 0, total: 0 },
     in_progress: [],
     completed: []
   });
@@ -38,48 +37,22 @@ export default function MOListTab() {
       setLoading(true);
       const data = await manufacturingAPI.manufacturingOrders.getRMStoreDashboard();
       
-      // Reorganize MOs based on remaining RM
-      // MOs with can_create_batch: false should go to completed tab (ready for completion)
-      const reorganizedData = {
-        on_hold: [],
-        in_progress: [],
-        completed: [],
-        summary: {
-          pending_approvals: 0,
+      console.log('RM Store Dashboard API Response:', data);
+      
+      // Use the data directly from the API without reorganization
+      // The backend already organizes MOs correctly by status
+      const organizedData = {
+        in_progress: data.in_progress || [],
+        completed: data.completed || [],
+        summary: data.summary || {
           in_progress: 0,
           completed: 0
         }
       };
       
-      // Process all MOs from all tabs
-      const allMOs = [
-        ...(data.on_hold || []),
-        ...(data.in_progress || []),
-        ...(data.completed || [])
-      ];
+      console.log('Organized Data:', organizedData);
       
-      allMOs.forEach(mo => {
-        // If MO is already completed (status), keep it in completed
-        if (mo.status === 'completed') {
-          reorganizedData.completed.push(mo);
-          reorganizedData.summary.completed++;
-        }
-        // If MO cannot create more batches (RM fully allocated), move to completed tab
-        else if (mo.can_create_batch === false) {
-          reorganizedData.completed.push(mo);
-          reorganizedData.summary.completed++;
-        }
-        // Otherwise, keep in original status tab
-        else if (mo.status === 'on_hold') {
-          reorganizedData.on_hold.push(mo);
-          reorganizedData.summary.pending_approvals++;
-        } else if (mo.status === 'in_progress') {
-          reorganizedData.in_progress.push(mo);
-          reorganizedData.summary.in_progress++;
-        }
-      });
-      
-      setMoData(reorganizedData);
+      setMoData(organizedData);
       setError(null);
     } catch (err) {
       console.error('Error fetching MO list:', err);
@@ -190,17 +163,7 @@ export default function MOListTab() {
         <h2 className="text-2xl font-semibold text-gray-900">RM Outward</h2>
       </div>
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-gradient-to-r from-yellow-500 to-orange-500 rounded-xl shadow-lg p-6 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-semibold opacity-90">Pending Approvals</h3>
-              <p className="text-3xl font-bold mt-2">{moData.summary.pending_approvals}</p>
-            </div>
-            <ClockIcon className="h-12 w-12 opacity-50" />
-          </div>
-        </div>
-
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl shadow-lg p-6 text-white">
           <div className="flex items-center justify-between">
             <div>
@@ -225,7 +188,7 @@ export default function MOListTab() {
       {/* Tabs */}
       <div className="border-b border-gray-200">
         <nav className="-mb-px flex space-x-8">
-          <button
+          {/* <button
             onClick={() => setActiveTab('on_hold')}
             className={`whitespace-nowrap py-4 px-3 border-b-2 font-medium text-sm transition-colors flex items-center rounded-t-md ${
               activeTab === 'on_hold'
@@ -235,7 +198,7 @@ export default function MOListTab() {
           >
             <ClockIcon className="h-5 w-5 mr-2" />
             On Hold ({moData.summary.pending_approvals})
-          </button>
+          </button> */}
           <button
             onClick={() => setActiveTab('in_progress')}
             className={`whitespace-nowrap py-4 px-3 border-b-2 font-medium text-sm transition-colors flex items-center rounded-t-md ${
@@ -267,7 +230,6 @@ export default function MOListTab() {
           <CheckCircleIcon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
           <h3 className="text-xl font-semibold text-slate-800 mb-2">No MOs Found</h3>
           <p className="text-slate-600">
-            {activeTab === 'on_hold' && 'No manufacturing orders pending approval at the moment.'}
             {activeTab === 'in_progress' && 'No manufacturing orders currently in progress.'}
             {activeTab === 'completed' && 'No completed manufacturing orders yet.'}
           </p>
@@ -377,7 +339,7 @@ export default function MOListTab() {
                         Details
                       </Button>
                       
-                      {(activeTab === 'on_hold' || activeTab === 'in_progress') && (
+                      {activeTab === 'in_progress' && (
                         <Button
                           onClick={() => handleCreateBatch(mo)}
                           variant="primary"

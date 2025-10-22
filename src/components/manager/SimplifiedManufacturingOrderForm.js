@@ -15,7 +15,8 @@ export default function SimplifiedManufacturingOrderForm({ onSuccess }) {
     planned_start_date: '',
     planned_end_date: '',
     priority: 'medium',
-    special_instructions: ''
+    special_instructions: '',
+    tolerance_percentage: '2.00'
   });
 
   const [productsList, setProductsList] = useState([]);
@@ -171,6 +172,11 @@ export default function SimplifiedManufacturingOrderForm({ onSuccess }) {
     if (!formData.quantity || formData.quantity <= 0) newErrors.quantity = 'Valid quantity is required';
     if (!formData.planned_start_date) newErrors.planned_start_date = 'Start date is required';
     if (!formData.planned_end_date) newErrors.planned_end_date = 'End date is required';
+    
+    // Validate tolerance percentage
+    if (!formData.tolerance_percentage || formData.tolerance_percentage < 0 || formData.tolerance_percentage > 100) {
+      newErrors.tolerance_percentage = 'Tolerance must be between 0 and 100';
+    }
 
     // Check if product details are loaded
     if (!selectedProductDetails) {
@@ -199,7 +205,8 @@ export default function SimplifiedManufacturingOrderForm({ onSuccess }) {
       const submitData = {
         ...formData,
         product_code_id: parseInt(formData.product_code_id),
-        quantity: parseInt(formData.quantity)
+        quantity: parseInt(formData.quantity),
+        tolerance_percentage: parseFloat(formData.tolerance_percentage)
       };
 
       const response = await manufacturingAPI.manufacturingOrders.create(submitData);
@@ -224,7 +231,8 @@ export default function SimplifiedManufacturingOrderForm({ onSuccess }) {
         planned_start_date: '',
         planned_end_date: '',
         priority: 'medium',
-        special_instructions: ''
+        special_instructions: '',
+        tolerance_percentage: '2.00'
       });
       setSelectedProductDetails(null);
 
@@ -287,7 +295,8 @@ export default function SimplifiedManufacturingOrderForm({ onSuccess }) {
       planned_start_date: '',
       planned_end_date: '',
       priority: 'medium',
-      special_instructions: ''
+      special_instructions: '',
+      tolerance_percentage: '2.00'
     });
     setSelectedProductDetails(null);
     setErrors({});
@@ -326,7 +335,7 @@ export default function SimplifiedManufacturingOrderForm({ onSuccess }) {
             <span>Order Information</span>
           </h3>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             {/* Product Selection */}
             <div>
               <label className="block text-xs font-medium text-slate-700 mb-1">
@@ -418,6 +427,32 @@ export default function SimplifiedManufacturingOrderForm({ onSuccess }) {
                   return null;
                 })()
               )}
+            </div>
+
+            {/* Tolerance Percentage */}
+            <div>
+              <label className="block text-xs font-medium text-slate-700 mb-1">
+                Tolerance % <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                name="tolerance_percentage"
+                value={formData.tolerance_percentage}
+                onChange={handleInputChange}
+                min="0"
+                max="100"
+                step="0.01"
+                className={`w-full px-3 py-2 text-slate-800 text-sm rounded-lg border ${
+                  errors.tolerance_percentage ? 'border-red-300 bg-red-50' : 'border-slate-300 bg-white'
+                } focus:ring-1 focus:ring-blue-500 focus:border-transparent transition-all`}
+                placeholder="2.00"
+              />
+              {errors.tolerance_percentage && (
+                <p className="text-red-500 text-xs mt-1">{errors.tolerance_percentage}</p>
+              )}
+              <p className="text-xs text-slate-500 mt-1">
+                RM loss tolerance during process
+              </p>
             </div>
 
             {/* Priority */}
