@@ -5,10 +5,7 @@ import { AUTH_APIS } from './api-list';
 const performLogin = async (credentials, expectedRole = null) => {
   console.log('🔐 Attempting login for:', credentials.email, 'Expected role:', expectedRole);
   
-  const response = await apiPost(AUTH_APIS.LOGIN, {
-    email: credentials.email,
-    password: credentials.password
-  });
+  const response = await apiPost(AUTH_APIS.LOGIN, credentials);
   
   console.log('📥 Login response:', response.success ? 'Success' : 'Failed', response);
   

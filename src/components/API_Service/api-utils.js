@@ -1,9 +1,21 @@
 // API utility functions for network configuration and common operations
 
+export const getCSRFToken = () => {
+  if (typeof document !== 'undefined') {
+    const cookieValue = document.cookie
+      .split('; ')
+      .find(row => row.startsWith('csrftoken='))
+      ?.split('=')[1];
+    return cookieValue || '';
+  }
+  return '';
+};
+
 // Default headers for API requests
 const DEFAULT_HEADERS = {
   'Content-Type': 'application/json',
   'Accept': 'application/json',
+  'X-CSRFToken': getCSRFToken()  // Add CSRF token to default headers
 };
 
 // Token refresh state management
@@ -21,6 +33,15 @@ const processQueue = (error, token = null) => {
   });
   
   failedQueue = [];
+};
+
+const requiresCredentials = (url) => {
+  const loginEndpoints = [
+    '/api/auth/login/',
+    '/api/auth/register/',
+    // Add other authentication endpoints if needed
+  ];
+  return loginEndpoints.some(endpoint => url.endsWith(endpoint));
 };
 
 // Get authentication token from localStorage
@@ -141,10 +162,16 @@ const createAuthHeaders = (additionalHeaders = {}) => {
 
 // Generic API request function with automatic token refresh
 export const apiRequest = async (url, options = {}, retryCount = 0) => {
+  const headers = {
+    ...DEFAULT_HEADERS,
+    ...(options.headers || {})
+  };
+  
   const config = {
-    method: 'GET',
-    headers: createAuthHeaders(options.headers),
     ...options,
+    headers,
+    // Only include credentials for auth endpoints
+    credentials: requiresCredentials(url) ? 'include' : 'same-origin'
   };
   
   // Prevent infinite retry loops

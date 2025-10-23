@@ -34,10 +34,12 @@ export default function RMStoreDashboard() {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      const [rawMaterialsData, statsData] = await Promise.all([
-        inventoryAPI.rawMaterials.getAll(),
-        inventoryAPI.dashboard.getStats()
-      ]);
+      
+      // Fetch sequentially to avoid token refresh race conditions
+      // The first request will trigger token refresh if needed,
+      // then subsequent requests will use the fresh token
+      const rawMaterialsData = await inventoryAPI.rawMaterials.getAll();
+      const statsData = await inventoryAPI.dashboard.getStats();
       
       // Ensure rawMaterialsData is an array (handle paginated responses)
       const materials = Array.isArray(rawMaterialsData)
@@ -167,7 +169,7 @@ export default function RMStoreDashboard() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 overflow-x-hidden w-full">
       {/* Description */}
       <div className="mb-6">
         <p className="text-slate-600">
@@ -181,15 +183,15 @@ export default function RMStoreDashboard() {
 
         {/* Tabs */}
         <div className="mb-6">
-          <div className="border-b border-gray-200">
-            <nav className="-mb-px flex space-x-8">
+          <div className="border-b border-gray-200 overflow-x-auto">
+            <nav className="-mb-px flex space-x-4 sm:space-x-8 min-w-max sm:min-w-0">
               <button
                 onClick={() => setActiveTab('stock')}
                 className={`${
                   activeTab === 'stock'
                     ? 'border-cyan-500 text-cyan-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors`}
+                } whitespace-nowrap py-3 px-2 sm:py-4 sm:px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors`}
               >
                 Raw Material Stock
               </button>
@@ -199,7 +201,7 @@ export default function RMStoreDashboard() {
                   activeTab === 'rm_inward'
                     ? 'border-cyan-500 text-cyan-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors`}
+                } whitespace-nowrap py-3 px-2 sm:py-4 sm:px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors`}
               >
                 PO List
               </button>
@@ -209,7 +211,7 @@ export default function RMStoreDashboard() {
                   activeTab === 'grm_receipts'
                     ? 'border-cyan-500 text-cyan-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors`}
+                } whitespace-nowrap py-3 px-2 sm:py-4 sm:px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors`}
               >
                 GRM Receipts
               </button>
@@ -219,7 +221,7 @@ export default function RMStoreDashboard() {
                   activeTab === 'mo_list'
                     ? 'border-cyan-500 text-cyan-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors`}
+                } whitespace-nowrap py-3 px-2 sm:py-4 sm:px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors`}
               >
                 MO List
               </button>
@@ -229,7 +231,7 @@ export default function RMStoreDashboard() {
                   activeTab === 'transactions'
                     ? 'border-cyan-500 text-cyan-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors`}
+                } whitespace-nowrap py-3 px-2 sm:py-4 sm:px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors`}
               >
                 Inventory Transactions
               </button>

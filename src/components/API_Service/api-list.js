@@ -3,6 +3,14 @@
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000/api';
 
+// Debug logging for API base URL (only in development)
+if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+  console.log('🔧 API Configuration:');
+  console.log('  - NEXT_PUBLIC_API_BASE_URL:', process.env.NEXT_PUBLIC_API_BASE_URL);
+  console.log('  - Using API_BASE_URL:', API_BASE_URL);
+  console.log('  - Current hostname:', window.location.hostname);
+}
+
 // Authentication APIs
 export const AUTH_APIS = {
   LOGIN: `${API_BASE_URL}/auth/login/`,

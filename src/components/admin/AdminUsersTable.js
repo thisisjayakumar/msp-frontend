@@ -96,9 +96,34 @@ export default function AdminUsersTable() {
     const result = await adminService.deleteUser(userId);
     if (result.success) {
       fetchUsers();
-      alert(result.message);
+      alert(result.data?.message || 'User deleted successfully');
     } else {
-      alert(result.error);
+      // Enhanced error handling for protected foreign key errors
+      const errorData = result.details;
+      
+      if (errorData?.action === 'deactivate' && errorData?.suggestion) {
+        // User has related records - offer to deactivate instead
+        const userConfirm = confirm(
+          `${errorData.error}\n\n` +
+          `${errorData.detail}\n\n` +
+          `${errorData.suggestion}\n\n` +
+          `Would you like to deactivate this user instead?`
+        );
+        
+        if (userConfirm) {
+          // Deactivate the user instead
+          const deactivateResult = await adminService.toggleUserActive(userId);
+          if (deactivateResult.success) {
+            fetchUsers();
+            alert('User has been deactivated successfully');
+          } else {
+            alert('Failed to deactivate user: ' + deactivateResult.error);
+          }
+        }
+      } else {
+        // Generic error
+        alert(result.error || 'Failed to delete user');
+      }
     }
   };
 

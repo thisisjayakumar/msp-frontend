@@ -7,12 +7,17 @@ import { Toaster } from 'react-hot-toast';
 export const metadata = {
   title: APP_CONFIG.name,
   description: APP_CONFIG.description,
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+  },
 };
 
 export default function RootLayout({ children }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="antialiased min-h-screen flex flex-col font-sans" suppressHydrationWarning>
+      <body className="antialiased min-h-screen flex flex-col font-sans overflow-x-hidden" suppressHydrationWarning>
         {/* <ConditionalHeader /> */}
         <main className="flex-1">
           {children}
