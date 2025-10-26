@@ -84,7 +84,7 @@ export default function ProductionHeadDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 overflow-x-hidden">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-gradient-to-r from-amber-600 to-orange-600 shadow-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -111,7 +111,7 @@ export default function ProductionHeadDashboard() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
         {/* Tabs */}
-        <div className="bg-white rounded-xl shadow-md mb-6 overflow-x-hidden">
+        <div className="bg-white rounded-xl shadow-md mb-6">
           <div className="border-b border-gray-200 overflow-x-auto">
             <nav className="flex space-x-4 sm:space-x-8 px-6 min-w-max sm:min-w-0">
               {tabs.map((tab) => (

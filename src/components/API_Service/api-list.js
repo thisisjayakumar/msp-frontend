@@ -35,47 +35,58 @@ export const USER_APIS = {
 // Manufacturing APIs
 export const MANUFACTURING_APIS = {
   // Manufacturing Orders
-  MO_LIST: `${API_BASE_URL}/manufacturing/api/manufacturing-orders/`,
-  MO_CREATE: `${API_BASE_URL}/manufacturing/api/manufacturing-orders/`,
-  MO_DETAIL: (id) => `${API_BASE_URL}/manufacturing/api/manufacturing-orders/${id}/`,
-  MO_UPDATE: (id) => `${API_BASE_URL}/manufacturing/api/manufacturing-orders/${id}/`,
-  MO_DELETE: (id) => `${API_BASE_URL}/manufacturing/api/manufacturing-orders/${id}/`,
-  MO_CHANGE_STATUS: (id) => `${API_BASE_URL}/manufacturing/api/manufacturing-orders/${id}/change_status/`,
-  MO_DASHBOARD_STATS: `${API_BASE_URL}/manufacturing/api/manufacturing-orders/dashboard_stats/`,
-  MO_PRODUCTS: `${API_BASE_URL}/manufacturing/api/manufacturing-orders/products/`,
-  MO_PRODUCT_DETAILS: `${API_BASE_URL}/manufacturing/api/manufacturing-orders/product_details/`,
-  MO_SUPERVISORS: `${API_BASE_URL}/manufacturing/api/manufacturing-orders/supervisors/`,
-  MO_RM_STORE_USERS: `${API_BASE_URL}/manufacturing/api/manufacturing-orders/rm_store_users/`,
-  MO_CUSTOMERS: `${API_BASE_URL}/manufacturing/api/manufacturing-orders/customers/`,
-  MO_UPDATE_DETAILS: (id) => `${API_BASE_URL}/manufacturing/api/manufacturing-orders/${id}/update_mo_details/`,
-  MO_RM_STORE_DASHBOARD: `${API_BASE_URL}/manufacturing/api/manufacturing-orders/rm_store_dashboard/`,
-  MO_SUPERVISOR_DASHBOARD: `${API_BASE_URL}/manufacturing/api/manufacturing-orders/supervisor_dashboard/`,
-  MO_START: (id) => `${API_BASE_URL}/manufacturing/api/manufacturing-orders/${id}/start_mo/`,
-  MO_CALCULATE_RM: `${API_BASE_URL}/manufacturing/api/manufacturing-orders/calculate_rm_requirement/`,
-  MO_AVAILABLE_HEAT_NUMBERS: (id) => `${API_BASE_URL}/manufacturing/api/manufacturing-orders/${id}/available-heat-numbers/`,
+  MO_LIST: `${API_BASE_URL}/manufacturing/manufacturing-orders/`,
+  MO_CREATE: `${API_BASE_URL}/manufacturing/manufacturing-orders/`,
+  MO_DETAIL: (id) => `${API_BASE_URL}/manufacturing/manufacturing-orders/${id}/`,
+  MO_UPDATE: (id) => `${API_BASE_URL}/manufacturing/manufacturing-orders/${id}/`,
+  MO_DELETE: (id) => `${API_BASE_URL}/manufacturing/manufacturing-orders/${id}/`,
+  MO_CHANGE_STATUS: (id) => `${API_BASE_URL}/manufacturing/manufacturing-orders/${id}/change_status/`,
+  MO_DASHBOARD_STATS: `${API_BASE_URL}/manufacturing/manufacturing-orders/dashboard_stats/`,
+  MO_PRODUCTS: `${API_BASE_URL}/manufacturing/manufacturing-orders/products/`,
+  MO_PRODUCT_DETAILS: `${API_BASE_URL}/manufacturing/manufacturing-orders/product_details/`,
+  MO_SUPERVISORS: `${API_BASE_URL}/manufacturing/manufacturing-orders/supervisors/`,
+  MO_RM_STORE_USERS: `${API_BASE_URL}/manufacturing/manufacturing-orders/rm_store_users/`,
+  MO_CUSTOMERS: `${API_BASE_URL}/manufacturing/manufacturing-orders/customers/`,
+  MO_UPDATE_DETAILS: (id) => `${API_BASE_URL}/manufacturing/manufacturing-orders/${id}/update_mo_details/`,
+  MO_RM_STORE_DASHBOARD: `${API_BASE_URL}/manufacturing/manufacturing-orders/rm_store_dashboard/`,
+  MO_SUPERVISOR_DASHBOARD: `${API_BASE_URL}/manufacturing/manufacturing-orders/supervisor_dashboard/`,
+  MO_START: (id) => `${API_BASE_URL}/manufacturing/manufacturing-orders/${id}/start_mo/`,
+  MO_CALCULATE_RM: `${API_BASE_URL}/manufacturing/manufacturing-orders/calculate_rm_requirement/`,
+  MO_AVAILABLE_HEAT_NUMBERS: (id) => `${API_BASE_URL}/manufacturing/manufacturing-orders/${id}/available-heat-numbers/`,
 
   // Batches
-  BATCH_LIST: `${API_BASE_URL}/manufacturing/api/batches/`,
-  BATCH_CREATE: `${API_BASE_URL}/manufacturing/api/batches/`,
-  BATCH_DETAIL: (id) => `${API_BASE_URL}/manufacturing/api/batches/${id}/`,
-  BATCH_UPDATE: (id) => `${API_BASE_URL}/manufacturing/api/batches/${id}/`,
-  BATCH_DELETE: (id) => `${API_BASE_URL}/manufacturing/api/batches/${id}/`,
-  BATCH_BY_MO: `${API_BASE_URL}/manufacturing/api/batches/by_mo/`,
-  BATCH_START: (id) => `${API_BASE_URL}/manufacturing/api/batches/${id}/start_batch/`,
-  BATCH_COMPLETE: (id) => `${API_BASE_URL}/manufacturing/api/batches/${id}/complete_batch/`,
-  BATCH_UPDATE_PROGRESS: (id) => `${API_BASE_URL}/manufacturing/api/batches/${id}/update_progress/`,
-  BATCH_DASHBOARD_STATS: `${API_BASE_URL}/manufacturing/api/batches/dashboard_stats/`,
+  BATCH_LIST: `${API_BASE_URL}/manufacturing/batches/`,
+  BATCH_CREATE: `${API_BASE_URL}/manufacturing/batches/`,
+  BATCH_DETAIL: (id) => `${API_BASE_URL}/manufacturing/batches/${id}/`,
+  BATCH_UPDATE: (id) => `${API_BASE_URL}/manufacturing/batches/${id}/`,
+  BATCH_DELETE: (id) => `${API_BASE_URL}/manufacturing/batches/${id}/`,
+  BATCH_BY_MO: `${API_BASE_URL}/manufacturing/batches/by_mo/`,
+  BATCH_START: (id) => `${API_BASE_URL}/manufacturing/batches/${id}/start_batch/`,
+  BATCH_COMPLETE: (id) => `${API_BASE_URL}/manufacturing/batches/${id}/complete_batch/`,
+  BATCH_UPDATE_PROGRESS: (id) => `${API_BASE_URL}/manufacturing/batches/${id}/update_progress/`,
+  BATCH_DASHBOARD_STATS: `${API_BASE_URL}/manufacturing/batches/dashboard_stats/`,
 
   // Purchase Orders
-  PO_LIST: `${API_BASE_URL}/manufacturing/api/purchase-orders/`,
-  PO_CREATE: `${API_BASE_URL}/manufacturing/api/purchase-orders/`,
-  PO_DETAIL: (id) => `${API_BASE_URL}/manufacturing/api/purchase-orders/${id}/`,
-  PO_UPDATE: (id) => `${API_BASE_URL}/manufacturing/api/purchase-orders/${id}/`,
-  PO_DELETE: (id) => `${API_BASE_URL}/manufacturing/api/purchase-orders/${id}/`,
-  PO_CHANGE_STATUS: (id) => `${API_BASE_URL}/manufacturing/api/purchase-orders/${id}/change_status/`,
-  PO_DASHBOARD_STATS: `${API_BASE_URL}/manufacturing/api/purchase-orders/dashboard_stats/`,
+  PO_LIST: `${API_BASE_URL}/manufacturing/purchase-orders/`,
+  PO_CREATE: `${API_BASE_URL}/manufacturing/purchase-orders/`,
+  PO_DETAIL: (id) => `${API_BASE_URL}/manufacturing/purchase-orders/${id}/`,
+  PO_UPDATE: (id) => `${API_BASE_URL}/manufacturing/purchase-orders/${id}/`,
+  PO_DELETE: (id) => `${API_BASE_URL}/manufacturing/purchase-orders/${id}/`,
+  PO_CHANGE_STATUS: (id) => `${API_BASE_URL}/manufacturing/purchase-orders/${id}/change_status/`,
+  PO_DASHBOARD_STATS: `${API_BASE_URL}/manufacturing/purchase-orders/dashboard_stats/`,
   PO_RAW_MATERIALS: `${API_BASE_URL}/inventory/raw-materials/`,  // Use existing inventory API
   PO_VENDORS: `${API_BASE_URL}/third-party/vendors/`,  // Use existing third-party API
+};
+
+// FG Store APIs
+export const FG_STORE_APIS = {
+  // Dashboard endpoints
+  LOOSE_FG_STOCK: `${API_BASE_URL}/fg-store/dashboard/loose_fg_stock/`,
+  STOCK_LEVELS: `${API_BASE_URL}/fg-store/dashboard/stock_levels/`,
+  
+  // Dispatch Batches
+  DISPATCH_BATCH_LIST: `${API_BASE_URL}/fg-store/dispatch-batches/`,
+  DISPATCH_BATCH_DETAIL: (id) => `${API_BASE_URL}/fg-store/dispatch-batches/${id}/`,
 };
 
 // Inventory APIs (RM Store)
@@ -141,9 +152,9 @@ export const NOTIFICATIONS_APIS = {
 
 // Process Tracking APIs
 export const PROCESS_TRACKING_APIS = {
-  MO_WITH_PROCESSES: (id) => `${API_BASE_URL}/manufacturing/api/manufacturing-orders/${id}/process_tracking/`,
-  INITIALIZE_PROCESSES: (id) => `${API_BASE_URL}/manufacturing/api/manufacturing-orders/${id}/initialize_processes/`,
-  ACTIVE_ALERTS: `${API_BASE_URL}/manufacturing/api/process-alerts/active_alerts/`,
+  MO_WITH_PROCESSES: (id) => `${API_BASE_URL}/manufacturing/manufacturing-orders/${id}/process_tracking/`,
+  INITIALIZE_PROCESSES: (id) => `${API_BASE_URL}/manufacturing/manufacturing-orders/${id}/initialize_processes/`,
+  ACTIVE_ALERTS: `${API_BASE_URL}/manufacturing/process-alerts/active_alerts/`,
 };
 
 // Admin Dashboard APIs
@@ -207,6 +218,7 @@ export const API_ENDPOINTS = {
   AUTH: AUTH_APIS,
   USER: USER_APIS,
   MANUFACTURING: MANUFACTURING_APIS,
+  FG_STORE: FG_STORE_APIS,
   INVENTORY: INVENTORY_APIS,
   NOTIFICATIONS: NOTIFICATIONS_APIS,
   PROCESS_TRACKING: PROCESS_TRACKING_APIS,

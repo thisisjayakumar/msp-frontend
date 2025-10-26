@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import adminService from '@/components/API_Service/adminService';
 
 export default function AdminRolesTable() {
@@ -15,8 +15,15 @@ export default function AdminRolesTable() {
     permissions: {},
     restricted_departments: []
   });
+  
+  // Prevent duplicate API calls in React Strict Mode
+  const hasFetchedRef = useRef(false);
 
   useEffect(() => {
+    // Skip if already fetched (React Strict Mode prevention)
+    if (hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
+    
     fetchRoles();
   }, []);
 

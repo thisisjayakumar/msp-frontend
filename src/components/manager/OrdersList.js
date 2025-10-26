@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import manufacturingAPI from '@/components/API_Service/manufacturing-api';
 import { toast } from '@/utils/notifications';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 
 export default function OrdersList({ type }) {
   const router = useRouter();
@@ -27,12 +29,14 @@ export default function OrdersList({ type }) {
   // Use ref to track if initial fetch is done
   const initialFetchDone = useRef(false);
   const lastFiltersRef = useRef(filters);
+  const searchTimeoutRef = useRef(null);
+
+  // Date range picker state
+  const [dateRange, setDateRange] = useState([null, null]);
+  const [startDate, endDate] = dateRange;
 
   const isMO = type === 'mo';
-  const api = useMemo(() => 
-    isMO ? manufacturingAPI.manufacturingOrders : manufacturingAPI.purchaseOrders,
-    [isMO]
-  );
+  const api = isMO ? manufacturingAPI.manufacturingOrders : manufacturingAPI.purchaseOrders;
   const isManager = userRole === 'manager';
 
   // Fetch orders
@@ -43,11 +47,11 @@ export default function OrdersList({ type }) {
         ...filters,
         page
       };
-      
+
       console.log(`Fetching ${type} orders with filters:`, queryFilters);
       const response = await api.getAll(queryFilters);
       console.log(`${type} orders response:`, response);
-      
+
       // Handle both successful and failed responses
       if (response && response.success !== false) {
         setOrders(response.results || []);
@@ -89,28 +93,82 @@ export default function OrdersList({ type }) {
     setUserRole(role);
   }, []);
 
-  // Fetch orders when filters or type change - with duplicate prevention
+  // Fetch orders when filters or type change - with debouncing for search
   useEffect(() => {
-    // Check if filters have actually changed (deep comparison of values)
-    const filtersChanged = 
-      lastFiltersRef.current.status !== filters.status ||
-      lastFiltersRef.current.search !== filters.search ||
-      lastFiltersRef.current.ordering !== filters.ordering ||
-      lastFiltersRef.current.start_date !== filters.start_date ||
-      lastFiltersRef.current.end_date !== filters.end_date;
-
-    if (!initialFetchDone.current || filtersChanged) {
-      lastFiltersRef.current = filters;
-      initialFetchDone.current = true;
-      fetchOrders();
+    // Clear any existing timeout
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
     }
-  }, [filters.status, filters.search, filters.ordering, filters.start_date, filters.end_date, type, api]);
+
+    if (!initialFetchDone.current) {
+      // Initial fetch
+      initialFetchDone.current = true;
+      lastFiltersRef.current = filters;
+      fetchOrders();
+    } else {
+      // Check if filters have changed
+      const filtersChanged =
+        lastFiltersRef.current.status !== filters.status ||
+        lastFiltersRef.current.ordering !== filters.ordering ||
+        lastFiltersRef.current.start_date !== filters.start_date ||
+        lastFiltersRef.current.end_date !== filters.end_date ||
+        lastFiltersRef.current.search !== filters.search;
+
+      if (filtersChanged) {
+        // Debounce only for search field (instant for other filters)
+        const searchChanged = lastFiltersRef.current.search !== filters.search;
+
+        lastFiltersRef.current = filters;
+
+        if (searchChanged) {
+          searchTimeoutRef.current = setTimeout(() => {
+            fetchOrders();
+          }, 500); // 500ms debounce for search
+        } else {
+          fetchOrders();
+        }
+      }
+    }
+
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [filters.status, filters.search, filters.ordering, filters.start_date, filters.end_date]);
 
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({
       ...prev,
       [key]: value
     }));
+  };
+
+  // Handle date range change
+  const handleDateRangeChange = (update) => {
+    setDateRange(update);
+    if (update[0] && update[1]) {
+      // Both dates selected
+      setFilters(prev => ({
+        ...prev,
+        start_date: update[0].toISOString().split('T')[0],
+        end_date: update[1].toISOString().split('T')[0]
+      }));
+    } else if (update[0]) {
+      // Only start date selected
+      setFilters(prev => ({
+        ...prev,
+        start_date: update[0].toISOString().split('T')[0],
+        end_date: ''
+      }));
+    } else {
+      // No dates selected
+      setFilters(prev => ({
+        ...prev,
+        start_date: '',
+        end_date: ''
+      }));
+    }
   };
 
   const handleStatusChange = async (orderId, newStatus, notes = '') => {
@@ -129,7 +187,7 @@ export default function OrdersList({ type }) {
     if (isMO) {
       // Get user role to determine correct route
       const role = localStorage.getItem('userRole');
-      
+
       if (role === 'production_head') {
         router.push(`/production-head/mo-detail/${order.id}`);
       } else {
@@ -213,95 +271,89 @@ export default function OrdersList({ type }) {
               value={filters.search}
               onChange={(e) => handleFilterChange('search', e.target.value)}
               placeholder={isMO ? 'MO ID, Product Code...' : 'PO ID, Material, Vendor...'}
-              className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder:text-slate-400"
+              className="w-full px-3 py-2 text-sm text-slate-500 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder:text-slate-400"
             />
           </div>
-          
-          {/* Date Range - From */}
-          <div className="lg:col-span-2">
-            <input
-              type="date"
-              value={filters.start_date}
-              onChange={(e) => handleFilterChange('start_date', e.target.value)}
-              placeholder="From Date"
-              className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              title="From Date"
+
+          {/* Date Range Picker */}
+          <div className="lg:col-span-3">
+            <DatePicker
+              selectsRange={true}
+              startDate={startDate}
+              endDate={endDate}
+              onChange={handleDateRangeChange}
+              isClearable={true}
+              placeholderText="Select date range"
+              dateFormat="MMM d, yyyy"
+              className="w-full px-3 py-2 text-sm text-slate-500 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder:text-slate-400"
+              wrapperClassName="w-full"
+              withPortal
+              portalId="date-picker-portal"
             />
           </div>
-          
-          {/* Date Range - To */}
-          <div className="lg:col-span-2">
-            <input
-              type="date"
-              value={filters.end_date}
-              onChange={(e) => handleFilterChange('end_date', e.target.value)}
-              placeholder="To Date"
-              className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              title="To Date"
-            />
-          </div>
-          
+
           {/* Status */}
           <div className="lg:col-span-2">
             <select
               value={filters.status}
               onChange={(e) => handleFilterChange('status', e.target.value)}
-              className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 text-slate-500 text-sm rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
-              <option value="">All Status</option>
+              <option value="" className="text-slate-500">All Status</option>
               {isMO ? (
                 <>
-                  <option value="draft">Draft</option>
-                  <option value="submitted">Submitted</option>
-                  <option value="gm_approved">GM Approved</option>
-                  <option value="rm_allocated">RM Allocated</option>
-                  <option value="in_progress">In Progress</option>
-                  <option value="completed">Completed</option>
-                  <option value="cancelled">Cancelled</option>
+                  <option value="submitted" className="text-slate-500">Submitted</option>
+                  <option value="rm_allocated" className="text-slate-500">RM Allocated</option>
+                  <option value="mo_approved" className="text-slate-500">MO Approved</option>
+                  <option value="in_progress" className="text-slate-500">In Progress</option>
+                  <option value="completed" className="text-slate-500">Completed</option>
+                  <option value="cancelled" className="text-slate-500">Cancelled</option>
+                  <option value="on_hold" className="text-slate-500">On Hold</option>
                 </>
               ) : (
                 <>
-                  <option value="draft">Draft</option>
-                  <option value="submitted">Submitted</option>
-                  <option value="gm_approved">GM Approved</option>
-                  <option value="gm_created_po">GM Created PO</option>
-                  <option value="vendor_confirmed">Vendor Confirmed</option>
-                  <option value="completed">Completed</option>
-                  <option value="rejected">Rejected</option>
+                  <option value="submitted" className="text-slate-500">Submitted</option>
+                  <option value="rm_allocated" className="text-slate-500">RM Allocated</option>
+                  <option value="mo_approved" className="text-slate-500">MO Approved</option>
+                  <option value="in_progress" className="text-slate-500">In Progress</option>
+                  <option value="completed" className="text-slate-500">Completed</option>
+                  <option value="cancelled" className="text-slate-500">Cancelled</option>
+                  <option value="on_hold" className="text-slate-500">On Hold</option>
                 </>
               )}
+
             </select>
           </div>
-          
+
           {/* Sort */}
           <div className="lg:col-span-2">
             <select
               value={filters.ordering}
               onChange={(e) => handleFilterChange('ordering', e.target.value)}
-              className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 text-sm text-slate-500 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
-              <option value="-created_at">Newest First</option>
-              <option value="created_at">Oldest First</option>
+              <option value="-created_at" className="text-slate-500">Newest First</option>
+              <option value="created_at" className="text-slate-500">Oldest First</option>
               {isMO ? (
                 <>
-                  <option value="-planned_start_date">Start Date ↓</option>
-                  <option value="planned_start_date">Start Date ↑</option>
-                  <option value="-delivery_date">Delivery Date ↓</option>
-                  <option value="delivery_date">Delivery Date ↑</option>
+                  <option value="-planned_start_date" className="text-slate-500">Start Date ↓</option>
+                  <option value="planned_start_date" className="text-slate-500">Start Date ↑</option>
+                  <option value="-delivery_date" className="text-slate-500">Delivery Date ↓</option>
+                  <option value="delivery_date" className="text-slate-500">Delivery Date ↑</option>
                 </>
               ) : (
                 <>
-                  <option value="-expected_date">Expected Date ↓</option>
-                  <option value="expected_date">Expected Date ↑</option>
+                  <option value="-expected_date" className="text-slate-500">Expected Date ↓</option>
+                  <option value="expected_date" className="text-slate-500">Expected Date ↑</option>
                   <option value="-total_amount">Amount ↓</option>
                   <option value="total_amount">Amount ↑</option>
                 </>
               )}
             </select>
           </div>
-          
+
           {/* Clear Filters Button */}
-          <div className="lg:col-span-1 flex items-center">
+          <div className="lg:col-span-2 flex items-center">
             <button
               onClick={() => {
                 setFilters({
@@ -311,8 +363,9 @@ export default function OrdersList({ type }) {
                   start_date: '',
                   end_date: ''
                 });
+                setDateRange([null, null]);
               }}
-              className="w-full px-3 py-2 text-sm bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors font-medium"
+              className="w-full px-3 py-2 text-sm text-slate-500 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors font-medium"
               title="Clear all filters"
             >
               Clear
@@ -330,7 +383,7 @@ export default function OrdersList({ type }) {
               No {isMO ? 'Manufacturing' : 'Purchase'} Orders Found
             </h3>
             <p className="text-slate-500">
-              {filters.search || filters.status 
+              {filters.search || filters.status
                 ? 'Try adjusting your filters to see more results.'
                 : `Create your first ${isMO ? 'manufacturing' : 'purchase'} order to get started.`
               }
@@ -338,8 +391,8 @@ export default function OrdersList({ type }) {
           </div>
         ) : (
           orders.map((order) => (
-            <div 
-              key={order.id} 
+            <div
+              key={order.id}
               className="bg-white/80 backdrop-blur-sm rounded-xl shadow-lg shadow-slate-200/50 border border-slate-200/60 p-6 hover:shadow-xl hover:shadow-slate-300/50 transition-all cursor-pointer hover:bg-white/90"
               onClick={() => handleOrderClick(order)}
             >
@@ -362,7 +415,7 @@ export default function OrdersList({ type }) {
                     )}
                   </div>
                   <p className="text-slate-600">
-                    {isMO 
+                    {isMO
                       ? `${order.product_code?.display_name || order.product_code?.product_code} - Qty: ${order.quantity}`
                       : `${order.rm_code?.material_name || order.rm_code?.material_code || 'N/A'} - Qty: ${order.quantity_ordered}`
                     }

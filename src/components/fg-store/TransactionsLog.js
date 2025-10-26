@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card } from '@/components/CommonComponents/ui/Card';
 import { Button } from '@/components/CommonComponents/ui/Button';
 import { Input } from '@/components/CommonComponents/ui/Input';
@@ -25,6 +25,9 @@ const TransactionsLog = ({ refreshTrigger }) => {
   const [totalPages, setTotalPages] = useState(1);
   const [supervisors, setSupervisors] = useState([]);
   const [exportLoading, setExportLoading] = useState(false);
+  
+  // Prevent duplicate API calls in React Strict Mode
+  const hasFetchedRef = useRef(false);
 
   const fetchTransactions = async () => {
     try {
@@ -85,6 +88,10 @@ const TransactionsLog = ({ refreshTrigger }) => {
   }, [refreshTrigger, filters, sortBy, sortOrder, currentPage]);
 
   useEffect(() => {
+    // Skip if already fetched (React Strict Mode prevention)
+    if (hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
+    
     fetchSupervisors();
   }, []);
 

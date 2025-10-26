@@ -528,7 +528,7 @@ export default function PurchaseOrderForm({ onSuccess, autoFillData = null }) {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-2">
-            Raw Material <span className="text-red-500">*</span>
+            Material Code <span className="text-red-500">*</span>
           </label>
           <SearchableSelect
             value={formData.rm_code_id}
@@ -566,7 +566,7 @@ export default function PurchaseOrderForm({ onSuccess, autoFillData = null }) {
         <div className="bg-purple-50 rounded-xl p-4 border border-purple-200">
           <h4 className="font-medium text-purple-800 mb-3 flex items-center space-x-2">
             <span>📦</span>
-            <span>Material Details (Auto-populated)</span>
+            <span>Material Details</span>
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
             <div>
@@ -658,10 +658,10 @@ export default function PurchaseOrderForm({ onSuccess, autoFillData = null }) {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-2">
-            Quantity Needed <span className="text-red-500">*</span>
+            {isAutoFilled && autoFillData && autoFillData.type === 'coil' ? 'KG Needed' : 'Pieces Needed'} <span className="text-red-500">*</span>
             {isAutoFilled && autoFillData && (
               <span className="ml-2 text-amber-600 text-xs font-normal">
-                (Required: {autoFillData.requiredQuantity - (autoFillData.availableQuantity || 0)} kg shortage)
+                (Required: {autoFillData.requiredQuantity - (autoFillData.availableQuantity || 0)} {autoFillData.type === 'coil' ? 'kg' : 'pcs'} shortage)
               </span>
             )}
           </label>
@@ -686,25 +686,6 @@ export default function PurchaseOrderForm({ onSuccess, autoFillData = null }) {
             </p>
           )}
         </div>
-
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
-            Unit Price (₹)
-          </label>
-          <input
-            type="number"
-            name="unit_price"
-            value={formData.unit_price}
-            onChange={handleInputChange}
-            min="0"
-            step="0.01"
-            className="w-full px-4 py-3 rounded-xl text-slate-600 border border-slate-300 bg-white focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-            placeholder="Enter unit price per kg"
-          />
-          <p className="text-slate-500 text-xs mt-1">
-            💡 Optional: Enter the price per unit for cost tracking
-          </p>
-        </div>
       </div>
 
       {/* Expected Date */}
@@ -728,7 +709,7 @@ export default function PurchaseOrderForm({ onSuccess, autoFillData = null }) {
       </div>
 
       {/* Terms & Conditions */}
-      <div>
+      {/* <div>
         <label className="block text-sm font-medium text-slate-700 mb-2">Terms & Conditions</label>
         <textarea
           name="terms_conditions"
@@ -738,7 +719,7 @@ export default function PurchaseOrderForm({ onSuccess, autoFillData = null }) {
           className="w-full text-slate-800 px-4 py-3 rounded-xl border border-slate-300 bg-white focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all resize-none"
           placeholder="Enter terms and conditions (e.g., Net 30 days, FOB destination, etc.)"
         />
-      </div>
+      </div> */}
 
       {/* Notes */}
       <div>

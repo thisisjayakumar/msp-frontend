@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import adminService from '@/components/API_Service/adminService';
 import UserFormModal from './UserFormModal';
 
@@ -15,8 +15,15 @@ export default function AdminUsersTable() {
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [showUserModal, setShowUserModal] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
+  
+  // Prevent duplicate API calls in React Strict Mode
+  const hasFetchedRef = useRef(false);
 
   useEffect(() => {
+    // Skip if already fetched (React Strict Mode prevention)
+    if (hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
+    
     fetchUsers();
   }, []);
 

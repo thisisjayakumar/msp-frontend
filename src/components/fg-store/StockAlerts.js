@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card } from '@/components/CommonComponents/ui/Card';
 import { Button } from '@/components/CommonComponents/ui/Button';
 import { Input } from '@/components/CommonComponents/ui/Input';
@@ -33,6 +33,9 @@ const StockAlerts = ({ refreshTrigger }) => {
     description: '',
     is_active: true
   });
+  
+  // Prevent duplicate API calls in React Strict Mode
+  const hasFetchedRef = useRef(false);
 
   const fetchAlerts = async () => {
     try {
@@ -93,6 +96,10 @@ const StockAlerts = ({ refreshTrigger }) => {
   }, [refreshTrigger, filters, sortBy, sortOrder, currentPage]);
 
   useEffect(() => {
+    // Skip if already fetched (React Strict Mode prevention)
+    if (hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
+    
     fetchProducts();
   }, []);
 

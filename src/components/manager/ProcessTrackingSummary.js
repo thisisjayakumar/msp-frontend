@@ -49,7 +49,7 @@ export default function ProcessTrackingSummary() {
     // Prevent duplicate fetches
     if (isFetching.current) {
       console.log('ProcessTrackingSummary: Already fetching, skipping...');
-      return;
+      return Promise.resolve();
     }
 
     isFetching.current = true;
@@ -71,9 +71,10 @@ export default function ProcessTrackingSummary() {
         return;
       }
 
-      // Get process executions for active MOs
+      // Get process executions for active MOs - limit to 3 to prevent duplicate calls
       const mosList = Array.isArray(mosResponse?.results) ? mosResponse.results : [];
-      const processPromises = mosList.map(async (mo) => {
+      const limitedMosList = mosList.slice(0, 3); // Only fetch for first 3 MOs
+      const processPromises = limitedMosList.map(async (mo) => {
         try {
           const processData = await processTrackingAPI.getMOWithProcesses(mo.id);
           return processData;
@@ -129,24 +130,26 @@ export default function ProcessTrackingSummary() {
 
   // Fetch data only once on mount
   useEffect(() => {
-    // Only fetch if we haven't fetched yet
-    if (!hasFetched.current && !isFetching.current) {
+    let interval;
+    
+    // Initial fetch - only once
+    if (!hasFetched.current) {
       console.log('ProcessTrackingSummary: Initial fetch');
       fetchData();
     }
     
-    // Set up polling for real-time updates (increased interval)
-    const interval = setInterval(() => {
+    // Set up polling for updates (starts after component mounts)
+    interval = setInterval(() => {
       console.log('ProcessTrackingSummary: Polling refresh');
       fetchData();
-    }, 60000); // Poll every 60 seconds
+    }, 120000); // Poll every 120 seconds (2 minutes)
     
     return () => {
-      clearInterval(interval);
-      // Reset on unmount
-      isFetching.current = false;
+      if (interval) {
+        clearInterval(interval);
+      }
     };
-  }, []); // Empty dependency array - only run on mount
+  }, []); // Empty dependency array - only run once on mount
 
   const getStatusIcon = (status) => {
     const icons = {

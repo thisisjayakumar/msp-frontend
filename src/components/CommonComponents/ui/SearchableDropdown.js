@@ -46,13 +46,16 @@ export default function SearchableDropdown({
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setIsOpen(false);
-        setSearchTerm("");
+        // Only clear search if nothing is selected
+        if (!value) {
+          setSearchTerm("");
+        }
       }
     }
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  }, [value]);
 
   // Get selected option display text
   const getSelectedDisplay = () => {
@@ -73,74 +76,88 @@ export default function SearchableDropdown({
     setSearchTerm("");
   };
 
-  const toggleDropdown = () => {
-    if (disabled) return;
-    setIsOpen(!isOpen);
+  const handleInputChange = (e) => {
+    const newValue = e.target.value;
+    setSearchTerm(newValue);
+    
+    // If user is typing and there's a selected value, clear it to allow new search
+    if (value && newValue !== getSelectedDisplay()) {
+      onChange("");
+    }
+    
     if (!isOpen) {
-      // Focus the search input when opening
+      setIsOpen(true);
+    }
+  };
+
+  const handleInputFocus = () => {
+    setIsOpen(true);
+    // If there's a selected value, select all text for easy replacement
+    if (value && inputRef.current && !searchTerm) {
       setTimeout(() => {
-        inputRef.current?.focus();
-      }, 100);
+        inputRef.current?.select();
+      }, 0);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    // Handle backspace/delete when there's a selected value
+    if ((e.key === 'Backspace' || e.key === 'Delete') && value && !searchTerm) {
+      onChange("");
+      setSearchTerm("");
     }
   };
 
   return (
     <div className={`relative ${className}`} ref={dropdownRef}>
-      {/* Main trigger button */}
-      <div
-        onClick={toggleDropdown}
-        className={`
-          w-full px-4 py-3 rounded-xl border cursor-pointer transition-all
-          ${error 
-            ? 'border-red-300 bg-red-50' 
-            : isOpen 
-              ? 'border-blue-500 bg-white ring-2 ring-blue-500 ring-opacity-20' 
-              : 'border-slate-300 bg-white hover:border-slate-400'
-          }
-          ${disabled ? 'opacity-50 cursor-not-allowed bg-slate-50' : ''}
-          flex items-center justify-between
-        `}
-      >
-        <span className={`${!value ? 'text-slate-400' : 'text-slate-700'} truncate`}>
-          {getSelectedDisplay() || placeholder}
-        </span>
+      {/* Main input field */}
+      <div className="relative">
+        <input
+          ref={inputRef}
+          type="text"
+          value={searchTerm || getSelectedDisplay()}
+          onChange={handleInputChange}
+          onFocus={handleInputFocus}
+          onKeyDown={handleKeyDown}
+          disabled={disabled}
+          placeholder={placeholder}
+          autoComplete="off"
+          className={`
+            w-full px-3 py-2 text-sm rounded-lg border transition-all pr-16 text-slate-800
+            ${error 
+              ? 'border-red-300 bg-red-50' 
+              : isOpen 
+                ? 'border-blue-500 bg-white ring-1 ring-blue-500' 
+                : 'border-slate-300 bg-white hover:border-slate-400'
+            }
+            ${disabled ? 'opacity-50 cursor-not-allowed bg-slate-50' : ''}
+            focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent
+            placeholder:text-slate-400
+          `}
+        />
         
-        <div className="flex items-center space-x-2">
+        <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center space-x-1">
           {loading && (
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-500"></div>
           )}
           {allowClear && value && !disabled && (
             <button
               onClick={handleClear}
-              className="text-slate-400 hover:text-slate-600 p-1"
+              className="text-slate-400 hover:text-slate-600 p-0.5"
               type="button"
             >
-              <XMarkIcon className="h-4 w-4" />
+              <XMarkIcon className="h-3.5 w-3.5" />
             </button>
           )}
           <ChevronDownIcon 
-            className={`h-5 w-5 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} 
+            className={`h-4 w-4 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} 
           />
         </div>
       </div>
 
       {/* Dropdown menu */}
       {isOpen && (
-        <div className="absolute z-50 w-full mt-1 bg-white border border-slate-300 rounded-xl shadow-lg">
-          {/* Search input */}
-          <div className="p-3 border-b border-slate-200">
-            <div className="relative">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <input
-                ref={inputRef}
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Type to search..."
-                className="w-full pl-10 pr-4 py-2 border text-slate-700 border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-          </div>
+        <div className="absolute z-50 w-full mt-1 bg-white border border-slate-300 rounded-lg shadow-lg">
 
           {/* Options list */}
           <div 
@@ -148,12 +165,12 @@ export default function SearchableDropdown({
             style={{ maxHeight }}
           >
             {loading ? (
-              <div className="p-4 text-center text-slate-500">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500 mx-auto mb-2"></div>
+              <div className="p-3 text-center text-slate-500 text-sm">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500 mx-auto mb-2"></div>
                 Loading options...
               </div>
             ) : filteredOptions.length === 0 ? (
-              <div className="p-4 text-center text-slate-500">
+              <div className="p-3 text-center text-slate-500 text-sm">
                 {searchTerm ? 'No matching options found' : 'No options available'}
               </div>
             ) : (
@@ -162,7 +179,7 @@ export default function SearchableDropdown({
                   key={option[valueKey] || index}
                   onClick={() => handleOptionSelect(option)}
                   className={`
-                    px-4 py-3 cursor-pointer transition-colors border-b border-slate-100 last:border-b-0
+                    px-3 py-2 cursor-pointer transition-colors border-b border-slate-100 last:border-b-0
                     ${option[valueKey] === value 
                       ? 'bg-blue-50 text-blue-700 font-medium' 
                       : 'hover:bg-slate-50 text-slate-700'
@@ -170,13 +187,13 @@ export default function SearchableDropdown({
                   `}
                 >
                   <div className="flex flex-col">
-                    <span className="font-medium">{option[displayKey]}</span>
+                    <span className="font-medium text-sm">{option[displayKey]}</span>
                     {/* Show additional info if available */}
                     {option.description && (
-                      <span className="text-sm text-slate-500 mt-1">{option.description}</span>
+                      <span className="text-xs text-slate-500 mt-0.5">{option.description}</span>
                     )}
                     {option.product_code && option.product_code !== option[displayKey] && (
-                      <span className="text-xs text-slate-400 mt-1">Code: {option.product_code}</span>
+                      <span className="text-xs text-slate-400 mt-0.5">Code: {option.product_code}</span>
                     )}
                   </div>
                 </div>

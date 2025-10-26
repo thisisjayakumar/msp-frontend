@@ -162,10 +162,19 @@ const createAuthHeaders = (additionalHeaders = {}) => {
 
 // Generic API request function with automatic token refresh
 export const apiRequest = async (url, options = {}, retryCount = 0) => {
+  // Get the auth token
+  const token = getAuthToken();
+  
+  // Create headers with authentication
   const headers = {
     ...DEFAULT_HEADERS,
     ...(options.headers || {})
   };
+  
+  // Add Authorization header if token exists
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
   
   const config = {
     ...options,

@@ -1,7 +1,7 @@
 // Manufacturing API Service
 // Centralized API calls for Manufacturing Orders and Purchase Orders
 
-import { MANUFACTURING_APIS } from './api-list';
+import { MANUFACTURING_APIS, API_ENDPOINTS } from './api-list';
 import { apiRequest } from './api-utils';
 import { throttledGet, throttledPost, throttledPatch, throttledDelete } from './throttled-api';
 
@@ -583,9 +583,24 @@ export const getDashboardStats = async () => {
 };
 
 // Export default object with all services
+// FG Store API Service
+const fgStoreAPI = {
+  // Get loose FG stock for a product
+  getLooseFGStock: async (productCode) => {
+    const response = await apiRequest(
+      `${API_ENDPOINTS.FG_STORE.LOOSE_FG_STOCK}?product_code=${productCode}`,
+      {
+        method: 'GET',
+      }
+    );
+    return handleResponse(response);
+  },
+};
+
 export default {
   manufacturingOrders: manufacturingOrdersAPI,
   purchaseOrders: purchaseOrdersAPI,
   batches: batchAPI,
+  fgStore: fgStoreAPI,
   getDashboardStats,
 };

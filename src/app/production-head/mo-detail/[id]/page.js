@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { ArrowLeftIcon, PlayIcon, PauseIcon, CheckCircleIcon, ExclamationTriangleIcon, ClockIcon } from '@heroicons/react/24/outline';
 
@@ -93,13 +93,20 @@ export default function MODetailPage() {
     }
   }, [router, fetchUserProfile]);
 
-  // Fetch supervisors list
+  // Fetch supervisors list - using ref to prevent duplicate calls
+  const hasFetchedSupervisors = useRef(false);
   const fetchSupervisors = useCallback(async () => {
+    if (hasFetchedSupervisors.current) {
+      return;
+    }
+    hasFetchedSupervisors.current = true;
+    
     try {
       const supervisors = await manufacturingAPI.manufacturingOrders.getSupervisors();
       setSupervisorsList(supervisors);
     } catch (error) {
       console.error('Error fetching supervisors:', error);
+      hasFetchedSupervisors.current = false; // Reset on error to allow retry
     }
   }, []);
 
@@ -131,31 +138,42 @@ export default function MODetailPage() {
     }
   }, [moId, router]);
 
-  // Initialize data and polling
+  // Initialize data and polling - only run once on mount
   useEffect(() => {
     let cleanupFunction = null;
+    let mounted = true;
 
     const initializePolling = async () => {
+      if (!mounted) return;
+      
       await Promise.all([fetchMOData(), fetchSupervisors()]);
+
+      if (!mounted) return;
 
       // Set up real-time polling for updates
       cleanupFunction = await processTrackingAPI.pollProcessUpdates(moId, (data) => {
-        setMO(data);
-        setProcessesInitialized(data.process_executions && data.process_executions.length > 0);
-      }, 30000); // Poll every 30 seconds (increased from 10 seconds)
+        if (mounted) {
+          setMO(data);
+          setProcessesInitialized(data.process_executions && data.process_executions.length > 0);
+        }
+      }, 30000); // Poll every 30 seconds
 
-      setPollingCleanup(() => cleanupFunction);
+      if (mounted) {
+        setPollingCleanup(() => cleanupFunction);
+      }
     };
 
     initializePolling();
 
     // Cleanup on unmount
     return () => {
+      mounted = false;
       if (cleanupFunction && typeof cleanupFunction === 'function') {
         cleanupFunction();
       }
     };
-  }, [fetchMOData, fetchSupervisors, moId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty dependency array - only run once on mount to prevent duplicate polling
 
   // Initialize processes for the MO
   const handleInitializeProcesses = async () => {

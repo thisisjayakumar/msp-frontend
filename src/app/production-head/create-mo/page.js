@@ -9,6 +9,7 @@ export default function CreateMOPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
+  const [stockData, setStockData] = useState(null);
 
   // Check authentication and role - allow both production_head and manager
   useEffect(() => {
@@ -82,9 +83,104 @@ export default function CreateMOPage() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-white/70 backdrop-blur-sm rounded-2xl border border-white/20 shadow-xl shadow-slate-200/50 p-8">
-          <SimplifiedManufacturingOrderForm onSuccess={handleMOSuccess} />
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid grid-cols-1 xl:grid-cols-10 gap-6">
+          {/* Form Section - 70% */}
+          <div className="xl:col-span-7">
+            <div className="bg-white/70 backdrop-blur-sm rounded-2xl border border-white/20 shadow-xl shadow-slate-200/50 p-8">
+              <SimplifiedManufacturingOrderForm 
+                onSuccess={handleMOSuccess} 
+                onStockDataChange={setStockData}
+              />
+            </div>
+          </div>
+
+          {/* Right Panel - FG Stock Info - 30% */}
+          <div className="xl:col-span-3">
+            {stockData?.selectedProductDetails && (
+              <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg border border-green-200 p-4 sticky top-24">
+                <h3 className="text-sm font-bold text-green-800 mb-3 flex items-center space-x-2">
+                  <span>📦</span>
+                  <span>FG Stock Available</span>
+                </h3>
+
+                {stockData.fetchingFGStock ? (
+                  <div className="flex items-center justify-center py-4">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-600"></div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {/* Loose Stock Display */}
+                    <div className="bg-white rounded-lg p-3 border border-green-200">
+                      <div className="text-xs text-slate-600 mb-1">Loose FG Stock</div>
+                      <div className={`text-2xl font-bold ${(stockData.looseFGStock?.total_loose_stock || 0) > 0 ? 'text-green-600' : 'text-slate-400'}`}>
+                        {stockData.looseFGStock?.total_loose_stock || 0}
+                        <span className="text-sm font-normal text-slate-500 ml-1">pieces</span>
+                      </div>
+                      {(stockData.looseFGStock?.total_loose_stock || 0) > 0 && (
+                        <p className="text-xs text-green-600 mt-1">
+                          ✓ Available in FG store
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Stock Warnings */}
+                    {stockData.stockWarning && (
+                      <div className="bg-orange-50 border border-orange-300 rounded-lg p-3">
+                        <div className="flex items-start space-x-2">
+                          <span className="text-orange-500 text-lg">⚠️</span>
+                          <div className="flex-1">
+                            <p className="text-xs font-bold text-orange-900 mb-2">{stockData.stockWarning.title}</p>
+                            <div className="space-y-1 text-xs">
+                              <div className="flex justify-between">
+                                <span className="text-orange-700 font-medium">Available:</span>
+                                <span className="text-orange-900 font-semibold">{stockData.stockWarning.available}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-orange-700 font-medium">Required:</span>
+                                <span className="text-orange-900 font-semibold">{stockData.stockWarning.required}</span>
+                              </div>
+                              <div className="flex justify-between text-xs">
+                                <span className="text-orange-600">For:</span>
+                                <span className="text-orange-800">{stockData.stockWarning.forQuantity}</span>
+                              </div>
+                              <div className="pt-1 mt-1 border-t border-orange-200 flex justify-between">
+                                <span className="text-red-700 font-bold">RM Shortage:</span>
+                                <span className="text-red-900 font-bold">{stockData.stockWarning.shortage}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Create PO Button */}
+                    {stockData.isStockInsufficient && stockData.selectedProductDetails?.materials && (
+                      <button
+                        type="button"
+                        onClick={() => stockData.handleCreatePO()}
+                        className="w-full px-4 py-3 text-sm bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-lg font-medium hover:from-amber-700 hover:to-orange-700 transition-all shadow-md shadow-amber-600/25 flex items-center justify-center space-x-2"
+                        title="Create Purchase Order to fulfill stock requirement"
+                      >
+                        <span>📦</span>
+                        <span>Create PO</span>
+                      </button>
+                    )}
+
+                    {/* Stock Info */}
+                    {!stockData.isStockInsufficient && stockData.formData?.quantity && (
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                        <p className="text-xs font-medium text-blue-800 mb-1">✓ Stock Sufficient</p>
+                        <p className="text-xs text-blue-700">
+                          All materials available for production
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </main>
       

@@ -10,7 +10,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8
 
 class ProcessTrackingAPI {
   constructor() {
-    this.baseURL = `${API_BASE_URL}/manufacturing/api`;
+    this.baseURL = `${API_BASE_URL}/manufacturing`;
   }
 
   // Helper method to handle API responses (for backward compatibility)

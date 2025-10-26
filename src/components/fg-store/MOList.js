@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card } from '@/components/CommonComponents/ui/Card';
 import { Button } from '@/components/CommonComponents/ui/Button';
 import { Input } from '@/components/CommonComponents/ui/Input';
@@ -22,6 +22,9 @@ const MOList = ({ onMOSelect, refreshTrigger }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [customers, setCustomers] = useState([]);
+  
+  // Prevent duplicate API calls in React Strict Mode
+  const hasFetchedRef = useRef(false);
 
   const fetchMOs = async () => {
     try {
@@ -82,6 +85,10 @@ const MOList = ({ onMOSelect, refreshTrigger }) => {
   }, [refreshTrigger, filters, sortBy, sortOrder, currentPage]);
 
   useEffect(() => {
+    // Skip if already fetched (React Strict Mode prevention)
+    if (hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
+    
     fetchCustomers();
   }, []);
 

@@ -7,11 +7,12 @@ import { Toaster } from 'react-hot-toast';
 export const metadata = {
   title: APP_CONFIG.name,
   description: APP_CONFIG.description,
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-    maximumScale: 1,
-  },
+};
+
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
 };
 
 export default function RootLayout({ children }) {
