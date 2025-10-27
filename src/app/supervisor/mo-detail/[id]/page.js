@@ -125,12 +125,9 @@ export default function SupervisorMODetailPage() {
       const alertsData = await processTrackingAPI.getActiveAlerts(moId);
       setAlerts(alertsData);
 
-      // Fetch batch data
-      if (data.batches?.length) {
-        setBatchData({ batches: data.batches, summary: null });
-      } else {
-        await fetchBatchInfo();
-      }
+      // Always fetch batch data from dedicated endpoint to ensure freshness
+      // This is important for getting updated batch.notes after process completion
+      await fetchBatchInfo();
     } catch (error) {
       console.error('Error fetching MO data:', error);
       
@@ -360,12 +357,14 @@ export default function SupervisorMODetailPage() {
       // Add small delay to ensure backend has processed the update
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      // Refresh both MO data and batch data to get updated status
-      await fetchMOData();
+      // Fetch updated batch data first to get the latest notes
       await fetchBatchInfo();
       
-      // Force re-render by updating a dummy state
-      setBatchProcessLoadingStates(prev => ({ ...prev }));
+      // Then refresh MO data
+      await fetchMOData();
+      
+      // Force component re-render by creating new loading states object
+      setBatchProcessLoadingStates(prev => ({ ...prev, [loadingKey]: false, _refresh: Date.now() }));
       
       alert(`Batch "${batch.batch_id}" started in process "${process.process_name}"!\n\nYou can now complete this batch in the Batch Flow tab.`);
       
@@ -404,12 +403,14 @@ export default function SupervisorMODetailPage() {
       // Add small delay to ensure backend has processed the update
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      // Refresh both MO data and batch data to get updated status
-      await fetchMOData();
+      // Fetch updated batch data first to get the latest notes
       await fetchBatchInfo();
       
-      // Force re-render by updating a dummy state
-      setBatchProcessLoadingStates(prev => ({ ...prev }));
+      // Then refresh MO data
+      await fetchMOData();
+      
+      // Force component re-render by creating new loading states object
+      setBatchProcessLoadingStates(prev => ({ ...prev, [loadingKey]: false, _refresh: Date.now() }));
       
       alert(`Batch "${batch.batch_id}" completed in process "${process.process_name}"! It can now proceed to the next process.`);
     } catch (error) {

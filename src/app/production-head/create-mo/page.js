@@ -167,6 +167,27 @@ export default function CreateMOPage() {
                       </button>
                     )}
 
+                    {/* Material Requirement with Tolerance */}
+                    {stockData.materialWithTolerance && (
+                      <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3">
+                        <p className="text-xs font-bold text-indigo-800 mb-2">📊 Material Required</p>
+                        <div className="space-y-2 text-xs">
+                          <div className="flex justify-between">
+                            <span className="text-indigo-700">Base Material:</span>
+                            <span className="text-indigo-900 font-semibold">{stockData.materialWithTolerance.baseMaterial.toFixed(2)} kg</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-indigo-700">Tolerance ({stockData.formData?.tolerance_percentage || 0}%):</span>
+                            <span className="text-indigo-900 font-semibold">+{stockData.materialWithTolerance.tolerance.toFixed(2)} kg</span>
+                          </div>
+                          <div className="pt-2 mt-2 border-t border-indigo-200 flex justify-between">
+                            <span className="text-indigo-800 font-bold">Total Required:</span>
+                            <span className="text-indigo-900 font-bold text-sm">{stockData.materialWithTolerance.totalMaterial.toFixed(2)} kg</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Stock Info */}
                     {!stockData.isStockInsufficient && stockData.formData?.quantity && (
                       <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">

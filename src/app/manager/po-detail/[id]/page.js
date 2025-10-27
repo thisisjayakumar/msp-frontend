@@ -22,6 +22,9 @@ export default function PODetailPage() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editData, setEditData] = useState({});
+  const [userRole, setUserRole] = useState(null);
 
   // Fetch PO details
   const fetchPODetails = useCallback(async () => {
@@ -46,16 +49,66 @@ export default function PODetailPage() {
       return;
     }
 
-    // Check user role - only managers can access PO details
-    const userRole = localStorage.getItem('userRole');
-    if (userRole !== 'manager') {
-      toast.error('Access denied. Only managers can view purchase order details.');
+    // Check user role - managers and production heads can access PO details
+    const role = localStorage.getItem('userRole');
+    if (!['manager', 'production_head'].includes(role)) {
+      toast.error('Access denied. Only managers and production heads can view purchase order details.');
       router.replace('/');
       return;
     }
+    setUserRole(role);
 
     fetchPODetails();
   }, [fetchPODetails, router]);
+
+  // Handle edit PO details
+  const handleEditPO = () => {
+    setIsEditing(true);
+    setEditData({
+      quantity_ordered: po.quantity_ordered,
+      unit_price: po.unit_price,
+      expected_date: po.expected_date
+    });
+  };
+
+  // Handle cancel edit
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setEditData({
+      quantity_ordered: po.quantity_ordered,
+      unit_price: po.unit_price,
+      expected_date: po.expected_date
+    });
+  };
+
+  // Handle edit input change
+  const handleEditInputChange = (field, value) => {
+    setEditData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  // Handle save PO details
+  const handleSavePO = async () => {
+    try {
+      setActionLoading(true);
+      const response = await manufacturingAPI.purchaseOrders.update(po.id, editData);
+      
+      if (response && !response.error) {
+        setPO(response);
+        setIsEditing(false);
+        toast.success('PO details updated successfully!');
+      } else {
+        toast.error(response?.message || 'Failed to update PO details');
+      }
+    } catch (err) {
+      console.error('Error updating PO details:', err);
+      toast.error('Failed to update PO details');
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   // Handle status change
   const handleStatusChange = async (newStatus, notes = '') => {
@@ -201,7 +254,17 @@ export default function PODetailPage() {
           <div className="lg:col-span-2 space-y-6">
             {/* Basic Information */}
             <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200/60 p-6">
-              <h2 className="text-lg font-semibold text-slate-800 mb-4">Basic Information</h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-slate-800">Basic Information</h2>
+                {(userRole === 'production_head' && po.status === 'po_initiated') && !isEditing && (
+                  <button
+                    onClick={handleEditPO}
+                    className="px-3 py-1 text-sm bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
+                  >
+                    Edit Details
+                  </button>
+                )}
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700">PO ID</label>
@@ -213,13 +276,41 @@ export default function PODetailPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700">Expected Delivery</label>
-                  <p className="mt-1 text-sm text-slate-900">{formatDate(po.expected_date)}</p>
+                  {isEditing ? (
+                    <input
+                      type="date"
+                      value={editData.expected_date || po.expected_date}
+                      onChange={(e) => handleEditInputChange('expected_date', e.target.value)}
+                      className="mt-1 px-2 py-1 text-sm text-slate-900 border border-slate-300 rounded"
+                    />
+                  ) : (
+                    <p className="mt-1 text-sm text-slate-900">{formatDate(po.expected_date)}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700">Material Type</label>
                   <p className="mt-1 text-sm text-slate-900 capitalize">{po.material_type}</p>
                 </div>
               </div>
+              
+              {/* Edit Controls */}
+              {isEditing && (
+                <div className="flex justify-end space-x-2 mt-4 pt-4 border-t border-slate-200">
+                  <button
+                    onClick={handleCancelEdit}
+                    className="px-3 py-1 text-sm bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSavePO}
+                    disabled={actionLoading}
+                    className="px-3 py-1 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                  >
+                    {actionLoading ? 'Saving...' : 'Save Changes'}
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Material Details */}
@@ -320,13 +411,41 @@ export default function PODetailPage() {
               <div className="space-y-3">
                 <div className="flex justify-between">
                   <span className="text-sm text-slate-600">Quantity Ordered:</span>
-                  <span className="text-sm font-medium text-slate-900">
-                    {po.quantity_ordered} {po.material_type === 'coil' ? 'kg' : 'sheets'}
-                  </span>
+                  {isEditing ? (
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="number"
+                        value={editData.quantity_ordered || po.quantity_ordered}
+                        onChange={(e) => handleEditInputChange('quantity_ordered', parseFloat(e.target.value) || 0)}
+                        className="px-2 py-1 text-sm text-slate-900 border border-slate-300 rounded w-20 text-right"
+                        min="0"
+                        step="0.01"
+                      />
+                      <span className="text-sm text-slate-600">{po.material_type === 'coil' ? 'kg' : 'sheets'}</span>
+                    </div>
+                  ) : (
+                    <span className="text-sm font-medium text-slate-900">
+                      {po.quantity_ordered} {po.material_type === 'coil' ? 'kg' : 'sheets'}
+                    </span>
+                  )}
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-slate-600">Unit Price:</span>
-                  <span className="text-sm font-medium text-slate-900">{formatCurrency(po.unit_price)}</span>
+                  {isEditing ? (
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm text-slate-600">₹</span>
+                      <input
+                        type="number"
+                        value={editData.unit_price || po.unit_price}
+                        onChange={(e) => handleEditInputChange('unit_price', parseFloat(e.target.value) || 0)}
+                        className="px-2 py-1 text-sm text-slate-900 border border-slate-300 rounded w-24 text-right"
+                        min="0"
+                        step="0.01"
+                      />
+                    </div>
+                  ) : (
+                    <span className="text-sm font-medium text-slate-900">{formatCurrency(po.unit_price)}</span>
+                  )}
                 </div>
                 <div className="border-t border-slate-200 pt-3">
                   <div className="flex justify-between">

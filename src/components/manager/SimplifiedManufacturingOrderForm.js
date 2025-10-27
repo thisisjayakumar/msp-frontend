@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import manufacturingAPI from '@/components/API_Service/manufacturing-api';
 import SearchableDropdown from '@/components/CommonComponents/ui/SearchableDropdown';
 import { toast } from '@/utils/notifications';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 
 export default function SimplifiedManufacturingOrderForm({ 
   onSuccess, 
@@ -14,6 +16,7 @@ export default function SimplifiedManufacturingOrderForm({
   const [formData, setFormData] = useState({
     product_code_id: '',
     customer_name: '',
+    customer_id: '',
     quantity: '',
     planned_start_date: '',
     planned_end_date: '',
@@ -21,6 +24,8 @@ export default function SimplifiedManufacturingOrderForm({
     special_instructions: '',
     tolerance_percentage: '2.00'
   });
+  const [dateRange, setDateRange] = useState([null, null]);
+  const [startDate, endDate] = dateRange;
 
   const [productsList, setProductsList] = useState([]);
   const [selectedProductDetails, setSelectedProductDetails] = useState(null);
@@ -82,7 +87,6 @@ export default function SimplifiedManufacturingOrderForm({
       if (selectedProduct) {
         // Fetch detailed product information with BOM and materials
         const productDetails = await manufacturingAPI.manufacturingOrders.getProductDetails(selectedProduct.product_code);
-        console.log('Product Details Response:', productDetails);
 
         // Validate response structure
         if (!productDetails || !productDetails.product) {
@@ -96,11 +100,12 @@ export default function SimplifiedManufacturingOrderForm({
 
         setSelectedProductDetails(productDetails);
 
-        // Auto-populate customer name from product details
-        if (productDetails.product && productDetails.product.customer_name) {
+        // Auto-populate customer name and ID from product details
+        if (productDetails.product) {
           setFormData(prev => ({
             ...prev,
-            customer_name: productDetails.product.customer_name
+            customer_name: productDetails.product.customer_name || '',
+            customer_id: productDetails.product.customer_id || ''
           }));
         }
 
@@ -108,7 +113,6 @@ export default function SimplifiedManufacturingOrderForm({
         setFetchingFGStock(true);
         try {
           const fgStockData = await manufacturingAPI.fgStore.getLooseFGStock(selectedProduct.product_code);
-          console.log('Loose FG Stock:', fgStockData);
           setLooseFGStock(fgStockData);
         } catch (fgError) {
           console.warn('Failed to fetch loose FG stock:', fgError);
@@ -126,7 +130,7 @@ export default function SimplifiedManufacturingOrderForm({
     }
   };
 
-  // Stock validation function - considers loose FG stock
+  // Stock validation function - considers loose FG stock and tolerance
   const validateStock = (quantity, materials, productDetails, looseFG) => {
     if (!quantity || !materials || materials.length === 0 || !productDetails) {
       setStockWarning(null);
@@ -161,8 +165,13 @@ export default function SimplifiedManufacturingOrderForm({
       return;
     }
 
-    // Calculate required material in kg for quantity to manufacture
-    const requiredMaterialKg = (quantityToManufacture * gramsPerProduct) / 1000;
+    // Calculate base required material in kg for quantity to manufacture
+    const baseMaterialKg = (quantityToManufacture * gramsPerProduct) / 1000;
+    
+    // Add tolerance to required material
+    const tolerancePercent = parseFloat(formData.tolerance_percentage || 0);
+    const toleranceKg = (baseMaterialKg * tolerancePercent) / 100;
+    const requiredMaterialKg = baseMaterialKg + toleranceKg;
 
     // Calculate total available stock (sum all materials)
     const totalAvailableStock = materials.reduce((sum, material) => {
@@ -188,12 +197,40 @@ export default function SimplifiedManufacturingOrderForm({
     }
   };
 
-  // Monitor quantity and stock changes
+  // Monitor quantity, tolerance and stock changes
   useEffect(() => {
     if (selectedProductDetails?.materials && selectedProductDetails?.product) {
       validateStock(formData.quantity, selectedProductDetails.materials, selectedProductDetails.product, looseFGStock);
     }
-  }, [formData.quantity, selectedProductDetails?.materials, selectedProductDetails?.product, looseFGStock]);
+  }, [formData.quantity, formData.tolerance_percentage, selectedProductDetails?.materials, selectedProductDetails?.product, looseFGStock]);
+
+  // Initialize date range when form data changes
+  useEffect(() => {
+    if (formData.planned_start_date && formData.planned_end_date) {
+      setDateRange([new Date(formData.planned_start_date), new Date(formData.planned_end_date)]);
+    }
+  }, [formData.planned_start_date, formData.planned_end_date]);
+
+  // Calculate material required with tolerance
+  const calculateMaterialWithTolerance = () => {
+    if (!formData.quantity || !selectedProductDetails?.product) return null;
+    
+    const qty = parseFloat(formData.quantity);
+    const gramsPerProd = parseFloat(selectedProductDetails.product.grams_per_product || selectedProductDetails.product.weight_kg * 1000 || 0);
+    const tolerancePercent = parseFloat(formData.tolerance_percentage || 0);
+    
+    if (qty <= 0 || gramsPerProd <= 0) return null;
+    
+    const baseMaterialKg = (qty * gramsPerProd) / 1000;
+    const toleranceKg = (baseMaterialKg * tolerancePercent) / 100;
+    const totalMaterialKg = baseMaterialKg + toleranceKg;
+    
+    return {
+      baseMaterial: baseMaterialKg,
+      tolerance: toleranceKg,
+      totalMaterial: totalMaterialKg
+    };
+  };
 
   // Notify parent component of stock data changes
   useEffect(() => {
@@ -205,10 +242,11 @@ export default function SimplifiedManufacturingOrderForm({
         isStockInsufficient,
         selectedProductDetails,
         formData,
-        handleCreatePO
+        handleCreatePO,
+        materialWithTolerance: calculateMaterialWithTolerance()
       });
     }
-  }, [looseFGStock, fetchingFGStock, stockWarning, isStockInsufficient, selectedProductDetails, formData.quantity]);
+  }, [looseFGStock, fetchingFGStock, stockWarning, isStockInsufficient, selectedProductDetails, formData.quantity, formData.tolerance_percentage]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -238,16 +276,13 @@ export default function SimplifiedManufacturingOrderForm({
       newErrors.tolerance_percentage = 'Tolerance must be between 0 and 100';
     }
 
-    // Check if product details are loaded
-    if (!selectedProductDetails) {
-      newErrors.product_details = 'Product details must be loaded before submission';
-    }
-
-    // Check if end date is after start date
-    if (formData.planned_start_date && formData.planned_end_date) {
-      if (new Date(formData.planned_end_date) <= new Date(formData.planned_start_date)) {
-        newErrors.planned_end_date = 'End date must be after start date';
-      }
+    // Validate date range
+    if (dateRange[0] && !dateRange[1]) {
+      newErrors.planned_end_date = 'Please select an end date';
+    } else if (!dateRange[0] && dateRange[1]) {
+      newErrors.planned_start_date = 'Please select a start date';
+    } else if (dateRange[0] && dateRange[1] && dateRange[0] > dateRange[1]) {
+      newErrors.planned_end_date = 'End date must be after start date';
     }
 
     setErrors(newErrors);
@@ -257,16 +292,21 @@ export default function SimplifiedManufacturingOrderForm({
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!validateForm()) return;
+    if (!validateForm()) {
+      return;
+    }
 
     setLoading(true);
     try {
-      // Convert string IDs to integers and prepare data
+      // Prepare data for submission (customer_id and customer_name are only for UI reference)
       const submitData = {
-        ...formData,
         product_code_id: parseInt(formData.product_code_id),
         quantity: parseInt(formData.quantity),
-        tolerance_percentage: parseFloat(formData.tolerance_percentage)
+        tolerance_percentage: parseFloat(formData.tolerance_percentage),
+        planned_start_date: formData.planned_start_date || null,
+        planned_end_date: formData.planned_end_date || null,
+        priority: formData.priority,
+        special_instructions: formData.special_instructions
       };
 
       const response = await manufacturingAPI.manufacturingOrders.create(submitData);
@@ -287,6 +327,7 @@ export default function SimplifiedManufacturingOrderForm({
       setFormData({
         product_code_id: '',
         customer_name: '',
+        customer_id: '',
         quantity: '',
         planned_start_date: '',
         planned_end_date: '',
@@ -317,14 +358,19 @@ export default function SimplifiedManufacturingOrderForm({
 
     // Get grams per product and calculate required material in kg
     const gramsPerProduct = parseFloat(selectedProductDetails.product.grams_per_product || selectedProductDetails.product.weight_kg * 1000 || 0);
-    const requiredMaterialKg = (productQuantity * gramsPerProduct) / 1000;
+    const baseMaterialKg = (productQuantity * gramsPerProduct) / 1000;
+    
+    // Add tolerance to required material
+    const tolerancePercent = parseFloat(formData.tolerance_percentage || 0);
+    const toleranceKg = (baseMaterialKg * tolerancePercent) / 100;
+    const requiredMaterialKg = baseMaterialKg + toleranceKg;
 
     const shortage = requiredMaterialKg - totalAvailableStock;
 
     // Prepare auto-fill data for PO form
     const autoFillData = {
       materials: selectedProductDetails.materials,
-      requiredQuantity: requiredMaterialKg, // Material quantity in kg
+      requiredQuantity: requiredMaterialKg, // Material quantity in kg (including tolerance)
       productQuantity: productQuantity, // Number of products
       gramsPerProduct: gramsPerProduct, // Grams per product
       availableQuantity: totalAvailableStock,
@@ -351,6 +397,7 @@ export default function SimplifiedManufacturingOrderForm({
     setFormData({
       product_code_id: '',
       customer_name: '',
+      customer_id: '',
       quantity: '',
       planned_start_date: '',
       planned_end_date: '',
@@ -389,9 +436,10 @@ export default function SimplifiedManufacturingOrderForm({
             <span>Order Information</span>
           </h3>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* First Row: Product Code, Customer Name, Customer ID */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             {/* Product Selection */}
-            <div className="md:col-span-2 lg:col-span-2">
+            <div>
               <label className="block text-xs font-medium text-slate-700 mb-1">
                 Product Code <span className="text-red-500">*</span>
               </label>
@@ -420,17 +468,18 @@ export default function SimplifiedManufacturingOrderForm({
               <input
                 type="text"
                 name="customer_name"
-                value={
-                  selectedProductDetails?.product?.customer_name && selectedProductDetails?.product?.customer_id
-                    ? `${selectedProductDetails.product.customer_name} - ${selectedProductDetails.product.customer_id}`
-                    : formData.customer_name
-                }
+                value={formData.customer_name}
                 onChange={handleInputChange}
-                readOnly={selectedProductDetails?.product?.customer_name ? true : false}
-                className={`w-full px-3 py-2 text-sm text-slate-800 rounded-lg border ${errors.customer_name ? 'border-red-300 bg-red-50' :
-                  selectedProductDetails?.product?.customer_name ? 'border-slate-300 bg-slate-50' : 'border-slate-300 bg-white'
-                  } focus:ring-1 focus:ring-blue-500 focus:border-transparent transition-all ${selectedProductDetails?.product?.customer_name ? 'cursor-not-allowed' : ''
-                  }`}
+                readOnly={!!selectedProductDetails?.product?.customer_name}
+                className={`w-full px-3 py-2 text-sm text-slate-800 rounded-lg border ${
+                  errors.customer_name 
+                    ? 'border-red-300 bg-red-50' 
+                    : selectedProductDetails?.product?.customer_name 
+                      ? 'border-slate-300 bg-slate-50' 
+                      : 'border-slate-300 bg-white'
+                } focus:ring-1 focus:ring-blue-500 focus:border-transparent transition-all ${
+                  selectedProductDetails?.product?.customer_name ? 'cursor-not-allowed' : ''
+                }`}
                 placeholder={
                   selectedProductDetails?.product?.customer_name
                     ? "Auto-populated from product"
@@ -442,6 +491,24 @@ export default function SimplifiedManufacturingOrderForm({
               )}
             </div>
 
+            {/* Customer ID */}
+            <div>
+              <label className="block text-xs font-medium text-slate-700 mb-1">
+                Customer ID
+              </label>
+              <input
+                type="text"
+                name="customer_id"
+                value={formData.customer_id}
+                readOnly
+                className="w-full px-3 py-2 text-sm text-slate-800 rounded-lg border border-slate-300 bg-slate-50 focus:ring-1 focus:ring-blue-500 focus:border-transparent transition-all cursor-not-allowed"
+                placeholder="Auto-populated from product"
+              />
+            </div>
+          </div>
+
+          {/* Second Row: Quantity, Tolerance, Priority, Date Range */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Quantity */}
             <div>
               <label className="block text-xs font-medium text-slate-700 mb-1">
@@ -518,39 +585,40 @@ export default function SimplifiedManufacturingOrderForm({
               </select>
             </div>
 
-            {/* Planned Start Date */}
+            {/* Planned Date Range */}
             <div>
               <label className="block text-xs font-medium text-slate-700 mb-1">
-                Planned Start Date
+                Planned Date Range
               </label>
-              <input
-                type="datetime-local"
-                name="planned_start_date"
-                value={formData.planned_start_date}
-                onChange={handleInputChange}
-                className={`w-full px-3 py-2 text-sm text-slate-800 rounded-lg border ${errors.planned_start_date ? 'border-red-300 bg-red-50' : 'border-slate-300 bg-white'
-                  } focus:ring-1 focus:ring-blue-500 focus:border-transparent transition-all`}
+              <DatePicker
+                selectsRange={true}
+                startDate={startDate}
+                endDate={endDate}
+                onChange={(update) => {
+                  setDateRange(update);
+                  if (update[0] && update[1]) {
+                    setFormData(prev => ({
+                      ...prev,
+                      planned_start_date: update[0]?.toISOString(),
+                      planned_end_date: update[1]?.toISOString()
+                    }));
+                  }
+                }}
+                isClearable={true}
+                placeholderText="Select date range"
+                dateFormat="MMM d, yyyy h:mm aa"
+                showTimeSelect
+                timeFormat="HH:mm"
+                timeIntervals={30}
+                timeCaption="Time"
+                minDate={new Date()}
+                className={`w-full px-3 py-2 text-sm text-slate-800 rounded-lg border ${errors.planned_start_date || errors.planned_end_date ? 'border-red-300 bg-red-50' : 'border-slate-300 bg-white'} focus:ring-1 focus:ring-blue-500 focus:border-transparent`}
+                wrapperClassName="w-full"
               />
-              {errors.planned_start_date && (
-                <p className="text-red-500 text-xs mt-1">{errors.planned_start_date}</p>
-              )}
-            </div>
-
-            {/* Planned End Date */}
-            <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1">
-                Planned End Date
-              </label>
-              <input
-                type="datetime-local"
-                name="planned_end_date"
-                value={formData.planned_end_date}
-                onChange={handleInputChange}
-                className={`w-full px-3 py-2 text-sm text-slate-800 rounded-lg border ${errors.planned_end_date ? 'border-red-300 bg-red-50' : 'border-slate-300 bg-white'
-                  } focus:ring-1 focus:ring-blue-500 focus:border-transparent transition-all`}
-              />
-              {errors.planned_end_date && (
-                <p className="text-red-500 text-xs mt-1">{errors.planned_end_date}</p>
+              {(errors.planned_start_date || errors.planned_end_date) && (
+                <p className="text-red-500 text-xs mt-1">
+                  {errors.planned_start_date || errors.planned_end_date}
+                </p>
               )}
             </div>
           </div>
@@ -635,33 +703,17 @@ export default function SimplifiedManufacturingOrderForm({
                 </div>
               </div>
               <div>
-                <span className="text-blue-600 font-medium">Material Type:</span>
-                <div className="text-slate-700">{selectedProductDetails.product.material_type_display || 'N/A'}</div>
-              </div>
-              <div>
-                <span className="text-blue-600 font-medium">Material Name:</span>
-                <div className="text-slate-700">{selectedProductDetails.product.material_name || 'N/A'}</div>
-              </div>
-              <div>
-                <span className="text-blue-600 font-medium">Grade:</span>
-                <div className="text-slate-700">{selectedProductDetails.product.grade || 'N/A'}</div>
-              </div>
-              {selectedProductDetails.product.wire_diameter_mm && (
-                <div>
-                  <span className="text-blue-600 font-medium">Wire Dia:</span>
-                  <div className="text-slate-700">{selectedProductDetails.product.wire_diameter_mm} mm</div>
+                <span className="text-blue-600 font-medium">Material Code:</span>
+                <div className="text-slate-700">
+                  {selectedProductDetails.materials?.[0]?.material_code || 'N/A'}
                 </div>
-              )}
+              </div>
               {selectedProductDetails.product.thickness_mm && (
                 <div>
                   <span className="text-blue-600 font-medium">Thickness:</span>
                   <div className="text-slate-700">{selectedProductDetails.product.thickness_mm} mm</div>
                 </div>
               )}
-              <div>
-                <span className="text-blue-600 font-medium">Finishing:</span>
-                <div className="text-slate-700">{selectedProductDetails.product.finishing || 'N/A'}</div>
-              </div>
               <div>
                 <span className="text-blue-600 font-medium">Weight:</span>
                 <div className="text-slate-700">{selectedProductDetails.product.weight_kg ? `${selectedProductDetails.product.weight_kg} kg` : 'N/A'}</div>

@@ -37,6 +37,17 @@ export default function ProcessTrackingSummary() {
     if (storedRole) {
       setUserRole(storedRole);
     }
+
+    // Listen for refresh events
+    const handleRefresh = () => {
+      fetchData();
+    };
+
+    window.addEventListener('refreshProcessTracking', handleRefresh);
+    
+    return () => {
+      window.removeEventListener('refreshProcessTracking', handleRefresh);
+    };
   }, []);
 
   const resolveRolePath = () => {
@@ -130,25 +141,11 @@ export default function ProcessTrackingSummary() {
 
   // Fetch data only once on mount
   useEffect(() => {
-    let interval;
-    
     // Initial fetch - only once
     if (!hasFetched.current) {
       console.log('ProcessTrackingSummary: Initial fetch');
       fetchData();
     }
-    
-    // Set up polling for updates (starts after component mounts)
-    interval = setInterval(() => {
-      console.log('ProcessTrackingSummary: Polling refresh');
-      fetchData();
-    }, 120000); // Poll every 120 seconds (2 minutes)
-    
-    return () => {
-      if (interval) {
-        clearInterval(interval);
-      }
-    };
   }, []); // Empty dependency array - only run once on mount
 
   const getStatusIcon = (status) => {

@@ -6,10 +6,17 @@ import manufacturingAPI from '@/components/API_Service/manufacturing-api';
 import { toast } from '@/utils/notifications';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
+import { Pause, RefreshCw } from 'lucide-react';
+import StopMOConfirmationModal from '@/components/manufacturing/StopMOConfirmationModal';
+import { MANUFACTURING_APIS } from '@/components/API_Service/api-list';
 
 export default function OrdersList({ type }) {
   const router = useRouter();
+  const isMO = type === 'mo';
+  const pageSize = isMO ? 5 : 20;  // 5 for MOs, 20 for POs
+  
   const [orders, setOrders] = useState([]);
+  const [allOrders, setAllOrders] = useState([]); // Store all fetched data
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState(null);
   const [filters, setFilters] = useState({
@@ -17,7 +24,8 @@ export default function OrdersList({ type }) {
     search: '',
     ordering: '-created_at',
     start_date: '',
-    end_date: ''
+    end_date: '',
+    page_size: pageSize
   });
   const [pagination, setPagination] = useState({
     count: 0,
@@ -25,6 +33,10 @@ export default function OrdersList({ type }) {
     previous: null,
     current_page: 1
   });
+  
+  // Stop MO modal state
+  const [showStopModal, setShowStopModal] = useState(false);
+  const [selectedMO, setSelectedMO] = useState(null);
 
   // Use ref to track if initial fetch is done
   const initialFetchDone = useRef(false);
@@ -35,7 +47,6 @@ export default function OrdersList({ type }) {
   const [dateRange, setDateRange] = useState([null, null]);
   const [startDate, endDate] = dateRange;
 
-  const isMO = type === 'mo';
   const api = isMO ? manufacturingAPI.manufacturingOrders : manufacturingAPI.purchaseOrders;
   const isManager = userRole === 'manager';
 
@@ -44,8 +55,8 @@ export default function OrdersList({ type }) {
     setLoading(true);
     try {
       const queryFilters = {
-        ...filters,
-        page
+        ordering: '-created_at',
+        page_size: pageSize
       };
 
       console.log(`Fetching ${type} orders with filters:`, queryFilters);
@@ -54,7 +65,8 @@ export default function OrdersList({ type }) {
 
       // Handle both successful and failed responses
       if (response && response.success !== false) {
-        setOrders(response.results || []);
+        const fetchedData = response.results || [];
+        setAllOrders(fetchedData); // Store all data
         setPagination({
           count: response.count || 0,
           next: response.next,
@@ -64,7 +76,7 @@ export default function OrdersList({ type }) {
       } else {
         // Handle failed API response
         console.warn(`API returned failed response for ${type} orders:`, response);
-        setOrders([]);
+        setAllOrders([]);
         setPagination({
           count: 0,
           next: null,
@@ -75,7 +87,7 @@ export default function OrdersList({ type }) {
     } catch (error) {
       console.error(`Error fetching ${type} orders:`, error);
       // Set empty data on error to prevent crashes
-      setOrders([]);
+      setAllOrders([]);
       setPagination({
         count: 0,
         next: null,
@@ -93,55 +105,102 @@ export default function OrdersList({ type }) {
     setUserRole(role);
   }, []);
 
-  // Fetch orders when filters or type change - with debouncing for search
+  // Fetch orders only on initial load
   useEffect(() => {
-    // Clear any existing timeout
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current);
-    }
-
     if (!initialFetchDone.current) {
-      // Initial fetch
       initialFetchDone.current = true;
-      lastFiltersRef.current = filters;
       fetchOrders();
-    } else {
-      // Check if filters have changed
-      const filtersChanged =
-        lastFiltersRef.current.status !== filters.status ||
-        lastFiltersRef.current.ordering !== filters.ordering ||
-        lastFiltersRef.current.start_date !== filters.start_date ||
-        lastFiltersRef.current.end_date !== filters.end_date ||
-        lastFiltersRef.current.search !== filters.search;
+    }
+  }, []);
 
-      if (filtersChanged) {
-        // Debounce only for search field (instant for other filters)
-        const searchChanged = lastFiltersRef.current.search !== filters.search;
+  // Client-side filtering effect
+  useEffect(() => {
+    filterOrders();
+  }, [filters, allOrders]);
 
-        lastFiltersRef.current = filters;
+  const filterOrders = () => {
+    let filtered = [...allOrders];
 
-        if (searchChanged) {
-          searchTimeoutRef.current = setTimeout(() => {
-            fetchOrders();
-          }, 500); // 500ms debounce for search
+    // Search filter
+    if (filters.search) {
+      const searchTerm = filters.search.toLowerCase();
+      filtered = filtered.filter(order => {
+        if (isMO) {
+          return (order.mo_id && typeof order.mo_id === 'string' && order.mo_id.toLowerCase().includes(searchTerm)) ||
+                 (order.product_code && typeof order.product_code === 'string' && order.product_code.toLowerCase().includes(searchTerm)) ||
+                 (order.product_name && typeof order.product_name === 'string' && order.product_name.toLowerCase().includes(searchTerm)) ||
+                 (order.rm_required_kg && order.rm_required_kg.toString().includes(searchTerm));
         } else {
-          fetchOrders();
+          return (order.po_id && typeof order.po_id === 'string' && order.po_id.toLowerCase().includes(searchTerm)) ||
+                 (order.material_name && typeof order.material_name === 'string' && order.material_name.toLowerCase().includes(searchTerm)) ||
+                 (order.vendor_name && typeof order.vendor_name === 'string' && order.vendor_name.toLowerCase().includes(searchTerm));
         }
-      }
+      });
     }
 
-    return () => {
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current);
-      }
-    };
-  }, [filters.status, filters.search, filters.ordering, filters.start_date, filters.end_date]);
+    // Status filter
+    if (filters.status) {
+      filtered = filtered.filter(order => order.status === filters.status);
+    }
+
+    // Date range filter
+    if (filters.start_date || filters.end_date) {
+      filtered = filtered.filter(order => {
+        if (!order.created_at) return false;
+        
+        const orderDate = new Date(order.created_at);
+        const startDate = filters.start_date ? new Date(filters.start_date) : null;
+        const endDate = filters.end_date ? new Date(filters.end_date) : null;
+        
+        if (startDate && endDate) {
+          return orderDate >= startDate && orderDate <= endDate;
+        } else if (startDate) {
+          return orderDate >= startDate;
+        } else if (endDate) {
+          return orderDate <= endDate;
+        }
+        return true;
+      });
+    }
+
+    // Apply sorting
+    if (filters.ordering) {
+      const [field, direction] = filters.ordering.startsWith('-') 
+        ? [filters.ordering.slice(1), 'desc'] 
+        : [filters.ordering, 'asc'];
+      
+      filtered.sort((a, b) => {
+        const aVal = a[field];
+        const bVal = b[field];
+        
+        if (aVal < bVal) return direction === 'asc' ? -1 : 1;
+        if (aVal > bVal) return direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+
+    // Apply pagination
+    const startIndex = (pagination.current_page - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    const paginatedOrders = filtered.slice(startIndex, endIndex);
+    
+    setOrders(paginatedOrders);
+    setPagination(prev => ({
+      ...prev,
+      count: filtered.length,
+    }));
+  };
 
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({
       ...prev,
       [key]: value
     }));
+    setPagination(prev => ({ ...prev, current_page: 1 }));
+  };
+
+  const handleRefresh = () => {
+    fetchOrders();
   };
 
   // Handle date range change
@@ -203,6 +262,112 @@ export default function OrdersList({ type }) {
     }
   };
 
+  const handlePauseMO = async (pauseReason) => {
+    if (!selectedMO) return;
+
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(MANUFACTURING_APIS.MO_STOP(selectedMO.id), {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ stop_reason: pauseReason }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to pause MO');
+      }
+
+      toast.success(`MO ${selectedMO.mo_id} paused successfully!`);
+      
+      // Refresh the orders list
+      await fetchOrders(pagination.current_page);
+      
+    } catch (error) {
+      console.error('Error pausing MO:', error);
+      throw error;
+    }
+  };
+
+  const handleCancelMO = async (orderId) => {
+    try {
+      console.log(`Cancelling MO ${orderId}`);
+      await api.changeStatus(orderId, { status: 'cancelled', notes: 'Cancelled by Production Head/Manager' });
+      console.log(`Successfully cancelled MO ${orderId}`);
+      toast.success(`MO cancelled successfully!`);
+      fetchOrders(pagination.current_page);
+    } catch (error) {
+      console.error('Error cancelling MO:', error);
+      toast.error(`Failed to cancel MO: ${error.message || 'Unknown error'}`);
+    }
+  };
+
+  const handleRejectMO = async (orderId) => {
+    const reason = window.prompt('Please provide a reason for rejecting this MO:');
+    if (reason === null) return; // User cancelled
+    
+    if (!reason.trim()) {
+      toast.error('Rejection reason is required');
+      return;
+    }
+
+    try {
+      console.log(`Rejecting MO ${orderId} with reason: ${reason}`);
+      await api.changeStatus(orderId, { status: 'rejected', notes: `Rejected by Manager: ${reason}` });
+      console.log(`Successfully rejected MO ${orderId}`);
+      toast.success(`MO rejected successfully!`);
+      fetchOrders(pagination.current_page);
+    } catch (error) {
+      console.error('Error rejecting MO:', error);
+      toast.error(`Failed to reject MO: ${error.message || 'Unknown error'}`);
+    }
+  };
+
+  const handleCancelPO = async (orderId) => {
+    try {
+      console.log(`Cancelling PO ${orderId}`);
+      await api.changeStatus(orderId, { status: 'po_cancelled', notes: 'Cancelled by Production Head' });
+      console.log(`Successfully cancelled PO ${orderId}`);
+      toast.success(`PO cancelled successfully!`);
+      fetchOrders(pagination.current_page);
+    } catch (error) {
+      console.error('Error cancelling PO:', error);
+      toast.error(`Failed to cancel PO: ${error.message || 'Unknown error'}`);
+    }
+  };
+
+  const handleRejectPO = async (orderId) => {
+    const reason = window.prompt('Please provide a reason for rejecting this PO:');
+    if (reason === null) return; // User cancelled
+    
+    if (!reason.trim()) {
+      toast.error('Rejection reason is required');
+      return;
+    }
+
+    try {
+      console.log(`Rejecting PO ${orderId} with reason: ${reason}`);
+      await api.changeStatus(orderId, { status: 'po_cancelled', notes: `Rejected by Manager: ${reason}` });
+      console.log(`Successfully rejected PO ${orderId}`);
+      toast.success(`PO rejected successfully!`);
+      fetchOrders(pagination.current_page);
+    } catch (error) {
+      console.error('Error rejecting PO:', error);
+      toast.error(`Failed to reject PO: ${error.message || 'Unknown error'}`);
+    }
+  };
+
+  const canPauseMO = (status) => {
+    return ['rm_allocated', 'in_progress'].includes(status);
+  };
+
+  const canCancelMO = (status) => {
+    return status === 'on_hold';
+  };
+
   const getStatusColor = (status) => {
     const colors = {
       // MO Statuses
@@ -213,6 +378,7 @@ export default function OrdersList({ type }) {
       in_progress: 'bg-orange-100 text-orange-700',
       completed: 'bg-emerald-100 text-emerald-700',
       cancelled: 'bg-red-100 text-red-700',
+      stopped: 'bg-red-100 text-red-700',
       rejected: 'bg-red-100 text-red-700',
       on_hold: 'bg-yellow-100 text-yellow-700',
       mo_approved: 'bg-green-100 text-green-700',
@@ -263,6 +429,16 @@ export default function OrdersList({ type }) {
     <div className="space-y-6">
       {/* Compact Filters - Single Row */}
       <div className="bg-white/60 backdrop-blur-sm rounded-xl p-4 border border-slate-200/60">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-medium text-slate-700">Filters</h3>
+          <button
+            onClick={handleRefresh}
+            className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <RefreshCw className="h-3 w-3 mr-1" />
+            Refresh
+          </button>
+        </div>
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
           {/* Search - Wider */}
           <div className="lg:col-span-3">
@@ -270,7 +446,7 @@ export default function OrdersList({ type }) {
               type="text"
               value={filters.search}
               onChange={(e) => handleFilterChange('search', e.target.value)}
-              placeholder={isMO ? 'MO ID, Product Code...' : 'PO ID, Material, Vendor...'}
+              placeholder={isMO ? 'MO ID, Product Code, RM kg...' : 'PO ID, Material, Vendor...'}
               className="w-full px-3 py-2 text-sm text-slate-500 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder:text-slate-400"
             />
           </div>
@@ -308,17 +484,16 @@ export default function OrdersList({ type }) {
                   <option value="in_progress" className="text-slate-500">In Progress</option>
                   <option value="completed" className="text-slate-500">Completed</option>
                   <option value="cancelled" className="text-slate-500">Cancelled</option>
+                  <option value="rejected" className="text-slate-500">Rejected</option>
                   <option value="on_hold" className="text-slate-500">On Hold</option>
                 </>
               ) : (
                 <>
-                  <option value="submitted" className="text-slate-500">Submitted</option>
-                  <option value="rm_allocated" className="text-slate-500">RM Allocated</option>
-                  <option value="mo_approved" className="text-slate-500">MO Approved</option>
-                  <option value="in_progress" className="text-slate-500">In Progress</option>
-                  <option value="completed" className="text-slate-500">Completed</option>
-                  <option value="cancelled" className="text-slate-500">Cancelled</option>
-                  <option value="on_hold" className="text-slate-500">On Hold</option>
+                  <option value="po_initiated" className="text-slate-500">PO Initiated</option>
+                  <option value="po_approved" className="text-slate-500">PO Approved</option>
+                  <option value="po_cancelled" className="text-slate-500">PO Cancelled</option>
+                  <option value="rm_pending" className="text-slate-500">RM Pending</option>
+                  <option value="rm_completed" className="text-slate-500">RM Completed</option>
                 </>
               )}
 
@@ -361,7 +536,8 @@ export default function OrdersList({ type }) {
                   search: '',
                   ordering: '-created_at',
                   start_date: '',
-                  end_date: ''
+                  end_date: '',
+                  page_size: pageSize
                 });
                 setDateRange([null, null]);
               }}
@@ -398,7 +574,7 @@ export default function OrdersList({ type }) {
             >
               <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-4">
                 <div className="flex-1">
-                  <div className="flex items-center space-x-3 mb-2">
+                  <div className="flex items-center space-x-3 mb-2 flex-wrap gap-2">
                     <h3 className="text-lg font-bold text-slate-800 flex items-center space-x-2">
                       <span>{isMO ? order.mo_id : order.po_id}</span>
                       <span className="text-xs text-blue-600 font-normal">
@@ -413,10 +589,52 @@ export default function OrdersList({ type }) {
                         {order.priority_display}
                       </span>
                     )}
+                    {isMO && canCancelMO(order.status) && userRole === 'production_head' && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (window.confirm(`Are you sure you want to cancel MO ${order.mo_id}? This action cannot be undone.`)) {
+                            handleCancelMO(order.id);
+                          }
+                        }}
+                        className="flex items-center gap-1 px-3 py-1 bg-red-600 text-white rounded-lg text-xs hover:bg-red-700 transition-colors"
+                        title="Cancel this MO permanently"
+                      >
+                        Cancel MO
+                      </button>
+                    )}
+                    {isMO && order.status === 'submitted' && userRole === 'manager' && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (window.confirm(`Are you sure you want to reject MO ${order.mo_id}? This action cannot be undone.`)) {
+                            handleRejectMO(order.id);
+                          }
+                        }}
+                        className="flex items-center gap-1 px-3 py-1 bg-red-600 text-white rounded-lg text-xs hover:bg-red-700 transition-colors"
+                        title="Reject this MO with reason"
+                      >
+                        Reject MO
+                      </button>
+                    )}
+                    {isMO && canPauseMO(order.status) && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedMO(order);
+                          setShowStopModal(true);
+                        }}
+                        className="flex items-center gap-1 px-3 py-1 bg-orange-600 text-white rounded-lg text-xs hover:bg-orange-700 transition-colors"
+                        title="Pause this MO temporarily"
+                      >
+                        <Pause className="w-3 h-3" />
+                        Pause MO
+                      </button>
+                    )}
                   </div>
                   <p className="text-slate-600">
                     {isMO
-                      ? `${order.product_code?.display_name || order.product_code?.product_code} - Qty: ${order.quantity}`
+                      ? `${order.product_code?.display_name || order.product_code?.product_code} - Qty: ${order.quantity}${order.rm_required_kg ? ` | RM: ${parseFloat(order.rm_required_kg).toFixed(2)} kg` : ''}`
                       : `${order.rm_code?.material_name || order.rm_code?.material_code || 'N/A'} - Qty: ${order.quantity_ordered}`
                     }
                   </p>
@@ -455,49 +673,69 @@ export default function OrdersList({ type }) {
                         )}
                       </>
                     ) : (
-                      // PO Actions - Only for Managers
-                      isManager ? (
-                        <>
-                          {order.status === 'po_initiated' && (
-                            <>
+                      // PO Actions
+                      <>
+                        {order.status === 'po_initiated' && (
+                          <>
+                            {/* Production Head can cancel */}
+                            {userRole === 'production_head' && (
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleStatusChange(order.id, 'po_approved', 'Approved by GM');
-                                }}
-                                className="px-3 py-1 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition-colors"
-                              >
-                                Approve PO
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleStatusChange(order.id, 'po_cancelled', 'Cancelled by Manager');
+                                  if (window.confirm(`Are you sure you want to cancel PO ${order.po_id}? This action cannot be undone.`)) {
+                                    handleCancelPO(order.id);
+                                  }
                                 }}
                                 className="px-3 py-1 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 transition-colors"
                               >
-                                Cancel
+                                Cancel PO
                               </button>
-                            </>
-                          )}
-                          {order.status === 'po_approved' && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleStatusChange(order.id, 'po_cancelled', 'Cancelled by Manager');
-                              }}
-                              className="px-3 py-1 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 transition-colors"
-                            >
-                              Cancel
-                            </button>
-                          )}
-                        </>
-                      ) : (
-                        // Non-manager users see read-only status
-                        <span className="px-3 py-1 bg-gray-100 text-gray-600 rounded-lg text-sm">
-                          View Only
-                        </span>
-                      )
+                            )}
+                            {/* Manager can approve or reject */}
+                            {isManager && (
+                              <>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleStatusChange(order.id, 'po_approved', 'Approved by Manager');
+                                  }}
+                                  className="px-3 py-1 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition-colors"
+                                >
+                                  Approve PO
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (window.confirm(`Are you sure you want to reject PO ${order.po_id}? This action cannot be undone.`)) {
+                                      handleRejectPO(order.id);
+                                    }
+                                  }}
+                                  className="px-3 py-1 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 transition-colors"
+                                >
+                                  Reject PO
+                                </button>
+                              </>
+                            )}
+                          </>
+                        )}
+                        {order.status === 'po_approved' && isManager && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleStatusChange(order.id, 'po_cancelled', 'Cancelled by Manager');
+                            }}
+                            className="px-3 py-1 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        )}
+                        {/* Non-manager users see read-only status for other statuses */}
+                        {!isManager && order.status !== 'po_initiated' && (
+                          <span className="px-3 py-1 bg-gray-100 text-gray-600 rounded-lg text-sm">
+                            View Only
+                          </span>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
@@ -554,28 +792,41 @@ export default function OrdersList({ type }) {
       </div>
 
       {/* Pagination */}
-      {pagination.count > 20 && (
+      {pagination.count > pageSize && (
         <div className="flex items-center justify-between bg-white/60 backdrop-blur-sm rounded-xl p-4 border border-slate-200/60">
           <div className="text-sm text-slate-600">
-            Showing {((pagination.current_page - 1) * 20) + 1} to {Math.min(pagination.current_page * 20, pagination.count)} of {pagination.count} results
+            Showing {((pagination.current_page - 1) * pageSize) + 1} to {Math.min(pagination.current_page * pageSize, pagination.count)} of {pagination.count} results
           </div>
           <div className="flex space-x-2">
             <button
-              onClick={() => fetchOrders(pagination.current_page - 1)}
-              disabled={!pagination.previous}
-              className="px-4 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={() => setPagination(prev => ({ ...prev, current_page: prev.current_page - 1 }))}
+              disabled={pagination.current_page === 1}
+              className="px-4 py-2 text-slate-700 text-sm font-medium bg-white border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Previous
             </button>
             <button
-              onClick={() => fetchOrders(pagination.current_page + 1)}
-              disabled={!pagination.next}
-              className="px-4 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={() => setPagination(prev => ({ ...prev, current_page: prev.current_page + 1 }))}
+              disabled={pagination.current_page * pageSize >= pagination.count}
+              className="px-4 py-2 text-slate-700 text-sm font-medium bg-white border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Next
             </button>
           </div>
         </div>
+      )}
+
+      {/* Pause MO Modal */}
+      {isMO && (
+        <StopMOConfirmationModal
+          isOpen={showStopModal}
+          onClose={() => {
+            setShowStopModal(false);
+            setSelectedMO(null);
+          }}
+          moData={selectedMO}
+          onConfirm={handlePauseMO}
+        />
       )}
     </div>
   );

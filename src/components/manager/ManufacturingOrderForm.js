@@ -160,11 +160,14 @@ export default function ManufacturingOrderForm({ onSuccess }) {
 
     setLoading(true);
     try {
-      // Convert string IDs to integers and prepare data
+      // Prepare data for submission (customer_id and customer_name are only for UI reference)
       const submitData = {
-        ...formData,
         product_code_id: parseInt(formData.product_code_id),
-        quantity: parseInt(formData.quantity)
+        quantity: parseInt(formData.quantity),
+        planned_start_date: formData.planned_start_date,
+        planned_end_date: formData.planned_end_date,
+        priority: formData.priority,
+        special_instructions: formData.special_instructions
       };
 
       await manufacturingAPI.manufacturingOrders.create(submitData);

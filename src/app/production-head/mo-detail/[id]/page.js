@@ -2,20 +2,20 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { ArrowLeftIcon, PlayIcon, PauseIcon, CheckCircleIcon, ExclamationTriangleIcon, ClockIcon } from '@heroicons/react/24/outline';
+import { ArrowLeftIcon, PlayIcon, CheckCircleIcon, ExclamationTriangleIcon, ClockIcon } from '@heroicons/react/24/outline';
 
 // Components
 import ProcessFlowVisualization from '@/components/process/ProcessFlowVisualization';
+import BatchProcessFlowVisualization from '@/components/process/BatchProcessFlowVisualization';
 import LoadingSpinner from '@/components/CommonComponents/ui/LoadingSpinner';
-import SearchableDropdown from '@/components/CommonComponents/ui/SearchableDropdown';
 import SupervisorAssignmentModal from '@/components/supervisor/SupervisorAssignmentModal';
 
 // API Services
 import manufacturingAPI from '@/components/API_Service/manufacturing-api';
 import processTrackingAPI from '@/components/API_Service/process-tracking-api';
-import { apiRequest } from '@/components/API_Service/api-utils';
 import { throttledGet } from '@/components/API_Service/throttled-api';
 import { AUTH_APIS } from '@/components/API_Service/api-list';
+import { toast } from '@/utils/notifications';
 
 export default function MODetailPage() {
   const router = useRouter();
@@ -34,6 +34,9 @@ export default function MODetailPage() {
   const [userRole, setUserRole] = useState(null);
   const [showSupervisorModal, setShowSupervisorModal] = useState(false);
   const [selectedProcessExecution, setSelectedProcessExecution] = useState(null);
+  const [rmAllocationData, setRmAllocationData] = useState(null);
+  const [rmAllocationLoading, setRmAllocationLoading] = useState(false);
+  const [batchData, setBatchData] = useState({ batches: [], summary: null });
 
   // Fetch user profile to get role (THROTTLED)
   const fetchUserProfile = useCallback(async () => {
@@ -111,18 +114,72 @@ export default function MODetailPage() {
   }, []);
 
 
+  // Fetch RM allocation data
+  const fetchRmAllocationData = useCallback(async () => {
+    if (!moId) return;
+    
+    try {
+      setRmAllocationLoading(true);
+      const response = await manufacturingAPI.rawMaterialAllocations.getByMO(moId);
+      
+      if (response.success) {
+        setRmAllocationData(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching RM allocation data:', error);
+    } finally {
+      setRmAllocationLoading(false);
+    }
+  }, [moId]);
+
+  // Fetch batch data
+  const fetchBatchInfo = useCallback(async () => {
+    try {
+      const batchResponse = await manufacturingAPI.batches.getByMO(moId);
+      
+      setBatchData({ 
+        batches: batchResponse.batches || [], 
+        summary: batchResponse.summary || null 
+      });
+    } catch (error) {
+      console.error('Error fetching batch info:', error);
+    }
+  }, [moId]);
+
   // Fetch MO data with process tracking
   const fetchMOData = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await processTrackingAPI.getMOWithProcesses(moId);
-      setMO(data);
-      setProcessesInitialized(data.process_executions && data.process_executions.length > 0);
+      
+      // Fetch both MO details and process tracking data
+      const [moData, processData] = await Promise.all([
+        manufacturingAPI.manufacturingOrders.getById(moId),
+        processTrackingAPI.getMOWithProcesses(moId)
+      ]);
+      
+      // Merge the data, prioritizing MO details for basic fields
+      const mergedData = {
+        ...processData,
+        ...moData,
+        // Keep process-specific data from process tracking
+        process_executions: processData.process_executions || [],
+        alerts: processData.alerts || []
+      };
+      
+      console.log('MO Data fetched:', {
+        moId,
+        rm_required_kg: mergedData.rm_required_kg,
+        quantity: mergedData.quantity,
+        product_code: mergedData.product_code
+      });
+      
+      setMO(mergedData);
+      setProcessesInitialized(mergedData.process_executions && mergedData.process_executions.length > 0);
       
       // Set edit data
       // NOTE: assigned_supervisor removed - supervisor tracking moved to work center level
       setEditData({
-        shift: data.shift || ''
+        shift: mergedData.shift || ''
       });
       
       // Fetch alerts
@@ -146,7 +203,7 @@ export default function MODetailPage() {
     const initializePolling = async () => {
       if (!mounted) return;
       
-      await Promise.all([fetchMOData(), fetchSupervisors()]);
+      await Promise.all([fetchMOData(), fetchSupervisors(), fetchRmAllocationData(), fetchBatchInfo()]);
 
       if (!mounted) return;
 
@@ -175,15 +232,40 @@ export default function MODetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty dependency array - only run once on mount to prevent duplicate polling
 
-  // Initialize processes for the MO
+  // Initialize processes for the MO - Changes status from mo_approved to in_progress
   const handleInitializeProcesses = async () => {
+    const confirmStart = window.confirm(
+      `Are you sure you want to start production for MO ${mo.mo_id}? This will change the status to in_progress.`
+    );
+
+    if (!confirmStart) return;
+
     try {
       setLoading(true);
-      await processTrackingAPI.initializeMOProcesses(moId);
-      await fetchMOData();
+      // Use startProduction API which changes status from mo_approved to in_progress without checking RM availability
+      const response = await manufacturingAPI.manufacturingOrders.startProduction(moId, {
+        notes: 'Production started by production head'
+      });
+      
+      // Check if response has error
+      if (response && response.error) {
+        toast.error('Failed to start production: ' + response.message);
+        return;
+      }
+      
+      // Response is already unwrapped by handleResponse, so it contains { message, mo }
+      if (response && response.mo) {
+        setMO(response.mo);
+        toast.success('Production started successfully!');
+        // Now initialize the processes
+        await processTrackingAPI.initializeMOProcesses(moId);
+        await fetchMOData();
+      } else {
+        toast.error('Failed to start production: Unexpected response format');
+      }
     } catch (error) {
       console.error('Error initializing processes:', error);
-      alert('Failed to initialize processes: ' + error.message);
+      toast.error('Failed to initialize processes: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -204,6 +286,10 @@ export default function MODetailPage() {
   // Handle edit MO details
   const handleEditMO = () => {
     setIsEditing(true);
+    setEditData({
+      quantity: mo.quantity,
+      shift: mo.shift || ''
+    });
   };
 
   // Handle cancel edit
@@ -211,6 +297,7 @@ export default function MODetailPage() {
     setIsEditing(false);
     // NOTE: assigned_supervisor removed - supervisor tracking moved to work center level
     setEditData({
+      quantity: mo.quantity,
       shift: mo.shift || ''
     });
   };
@@ -219,19 +306,24 @@ export default function MODetailPage() {
   const handleSaveMO = async () => {
     try {
       setLoading(true);
+      console.log('Saving MO with data:', editData);
       const response = await manufacturingAPI.manufacturingOrders.updateMODetails(moId, editData);
+      console.log('MO update response:', response);
       
       // Response is already unwrapped by handleResponse, so it contains { message, mo }
       if (response && response.mo) {
         setMO(response.mo);
         setIsEditing(false);
-        alert('MO details updated successfully!');
+        toast.success('MO details updated successfully!');
+      } else if (response && response.error) {
+        toast.error(`Failed to update MO: ${response.message || response.error}`);
       } else {
-        alert('Failed to update MO details: Unexpected response format');
+        console.error('Unexpected response format:', response);
+        toast.error('Failed to update MO details: Unexpected response format');
       }
     } catch (error) {
       console.error('Error updating MO:', error);
-      alert('Failed to update MO details: ' + error.message);
+      toast.error('Failed to update MO details: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -263,6 +355,45 @@ export default function MODetailPage() {
     } catch (error) {
       console.error('Error approving MO:', error);
       alert('Failed to approve MO: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle reject MO (Manager/Production Head)
+  const handleRejectMO = async () => {
+    const rejectionReason = window.prompt(
+      `Please provide a reason for rejecting MO ${mo.mo_id}:`,
+      'MO rejected by manager'
+    );
+
+    if (!rejectionReason) return;
+
+    const confirmRejection = window.confirm(
+      `Are you sure you want to reject MO ${mo.mo_id}? This action cannot be undone.`
+    );
+
+    if (!confirmRejection) return;
+
+    try {
+      setLoading(true);
+      const response = await manufacturingAPI.manufacturingOrders.rejectMO(moId, {
+        notes: rejectionReason
+      });
+      
+      // Response is already unwrapped by handleResponse, so it contains { message, mo }
+      if (response && response.mo) {
+        setMO(response.mo);
+        toast.success('MO rejected successfully!');
+      } else if (response && response.error) {
+        toast.error(`Failed to reject MO: ${response.message || response.error}`);
+      } else {
+        console.error('Unexpected response format:', response);
+        toast.error('Failed to reject MO: Unexpected response format');
+      }
+    } catch (error) {
+      console.error('Error rejecting MO:', error);
+      toast.error('Failed to reject MO: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -303,6 +434,7 @@ export default function MODetailPage() {
       in_progress: 'bg-orange-100 text-orange-700',
       completed: 'bg-emerald-100 text-emerald-700',
       cancelled: 'bg-red-100 text-red-700',
+      rejected: 'bg-red-100 text-red-700',
       on_hold: 'bg-yellow-100 text-yellow-700'
     };
     return colors[status] || 'bg-gray-100 text-gray-700';
@@ -342,6 +474,7 @@ export default function MODetailPage() {
   const tabs = [
     { id: 'overview', label: 'Overview', icon: '📋' },
     { id: 'processes', label: 'Process Flow', icon: '🏭' },
+    { id: 'batch-flow', label: 'Batch Flow', icon: '📦' },
     { id: 'assignments', label: 'Supervisor Assignments', icon: '👥' },
     { id: 'alerts', label: 'Alerts', icon: '🚨', count: alerts.length },
   ];
@@ -413,114 +546,303 @@ export default function MODetailPage() {
           <div className="space-y-6">
             {/* MO Summary Card */}
             <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200/60 p-6">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* Basic Information */}
-                <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-slate-800">Order Information</h3>
-                    {(['manager', 'production_head'].includes(userRole) && ['on_hold', 'rm_allocated'].includes(mo.status)) && !isEditing && (
-                      <button
-                        onClick={handleEditMO}
-                        className="px-3 py-1 text-sm bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
-                      >
-                        Edit Details
-                      </button>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* Left Panel: Order Information + Timeline */}
+                <div className="space-y-6">
+                  {/* Order Information */}
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold text-slate-800">Order Information</h3>
+                      {(userRole === 'production_head' && mo.status === 'on_hold') && !isEditing && (
+                        <button
+                          onClick={handleEditMO}
+                          className="px-3 py-1 text-sm bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
+                        >
+                          Edit Details
+                        </button>
+                      )}
+                    </div>
+                    <div className="space-y-3">
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Product Code:</span>
+                        <span className="font-medium text-slate-800">{mo.product_code_value || mo.product_code_display || 'N/A'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Quantity:</span>
+                        {isEditing ? (
+                          <input
+                            type="number"
+                            value={editData.quantity || mo.quantity}
+                            onChange={(e) => handleEditInputChange('quantity', parseInt(e.target.value) || 0)}
+                            className="px-2 py-1 text-slate-800 border border-slate-300 rounded text-sm w-24 text-right"
+                            min="1"
+                          />
+                        ) : (
+                          <span className="font-medium text-slate-800">{mo.quantity.toLocaleString()}</span>
+                        )}
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Material:</span>
+                        <span className="font-medium text-slate-800">{mo.material_name}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Grade:</span>
+                        <span className="font-medium text-slate-800">{mo.grade}</span>
+                      </div>
+                      {/* NOTE: Supervisor field removed - supervisor tracking moved to work center level */}
+                      {/* Supervisors are now automatically assigned per work center based on daily attendance */}
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Shift:</span>
+                        {isEditing ? (
+                          <select
+                            value={editData.shift}
+                            onChange={(e) => handleEditInputChange('shift', e.target.value)}
+                            className="px-2 py-1 text-slate-800 border border-slate-300 rounded text-sm"
+                          >
+                            <option value="">Select Shift</option>
+                            <option value="I">I (9AM-5PM)</option>
+                            <option value="II">II (5PM-2AM)</option>
+                            <option value="III">III (2AM-9AM)</option>
+                          </select>
+                        ) : (
+                          <span className="font-medium text-slate-800">{mo.shift_display || 'Not Assigned'}</span>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Edit Controls */}
+                    {isEditing && (
+                      <div className="flex justify-end space-x-2 mt-4 pt-4 border-t border-slate-200">
+                        <button
+                          onClick={handleCancelEdit}
+                          className="px-3 py-1 text-sm bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={handleSaveMO}
+                          disabled={loading}
+                          className="px-3 py-1 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                        >
+                          {loading ? 'Saving...' : 'Save'}
+                        </button>
+                      </div>
                     )}
                   </div>
-                  <div className="space-y-3">
-                    <div className="flex justify-between">
-                      <span className="text-slate-600">Product Code:</span>
-                      <span className="font-medium text-slate-800">{mo.product_code_value || mo.product_code_display || 'N/A'}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-600">Quantity:</span>
-                      <span className="font-medium text-slate-800">{mo.quantity.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-600">Material:</span>
-                      <span className="font-medium text-slate-800">{mo.material_name}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-600">Grade:</span>
-                      <span className="font-medium text-slate-800">{mo.grade}</span>
-                    </div>
-                    {/* NOTE: Supervisor field removed - supervisor tracking moved to work center level */}
-                    {/* Supervisors are now automatically assigned per work center based on daily attendance */}
-                    <div className="flex justify-between">
-                      <span className="text-slate-600">Shift:</span>
-                      {isEditing ? (
-                        <select
-                          value={editData.shift}
-                          onChange={(e) => handleEditInputChange('shift', e.target.value)}
-                          className="px-2 py-1 text-slate-800 border border-slate-300 rounded text-sm"
-                        >
-                          <option value="">Select Shift</option>
-                          <option value="I">I (9AM-5PM)</option>
-                          <option value="II">II (5PM-2AM)</option>
-                          <option value="III">III (2AM-9AM)</option>
-                        </select>
-                      ) : (
-                        <span className="font-medium text-slate-800">{mo.shift_display || 'Not Assigned'}</span>
+
+                  {/* Timeline */}
+                  <div>
+                    <h3 className="text-lg font-semibold text-slate-800 mb-4">Timeline</h3>
+                    <div className="space-y-3">
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Created:</span>
+                        <span className="font-medium text-slate-800">
+                          {new Date(mo.created_at).toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Planned Start:</span>
+                        <span className="font-medium text-slate-800">
+                          {new Date(mo.planned_start_date).toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Planned End:</span>
+                        <span className="font-medium text-slate-800">
+                          {new Date(mo.planned_end_date).toLocaleString()}
+                        </span>
+                      </div>
+                      {mo.actual_start_date && (
+                        <div className="flex justify-between">
+                          <span className="text-slate-600">Actual Start:</span>
+                          <span className="font-medium text-slate-800">
+                            {new Date(mo.actual_start_date).toLocaleString()}
+                          </span>
+                        </div>
+                      )}
+                      {mo.actual_end_date && (
+                        <div className="flex justify-between">
+                          <span className="text-slate-600">Actual End:</span>
+                          <span className="font-medium text-slate-800">
+                            {new Date(mo.actual_end_date).toLocaleString()}
+                          </span>
+                        </div>
+                      )}
+                      {mo.delivery_date && (
+                        <div className="flex justify-between">
+                          <span className="text-slate-600">Delivery Date:</span>
+                          <span className="font-medium text-slate-800">
+                            {new Date(mo.delivery_date).toLocaleDateString()}
+                          </span>
+                        </div>
                       )}
                     </div>
                   </div>
-                  
-                  {/* Edit Controls */}
-                  {isEditing && (
-                    <div className="flex justify-end space-x-2 mt-4 pt-4 border-t border-slate-200">
-                      <button
-                        onClick={handleCancelEdit}
-                        className="px-3 py-1 text-sm bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={handleSaveMO}
-                        disabled={loading}
-                        className="px-3 py-1 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
-                      >
-                        {loading ? 'Saving...' : 'Save'}
-                      </button>
-                    </div>
-                  )}
                 </div>
 
-                {/* Timeline */}
+                {/* Right Panel: Raw Material Allocation */}
                 <div>
-                  <h3 className="text-lg font-semibold text-slate-800 mb-4">Timeline</h3>
-                  <div className="space-y-3">
-                    <div className="flex justify-between">
-                      <span className="text-slate-600">Created:</span>
-                      <span className="font-medium text-slate-800">
-                        {new Date(mo.created_at).toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-600">Planned Start:</span>
-                      <span className="font-medium text-slate-800">
-                        {new Date(mo.planned_start_date).toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-600">Planned End:</span>
-                      <span className="font-medium text-slate-800">
-                        {new Date(mo.planned_end_date).toLocaleString()}
-                      </span>
-                    </div>
-                    {mo.actual_start_date && (
-                      <div className="flex justify-between">
-                        <span className="text-slate-600">Actual Start:</span>
-                        <span className="font-medium text-slate-800">
-                          {new Date(mo.actual_start_date).toLocaleString()}
-                        </span>
+                  <h3 className="text-lg font-semibold text-slate-800 mb-4">Raw Material Allocation</h3>
+                  <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
+                    {rmAllocationLoading ? (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-600"></div>
+                        <span className="ml-3 text-slate-600">Loading RM allocation data...</span>
                       </div>
-                    )}
-                    {mo.delivery_date && (
-                      <div className="flex justify-between">
-                        <span className="text-slate-600">Delivery Date:</span>
-                        <span className="font-medium text-slate-800">
-                          {new Date(mo.delivery_date).toLocaleDateString()}
-                        </span>
+                    ) : (
+                      <div className="space-y-4">
+                        {/* RM Requirements Summary */}
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                          <div className="bg-slate-50 rounded-lg p-3">
+                            <div className="text-xs text-slate-600 mb-1">RM Required</div>
+                            <div className="text-lg font-bold text-slate-800">
+                              {mo.rm_required_kg ? `${parseFloat(mo.rm_required_kg).toFixed(2)} kg` : 'N/A'}
+                            </div>
+                          </div>
+                          <div className="bg-blue-50 rounded-lg p-3">
+                            <div className="text-xs text-blue-600 mb-1">Reserved</div>
+                            <div className="text-lg font-bold text-blue-800">
+                              {rmAllocationData?.summary?.total_reserved_kg ? `${parseFloat(rmAllocationData.summary.total_reserved_kg).toFixed(2)} kg` : '0 kg'}
+                            </div>
+                          </div>
+                          <div className="bg-green-50 rounded-lg p-3">
+                            <div className="text-xs text-green-600 mb-1">Locked</div>
+                            <div className="text-lg font-bold text-green-800">
+                              {rmAllocationData?.summary?.total_locked_kg ? `${parseFloat(rmAllocationData.summary.total_locked_kg).toFixed(2)} kg` : '0 kg'}
+                            </div>
+                          </div>
+                          <div className="bg-amber-50 rounded-lg p-3">
+                            <div className="text-xs text-amber-600 mb-1">Tolerance</div>
+                            <div className="text-lg font-bold text-amber-800">
+                              {mo.tolerance_percentage ? `${mo.tolerance_percentage}%` : '2.00%'}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Material Details */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <h4 className="text-sm font-semibold text-slate-700 mb-2">Material Specifications</h4>
+                            <div className="space-y-1">
+                              <div className="flex justify-between">
+                                <span className="text-slate-600">Material Type:</span>
+                                <span className="font-medium text-slate-800">{mo.material_type || 'N/A'}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-slate-600">Grade:</span>
+                                <span className="font-medium text-slate-800">{mo.grade || 'N/A'}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-slate-600">Finishing:</span>
+                                <span className="font-medium text-slate-800">{mo.finishing || 'N/A'}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-slate-600">Manufacturer:</span>
+                                <span className="font-medium text-slate-800">{mo.manufacturer_brand || 'N/A'}</span>
+                              </div>
+                              {mo.wire_diameter_mm && (
+                                <div className="flex justify-between">
+                                  <span className="text-slate-600">Wire Diameter:</span>
+                                  <span className="font-medium text-slate-800">{mo.wire_diameter_mm} mm</span>
+                                </div>
+                              )}
+                              {mo.thickness_mm && (
+                                <div className="flex justify-between">
+                                  <span className="text-slate-600">Thickness:</span>
+                                  <span className="font-medium text-slate-800">{mo.thickness_mm} mm</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <div>
+                            <h4 className="text-sm font-semibold text-slate-700 mb-2">Allocation Status</h4>
+                            <div className="space-y-1">
+                              <div className="flex justify-between">
+                                <span className="text-slate-600">Status:</span>
+                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                  rmAllocationData?.summary?.is_fully_allocated 
+                                    ? 'bg-green-100 text-green-800' 
+                                    : 'bg-yellow-100 text-yellow-800'
+                                }`}>
+                                  {rmAllocationData?.summary?.is_fully_allocated ? 'Fully Allocated' : 'Partially Allocated'}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-slate-600">RM Released:</span>
+                                <span className="font-medium text-slate-800">
+                                  {mo.rm_released_kg ? `${parseFloat(mo.rm_released_kg).toFixed(2)} kg` : 'Not Released'}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-slate-600">Scrap Weight:</span>
+                                <span className="font-medium text-slate-800">
+                                  {mo.scrap_rm_weight ? `${mo.scrap_rm_weight} g` : '0 g'}
+                                </span>
+                              </div>
+                              {mo.scrap_percentage && (
+                                <div className="flex justify-between">
+                                  <span className="text-slate-600">Expected Scrap:</span>
+                                  <span className="font-medium text-slate-800">{mo.scrap_percentage}%</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Allocation Details Table */}
+                        {rmAllocationData?.allocations && rmAllocationData.allocations.length > 0 ? (
+                          <div>
+                            <h4 className="text-sm font-semibold text-slate-700 mb-2">Allocation Details</h4>
+                            <div className="overflow-x-auto">
+                              <table className="min-w-full divide-y divide-slate-200">
+                                <thead className="bg-slate-50">
+                                  <tr>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Material</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Quantity</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Allocated At</th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Allocated By</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-slate-200">
+                                  {rmAllocationData.allocations.map((allocation, index) => (
+                                    <tr key={index}>
+                                      <td className="px-4 py-3 text-sm text-slate-800">
+                                        {allocation.raw_material_display || 'N/A'}
+                                      </td>
+                                      <td className="px-4 py-3 text-sm text-slate-800">
+                                        {parseFloat(allocation.allocated_quantity_kg).toFixed(2)} kg
+                                      </td>
+                                      <td className="px-4 py-3 text-sm">
+                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                          allocation.status === 'locked' ? 'bg-green-100 text-green-800' :
+                                          allocation.status === 'reserved' ? 'bg-blue-100 text-blue-800' :
+                                          allocation.status === 'swapped' ? 'bg-purple-100 text-purple-800' :
+                                          'bg-gray-100 text-gray-800'
+                                        }`}>
+                                          {allocation.status_display || allocation.status}
+                                        </span>
+                                      </td>
+                                      <td className="px-4 py-3 text-sm text-slate-600">
+                                        {allocation.allocated_at ? new Date(allocation.allocated_at).toLocaleDateString() : 'N/A'}
+                                      </td>
+                                      <td className="px-4 py-3 text-sm text-slate-600">
+                                        {allocation.allocated_by_name || 'System'}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="text-center py-4 bg-slate-50 rounded-lg">
+                            <div className="text-slate-400 text-xl mb-1">📊</div>
+                            <h4 className="text-sm font-medium text-slate-600 mb-1">Allocation Details</h4>
+                            <p className="text-xs text-slate-500">RM allocation details are not available. This may be because the MO hasn't been allocated yet or the allocation API is not accessible.</p>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -573,7 +895,7 @@ export default function MODetailPage() {
             </div>
 
 
-            {/* Manager Actions */}
+            {/* Manager Actions - RM Allocated Status */}
             {['manager', 'production_head'].includes(userRole) && mo.status === 'rm_allocated' && (
               <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200/60 p-6 text-center">
                 <div className="mb-4">
@@ -593,20 +915,49 @@ export default function MODetailPage() {
               </div>
             )}
 
-            {/* Initialize Processes Button */}
-            {!processesInitialized && mo.status === 'in_progress' && (
+            {/* MO Rejected Status */}
+            {mo.status === 'rejected' && (
+              <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl shadow-slate-200/50 border border-red-200/60 p-6 text-center">
+                <div className="mb-4">
+                  <ExclamationTriangleIcon className="h-12 w-12 text-red-600 mx-auto mb-2" />
+                  <h3 className="text-lg font-semibold text-slate-800">MO Rejected</h3>
+                  <p className="text-slate-600">
+                    This Manufacturing Order has been rejected and cannot proceed with production.
+                  </p>
+                </div>
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-left">
+                  <h4 className="font-medium text-red-800 mb-2">Rejection Details:</h4>
+                  <p className="text-red-700 text-sm">
+                    {mo.rejection_notes || 'No rejection reason provided.'}
+                  </p>
+                  {mo.rejected_at && (
+                    <p className="text-red-600 text-xs mt-2">
+                      Rejected on: {new Date(mo.rejected_at).toLocaleString()}
+                    </p>
+                  )}
+                  {mo.rejected_by_name && (
+                    <p className="text-red-600 text-xs">
+                      Rejected by: {mo.rejected_by_name}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Initialize Processes Button - Production Head Only */}
+            {userRole === 'production_head' && !processesInitialized && mo.status === 'mo_approved' && (
               <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200/60 p-6 text-center">
                 <div className="mb-4">
                   <ClockIcon className="h-12 w-12 text-amber-600 mx-auto mb-2" />
-                  <h3 className="text-lg font-semibold text-slate-800">Production Started</h3>
-                  <p className="text-slate-600">Initialize process tracking to begin monitoring production flow.</p>
+                  <h3 className="text-lg font-semibold text-slate-800">Start Production</h3>
+                  <p className="text-slate-600">Start production for this MO and initialize process tracking.</p>
                 </div>
                 <button
                   onClick={handleInitializeProcesses}
                   disabled={loading}
                   className="px-6 py-3 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {loading ? 'Initializing...' : 'Initialize Processes'}
+                  {loading ? 'Starting...' : 'Start Production'}
                 </button>
               </div>
             )}
@@ -629,18 +980,58 @@ export default function MODetailPage() {
                 <div className="text-6xl mb-4">🏭</div>
                 <h3 className="text-xl font-medium text-slate-600 mb-2">Processes Not Initialized</h3>
                 <p className="text-slate-500 mb-6">
-                  {mo.status === 'in_progress' 
+                  {mo.status === 'mo_approved'
+                    ? 'Start production to initialize process tracking.'
+                    : mo.status === 'in_progress'
                     ? 'Initialize processes to start tracking production flow.'
-                    : `MO must be in 'In Progress' status to initialize processes. Current status: ${mo.status_display}`
+                    : `MO must be approved or in progress. Current status: ${mo.status_display}`
                   }
                 </p>
-                {mo.status === 'in_progress' && (
+                {(mo.status === 'in_progress' || mo.status === 'mo_approved') && userRole === 'production_head' && (
                   <button
                     onClick={handleInitializeProcesses}
                     disabled={loading}
                     className="px-6 py-3 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-50"
                   >
-                    {loading ? 'Initializing...' : 'Initialize Processes'}
+                    {loading ? 'Starting...' : 'Start Production'}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Batch Flow Tab */}
+        {activeTab === 'batch-flow' && (
+          <div>
+            {processesInitialized && batchData.batches.length > 0 ? (
+              <BatchProcessFlowVisualization
+                processExecutions={mo.process_executions}
+                batchData={batchData}
+                onStartBatchProcess={() => {}}
+                onCompleteBatchProcess={() => {}}
+                userRole="production_head"
+                loadingStates={{}}
+              />
+            ) : (
+              <div className="text-center py-12 bg-white/80 backdrop-blur-sm rounded-xl">
+                <div className="text-6xl mb-4">📦</div>
+                <h3 className="text-xl font-medium text-slate-600 mb-2">
+                  {!processesInitialized ? 'Processes Not Initialized' : 'No Batches Available'}
+                </h3>
+                <p className="text-slate-500 mb-6">
+                  {!processesInitialized 
+                    ? 'Initialize process tracking first to enable batch flow monitoring.'
+                    : 'No batches have been created for this MO yet. Batches are created by the RM Store team.'
+                  }
+                </p>
+                {!processesInitialized && mo.status === 'in_progress' && userRole === 'production_head' && (
+                  <button
+                    onClick={handleInitializeProcesses}
+                    disabled={loading}
+                    className="px-6 py-3 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-50"
+                  >
+                    {loading ? 'Starting...' : 'Start Production'}
                   </button>
                 )}
               </div>

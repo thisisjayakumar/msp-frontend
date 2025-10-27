@@ -32,8 +32,8 @@ const handleResponse = async (response) => {
 
 // Notifications API Service
 export const notificationsAPI = {
-  // Get all alerts with optional filters
-  getAll: async (filters = {}) => {
+  // Workflow Notifications
+  getWorkflowNotifications: async (filters = {}) => {
     const queryParams = new URLSearchParams();
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== undefined && value !== null && value !== '') {
@@ -42,8 +42,8 @@ export const notificationsAPI = {
     });
     
     const url = queryParams.toString() 
-      ? `${NOTIFICATIONS_APIS.ALERTS_LIST}?${queryParams}`
-      : NOTIFICATIONS_APIS.ALERTS_LIST;
+      ? `${NOTIFICATIONS_APIS.WORKFLOW_NOTIFICATIONS}?${queryParams}`
+      : NOTIFICATIONS_APIS.WORKFLOW_NOTIFICATIONS;
     
     const response = await apiRequest(url, {
       method: 'GET',
@@ -52,31 +52,9 @@ export const notificationsAPI = {
     return handleResponse(response);
   },
 
-  // Get my notifications (THROTTLED - used frequently)
-  getMyNotifications: async () => {
-    const response = await throttledGet(NOTIFICATIONS_APIS.MY_NOTIFICATIONS);
-    return handleResponse(response);
-  },
-
-  // Get unread count (THROTTLED - used frequently)
-  getUnreadCount: async () => {
-    const response = await throttledGet(NOTIFICATIONS_APIS.UNREAD_COUNT);
-    return handleResponse(response);
-  },
-
-  // Acknowledge an alert
-  acknowledgeAlert: async (id, notes = '') => {
-    const response = await apiRequest(NOTIFICATIONS_APIS.ACKNOWLEDGE_ALERT(id), {
-      method: 'POST',
-      body: { notes },
-    });
-    
-    return handleResponse(response);
-  },
-
-  // Dismiss an alert
-  dismissAlert: async (id) => {
-    const response = await apiRequest(NOTIFICATIONS_APIS.DISMISS_ALERT(id), {
+  // Mark workflow notification as read
+  markWorkflowNotificationRead: async (id) => {
+    const response = await apiRequest(NOTIFICATIONS_APIS.MARK_NOTIFICATION_READ(id), {
       method: 'POST',
       body: {},
     });
@@ -84,10 +62,11 @@ export const notificationsAPI = {
     return handleResponse(response);
   },
 
-  // Get alert rules
-  getAlertRules: async () => {
-    const response = await apiRequest(NOTIFICATIONS_APIS.ALERT_RULES, {
-      method: 'GET',
+  // Mark workflow notification action as taken
+  markWorkflowActionTaken: async (id) => {
+    const response = await apiRequest(NOTIFICATIONS_APIS.MARK_ACTION_TAKEN(id), {
+      method: 'POST',
+      body: {},
     });
     
     return handleResponse(response);

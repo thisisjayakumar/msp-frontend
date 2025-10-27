@@ -2,17 +2,15 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { ArrowLeftIcon, PlayIcon, PauseIcon, CheckCircleIcon, ExclamationTriangleIcon, ClockIcon } from '@heroicons/react/24/outline';
+import { ArrowLeftIcon, PlayIcon, CheckCircleIcon, ExclamationTriangleIcon, ClockIcon } from '@heroicons/react/24/outline';
 
 // Components
 import ProcessFlowVisualization from '@/components/process/ProcessFlowVisualization';
 import LoadingSpinner from '@/components/CommonComponents/ui/LoadingSpinner';
-import SearchableDropdown from '@/components/CommonComponents/ui/SearchableDropdown';
 
 // API Services
 import manufacturingAPI from '@/components/API_Service/manufacturing-api';
 import processTrackingAPI from '@/components/API_Service/process-tracking-api';
-import { apiRequest } from '@/components/API_Service/api-utils';
 import { throttledGet } from '@/components/API_Service/throttled-api';
 import { AUTH_APIS } from '@/components/API_Service/api-list';
 
@@ -32,6 +30,8 @@ export default function MODetailPage() {
   const [supervisorsList, setSupervisorsList] = useState([]);
   // NOTE: rmStoreUsersList removed - RM assignment feature removed
   const [userRole, setUserRole] = useState(null);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState('');
 
   // Fetch user profile to get role (THROTTLED)
   const fetchUserProfile = useCallback(async () => {
@@ -157,20 +157,6 @@ export default function MODetailPage() {
     };
   }, [fetchMOData, fetchSupervisors, moId]);
 
-  // Initialize processes for the MO
-  const handleInitializeProcesses = async () => {
-    try {
-      setLoading(true);
-      await processTrackingAPI.initializeMOProcesses(moId);
-      await fetchMOData();
-    } catch (error) {
-      console.error('Error initializing processes:', error);
-      alert('Failed to initialize processes: ' + error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // Handle process click
   const handleProcessClick = (execution) => {
     console.log('Process clicked:', execution);
@@ -255,6 +241,51 @@ export default function MODetailPage() {
     }
   };
 
+  // Handle reject MO (Manager only)
+  const handleRejectMO = () => {
+    setShowRejectModal(true);
+  };
+
+  const handleConfirmReject = async () => {
+    if (!rejectionReason.trim()) {
+      alert('Please provide a reason for rejection');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const response = await manufacturingAPI.manufacturingOrders.rejectMO(moId, {
+        notes: rejectionReason
+      });
+      
+      // Check if response has error
+      if (response && response.error) {
+        alert('Failed to reject MO: ' + response.message);
+        return;
+      }
+      
+      // Response is already unwrapped by handleResponse, so it contains { message, mo }
+      if (response && response.mo) {
+        setMO(response.mo);
+        setShowRejectModal(false);
+        setRejectionReason('');
+        alert('MO rejected successfully!');
+      } else {
+        alert('Failed to reject MO: Unexpected response format');
+      }
+    } catch (error) {
+      console.error('Error rejecting MO:', error);
+      alert('Failed to reject MO: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancelReject = () => {
+    setShowRejectModal(false);
+    setRejectionReason('');
+  };
+
   // Handle start production (Manager/Production Head - mo_approved → in_progress)
   const handleStartProduction = async () => {
     const confirmApproval = window.confirm(
@@ -309,6 +340,7 @@ export default function MODetailPage() {
       in_progress: 'bg-orange-100 text-orange-700',
       completed: 'bg-emerald-100 text-emerald-700',
       cancelled: 'bg-red-100 text-red-700',
+      rejected: 'bg-red-100 text-red-700',
       on_hold: 'bg-yellow-100 text-yellow-700'
     };
     return colors[status] || 'bg-gray-100 text-gray-700';
@@ -588,13 +620,51 @@ export default function MODetailPage() {
                     Review and approve this Manufacturing Order.
                   </p>
                 </div>
-                <button
-                  onClick={handleApproveMO}
-                  disabled={loading}
-                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {loading ? 'Approving...' : 'Approve MO'}
-                </button>
+                <div className="flex justify-center space-x-4">
+                  <button
+                    onClick={handleApproveMO}
+                    disabled={loading}
+                    className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loading ? 'Approving...' : 'Approve MO'}
+                  </button>
+                  <button
+                    onClick={handleRejectMO}
+                    disabled={loading}
+                    className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loading ? 'Rejecting...' : 'Reject MO'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* MO Rejected Status */}
+            {mo.status === 'rejected' && (
+              <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl shadow-slate-200/50 border border-red-200/60 p-6 text-center">
+                <div className="mb-4">
+                  <ExclamationTriangleIcon className="h-12 w-12 text-red-600 mx-auto mb-2" />
+                  <h3 className="text-lg font-semibold text-slate-800">MO Rejected</h3>
+                  <p className="text-slate-600">
+                    This Manufacturing Order has been rejected and cannot proceed with production.
+                  </p>
+                </div>
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-left">
+                  <h4 className="font-medium text-red-800 mb-2">Rejection Details:</h4>
+                  <p className="text-red-700 text-sm">
+                    {mo.rejection_reason || 'No rejection reason provided.'}
+                  </p>
+                  {mo.rejected_at && (
+                    <p className="text-red-600 text-xs mt-2">
+                      Rejected on: {new Date(mo.rejected_at).toLocaleString()}
+                    </p>
+                  )}
+                  {mo.rejected_by_name && (
+                    <p className="text-red-600 text-xs">
+                      Rejected by: {mo.rejected_by_name}
+                    </p>
+                  )}
+                </div>
               </div>
             )}
 
@@ -618,23 +688,7 @@ export default function MODetailPage() {
               </div>
             )}
 
-            {/* Initialize Processes Button */}
-            {!processesInitialized && mo.status === 'in_progress' && (
-              <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200/60 p-6 text-center">
-                <div className="mb-4">
-                  <ClockIcon className="h-12 w-12 text-blue-600 mx-auto mb-2" />
-                  <h3 className="text-lg font-semibold text-slate-800">Production Started</h3>
-                  <p className="text-slate-600">Initialize process tracking to begin monitoring production flow.</p>
-                </div>
-                <button
-                  onClick={handleInitializeProcesses}
-                  disabled={loading}
-                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {loading ? 'Initializing...' : 'Initialize Processes'}
-                </button>
-              </div>
-            )}
+
           </div>
         )}
 
@@ -655,19 +709,10 @@ export default function MODetailPage() {
                 <h3 className="text-xl font-medium text-slate-600 mb-2">Processes Not Initialized</h3>
                 <p className="text-slate-500 mb-6">
                   {mo.status === 'in_progress' 
-                    ? 'Initialize processes to start tracking production flow.'
+                    ? 'Processes should be initialized by production head.'
                     : `MO must be in 'In Progress' status to initialize processes. Current status: ${mo.status_display}`
                   }
                 </p>
-                {mo.status === 'in_progress' && (
-                  <button
-                    onClick={handleInitializeProcesses}
-                    disabled={loading}
-                    className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-                  >
-                    {loading ? 'Initializing...' : 'Initialize Processes'}
-                  </button>
-                )}
               </div>
             )}
           </div>
@@ -711,6 +756,52 @@ export default function MODetailPage() {
           </div>
         )}
       </main>
+
+      {/* Reject MO Modal */}
+      {showRejectModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4">
+            <div className="p-6">
+              <div className="flex items-center mb-4">
+                <ExclamationTriangleIcon className="h-8 w-8 text-red-600 mr-3" />
+                <h3 className="text-xl font-semibold text-slate-800">Reject Manufacturing Order</h3>
+              </div>
+              <p className="text-slate-600 mb-4">
+                Are you sure you want to reject MO <span className="font-semibold">{mo.mo_id}</span>? This action cannot be undone.
+              </p>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Rejection Reason <span className="text-red-600">*</span>
+                </label>
+                <textarea
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  placeholder="Please provide a reason for rejecting this MO..."
+                  className="w-full px-3 text-slate-500 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none"
+                  rows="4"
+                  autoFocus
+                />
+              </div>
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={handleCancelReject}
+                  disabled={loading}
+                  className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmReject}
+                  disabled={loading || !rejectionReason.trim()}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loading ? 'Rejecting...' : 'Reject MO'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Compact styling for SearchableDropdown */}
       <style jsx>{`

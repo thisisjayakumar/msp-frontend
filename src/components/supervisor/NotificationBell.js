@@ -17,12 +17,14 @@ export default function NotificationBell({ onNotificationClick }) {
   const fetchNotifications = useCallback(async () => {
     try {
       setLoading(true);
-      // Use notificationsAPI service for cleaner, centralized API calls
-      const data = await notificationsAPI.getMyNotifications();
+      // Use workflow notifications API for supervisor assignments
+      const data = await notificationsAPI.getWorkflowNotifications({
+        is_read: 'false'  // Only get unread notifications
+      });
       
       // Handle the response data
-      setNotifications(data.notifications || []);
-      setUnreadCount(data.count || 0);
+      setNotifications(data.results || []);
+      setUnreadCount(data.results ? data.results.length : 0);
     } catch (error) {
       console.error('Error fetching notifications:', error);
       
@@ -56,24 +58,23 @@ export default function NotificationBell({ onNotificationClick }) {
   }, []);
 
   const handleNotificationClick = async (notification) => {
-    // Acknowledge the notification
+    // Mark notification as read
     try {
-      // Use notificationsAPI service for cleaner, centralized API calls
-      await notificationsAPI.acknowledgeAlert(notification.id);
+      await notificationsAPI.markWorkflowNotificationRead(notification.id);
       
       // Refresh notifications
       await fetchNotifications();
       
       // Navigate to MO detail if it's an MO-related notification
-      if (notification.related_object_type === 'mo' && notification.related_object_id) {
+      if (notification.related_mo && notification.mo_id) {
         setIsOpen(false);
-        router.push(`/supervisor/mo-detail/${notification.related_object_id}`);
+        router.push(`/supervisor/mo-detail/${notification.related_mo}`);
         if (onNotificationClick) {
           onNotificationClick();
         }
       }
     } catch (error) {
-      console.error('Error acknowledging notification:', error);
+      console.error('Error marking notification as read:', error);
     }
   };
 
@@ -81,8 +82,7 @@ export default function NotificationBell({ onNotificationClick }) {
     event.stopPropagation();
     
     try {
-      // Use notificationsAPI service for cleaner, centralized API calls
-      await notificationsAPI.dismissAlert(notificationId);
+      await notificationsAPI.markWorkflowNotificationRead(notificationId);
       
       // Refresh notifications
       await fetchNotifications();
@@ -163,14 +163,16 @@ export default function NotificationBell({ onNotificationClick }) {
                     key={notification.id}
                     onClick={() => handleNotificationClick(notification)}
                     className={`p-4 cursor-pointer hover:bg-slate-50 transition-colors ${
-                      getSeverityColor(notification.severity)
+                      notification.action_required ? 'bg-red-50 border-l-4 border-red-400' : 'bg-blue-50 border-l-4 border-blue-400'
                     }`}
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center space-x-2 mb-1">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getSeverityIcon(notification.severity)}`}>
-                            {notification.severity_display}
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                            notification.action_required ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'
+                          }`}>
+                            {notification.action_required ? 'Action Required' : notification.notification_type_display}
                           </span>
                           <span className="text-xs text-slate-500">
                             {notification.time_ago}

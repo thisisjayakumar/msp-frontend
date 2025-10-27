@@ -226,6 +226,39 @@ export const manufacturingOrdersAPI = {
     return handleResponse(response);
   },
 
+  // Raw Material Allocations
+  rawMaterialAllocations: {
+    // Get RM allocations for a specific MO
+    getByMO: async (moId) => {
+      const response = await apiRequest(`${MANUFACTURING_APIS.RM_ALLOCATION_BY_MO}?mo_id=${moId}`, {
+        method: 'GET',
+      });
+      
+      return handleResponse(response);
+    },
+
+    // Get all RM allocations
+    list: async (params = {}) => {
+      const queryString = new URLSearchParams(params).toString();
+      const url = queryString ? `${MANUFACTURING_APIS.RM_ALLOCATION_LIST}?${queryString}` : MANUFACTURING_APIS.RM_ALLOCATION_LIST;
+      
+      const response = await apiRequest(url, {
+        method: 'GET',
+      });
+      
+      return handleResponse(response);
+    },
+
+    // Get allocation summary
+    getSummary: async (moId) => {
+      const response = await apiRequest(`${MANUFACTURING_APIS.RM_ALLOCATION_SUMMARY}?mo_id=${moId}`, {
+        method: 'GET',
+      });
+      
+      return handleResponse(response);
+    },
+  },
+
   // Update MO
   update: async (id, moData) => {
     const response = await apiRequest(MANUFACTURING_APIS.MO_UPDATE(id), {
@@ -329,6 +362,19 @@ export const manufacturingOrdersAPI = {
       body: {
         action: 'approve',
         ...approvalData
+      },
+    });
+    
+    return handleResponse(response);
+  },
+
+  // Reject MO - Manager only (any status → rejected)
+  rejectMO: async (id, rejectionData) => {
+    const response = await apiRequest(MANUFACTURING_APIS.MO_UPDATE_DETAILS(id), {
+      method: 'PATCH',
+      body: {
+        action: 'reject',
+        ...rejectionData
       },
     });
     
@@ -602,5 +648,6 @@ export default {
   purchaseOrders: purchaseOrdersAPI,
   batches: batchAPI,
   fgStore: fgStoreAPI,
+  rawMaterialAllocations: manufacturingOrdersAPI.rawMaterialAllocations,
   getDashboardStats,
 };

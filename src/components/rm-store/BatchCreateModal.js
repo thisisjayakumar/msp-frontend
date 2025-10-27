@@ -378,7 +378,6 @@ export default function BatchCreateModal({ mo, onClose, onSuccess }) {
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
                   <p className="text-sm text-yellow-800">
                     <strong>Note:</strong> Creating this batch will release the calculated raw materials and production will start immediately.
-                    {batchSummary?.batch_count === 0 && ' This is the first batch, so the MO status will change to "In Progress".'}
                   </p>
                 </div>
               </>

@@ -2,12 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { ArrowPathIcon } from '@heroicons/react/24/solid';
 import manufacturingAPI from '@/components/API_Service/manufacturing-api';
 
 // Components (reusing manager components)
 import DashboardStats from '@/components/manager/DashboardStats';
 import OrdersList from '@/components/manager/OrdersList';
 import ProcessTrackingSummary from '@/components/manager/ProcessTrackingSummary';
+import InventoryTransactionsList from '@/components/production-head/InventoryTransactionsList';
 import LoadingSpinner from '@/components/CommonComponents/ui/LoadingSpinner';
 
 export default function ProductionHeadDashboard() {
@@ -65,11 +67,27 @@ export default function ProductionHeadDashboard() {
     router.replace('/login');
   };
 
+  const handleRefreshStats = async () => {
+    try {
+      const stats = await manufacturingAPI.getDashboardStats();
+      setDashboardStats(stats);
+    } catch (error) {
+      console.error('Error refreshing dashboard stats:', error);
+    }
+  };
+
+  const handleRefreshProcessTracking = () => {
+    // This will trigger a refresh in ProcessTrackingSummary component
+    // We'll need to pass a refresh trigger to the component
+    window.dispatchEvent(new CustomEvent('refreshProcessTracking'));
+  };
+
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: '📊' },
     { id: 'process-tracking', label: 'Process Tracking', icon: '🏭' },
     { id: 'mo-list', label: 'MO List', icon: '📋' },
     { id: 'po-list', label: 'PO List', icon: '📄' },
+    { id: 'inventory-transactions', label: 'Inventory Transactions', icon: '📦' },
     { id: 'outsourcing', label: 'Outsourcing', icon: '🚚' },
     { id: 'work-centers', label: 'Work Centers', icon: '⚙️' },
     { id: 'supervisor-dashboard', label: 'Supervisors', icon: '👥' },
@@ -135,15 +153,34 @@ export default function ProductionHeadDashboard() {
           <div className="p-6">
             {activeTab === 'dashboard' && (
               <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xl font-semibold text-gray-800">Dashboard Statistics</h3>
+                  <button
+                    onClick={handleRefreshStats}
+                    className="inline-flex items-center px-3 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                  >
+                    <ArrowPathIcon className="h-4 w-4 mr-2" />
+                    Refresh Stats
+                  </button>
+                </div>
                 <DashboardStats stats={dashboardStats} />
               </div>
             )}
 
             {activeTab === 'process-tracking' && (
               <div>
-                <h3 className="text-xl font-semibold text-gray-800 mb-4">
-                  Process Tracking Overview
-                </h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xl font-semibold text-gray-800">
+                    Process Tracking Overview
+                  </h3>
+                  <button
+                    onClick={handleRefreshProcessTracking}
+                    className="inline-flex items-center px-3 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                  >
+                    <ArrowPathIcon className="h-4 w-4 mr-2" />
+                    Refresh
+                  </button>
+                </div>
                 <ProcessTrackingSummary />
               </div>
             )}
@@ -179,6 +216,15 @@ export default function ProductionHeadDashboard() {
                   </button>
                 </div>
                 <OrdersList type="po" />
+              </div>
+            )}
+
+            {activeTab === 'inventory-transactions' && (
+              <div>
+                <h3 className="text-xl font-semibold text-gray-800 mb-4">
+                  Inventory Transactions
+                </h3>
+                <InventoryTransactionsList />
               </div>
             )}
 

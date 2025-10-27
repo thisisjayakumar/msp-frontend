@@ -53,6 +53,11 @@ export const MANUFACTURING_APIS = {
   MO_START: (id) => `${API_BASE_URL}/manufacturing/manufacturing-orders/${id}/start_mo/`,
   MO_CALCULATE_RM: `${API_BASE_URL}/manufacturing/manufacturing-orders/calculate_rm_requirement/`,
   MO_AVAILABLE_HEAT_NUMBERS: (id) => `${API_BASE_URL}/manufacturing/manufacturing-orders/${id}/available-heat-numbers/`,
+  
+  // MO Priority & Resource Management
+  MO_STOP: (id) => `${API_BASE_URL}/manufacturing/manufacturing-orders/${id}/stop/`,
+  MO_RESOURCE_STATUS: (id) => `${API_BASE_URL}/manufacturing/manufacturing-orders/${id}/resource-status/`,
+  MO_PRIORITY_QUEUE: `${API_BASE_URL}/manufacturing/manufacturing-orders/priority-queue/`,
 
   // Batches
   BATCH_LIST: `${API_BASE_URL}/manufacturing/batches/`,
@@ -76,6 +81,11 @@ export const MANUFACTURING_APIS = {
   PO_DASHBOARD_STATS: `${API_BASE_URL}/manufacturing/purchase-orders/dashboard_stats/`,
   PO_RAW_MATERIALS: `${API_BASE_URL}/inventory/raw-materials/`,  // Use existing inventory API
   PO_VENDORS: `${API_BASE_URL}/third-party/vendors/`,  // Use existing third-party API
+
+  // Raw Material Allocations
+  RM_ALLOCATION_LIST: `${API_BASE_URL}/manufacturing/rm-allocations/`,
+  RM_ALLOCATION_BY_MO: `${API_BASE_URL}/manufacturing/rm-allocations/by_mo/`,
+  RM_ALLOCATION_SUMMARY: `${API_BASE_URL}/manufacturing/rm-allocations/summary/`,
 };
 
 // FG Store APIs
@@ -122,6 +132,7 @@ export const INVENTORY_APIS = {
 
   // Transactions
   TRANSACTION_LIST: `${API_BASE_URL}/inventory/transactions/`,
+  TRANSACTION_DETAIL: (id) => `${API_BASE_URL}/inventory/transactions/${id}/`,
 
   // GRM Receipts
   GRM_RECEIPTS_LIST: `${API_BASE_URL}/inventory/grm-receipts/`,
@@ -142,12 +153,9 @@ export const INVENTORY_APIS = {
 
 // Notifications APIs
 export const NOTIFICATIONS_APIS = {
-  ALERTS_LIST: `${API_BASE_URL}/notifications/api/alerts/`,
-  MY_NOTIFICATIONS: `${API_BASE_URL}/notifications/api/alerts/my_notifications/`,
-  UNREAD_COUNT: `${API_BASE_URL}/notifications/api/alerts/unread_count/`,
-  ACKNOWLEDGE_ALERT: (id) => `${API_BASE_URL}/notifications/api/alerts/${id}/acknowledge/`,
-  DISMISS_ALERT: (id) => `${API_BASE_URL}/notifications/api/alerts/${id}/dismiss/`,
-  ALERT_RULES: `${API_BASE_URL}/notifications/api/alert-rules/`,
+  WORKFLOW_NOTIFICATIONS: `${API_BASE_URL}/notifications/api/workflow-notifications/`,
+  MARK_NOTIFICATION_READ: (id) => `${API_BASE_URL}/notifications/api/workflow-notifications/${id}/mark_as_read/`,
+  MARK_ACTION_TAKEN: (id) => `${API_BASE_URL}/notifications/api/workflow-notifications/${id}/mark_action_taken/`,
 };
 
 // Process Tracking APIs
