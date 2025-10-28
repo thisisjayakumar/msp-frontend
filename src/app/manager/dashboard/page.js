@@ -1,17 +1,14 @@
 "use client";
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { authUtils, apiRequest } from '../../../components/API_Service/api-utils';
-import { throttledGet } from '../../../components/API_Service/throttled-api';
-import { AUTH_APIS } from '../../../components/API_Service/api-list';
 import LoadingSpinner from '../../../components/CommonComponents/ui/LoadingSpinner';
 import OrdersList from '../../../components/manager/OrdersList';
-import PurchaseOrderForm from '../../../components/manager/PurchaseOrderForm';
 import ProcessTrackingSummary from '@/components/manager/ProcessTrackingSummary';
-import SimplifiedManufacturingOrderForm from '@/components/manager/SimplifiedManufacturingOrderForm';
 import DashboardStats from '@/components/manager/DashboardStats';
 import manufacturingAPI, { getDashboardStats } from '@/components/API_Service/manufacturing-api';
+import ManagerNotificationBell from '@/components/manager/NotificationBell';
 
 export default function ManagerDashboard() {
   const router = useRouter();
@@ -111,6 +108,21 @@ export default function ManagerDashboard() {
     router.replace('/login');
   };
 
+  const handleRefresh = () => {
+    // Refresh dashboard stats when notification is clicked
+    if (!loading && user && dashboardStats) {
+      const fetchStats = async () => {
+        try {
+          const stats = await getDashboardStats();
+          setDashboardStats(stats);
+        } catch (error) {
+          console.error('Error refreshing dashboard stats:', error);
+        }
+      };
+      fetchStats();
+    }
+  };
+
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: '📊' },
     { id: 'process-tracking', label: 'Process Tracking', icon: '🏭' },
@@ -121,24 +133,6 @@ export default function ManagerDashboard() {
     { id: 'supervisor-dashboard', label: 'Supervisors', icon: '👥' },
   ];
 
-  const navigationButtons = [
-    { 
-      id: 'create-mo', 
-      label: 'Create Manufacturing Order', 
-      icon: '🏭', 
-      url: '/manager/create-mo',
-      description: 'Plan and initiate production orders',
-      color: 'from-blue-600 to-indigo-600'
-    },
-    { 
-      id: 'create-po', 
-      label: 'Create Purchase Order', 
-      icon: '📦', 
-      url: '/manager/create-po',
-      description: 'Manage raw material procurement',
-      color: 'from-purple-600 to-indigo-600'
-    },
-  ];
 
   if (loading) {
     return (
@@ -219,19 +213,10 @@ export default function ManagerDashboard() {
             </div>
             
             <div className="flex items-center space-x-4">
-              {/* Quick Action Buttons */}
-              <div className="flex space-x-2">
-                {navigationButtons.map((button) => (
-                  <button
-                    key={button.id}
-                    onClick={() => router.push(button.url)}
-                    className={`px-3 py-1.5 text-xs text-white bg-gradient-to-r ${button.color} hover:shadow-lg rounded-lg font-medium transition-all flex items-center space-x-2`}
-                  >
-                    <span>{button.icon}</span>
-                    <span className="hidden sm:inline">{button.label.replace(' Order', '')}</span>
-                  </button>
-                ))}
-              </div>
+              
+              {/* Notification Bell */}
+              <ManagerNotificationBell onNotificationClick={handleRefresh} />
+              
               <div className="h-6 w-px bg-slate-300"></div>
               <div className="text-right">
                 <p className="text-sm font-medium text-slate-700">
@@ -278,34 +263,6 @@ export default function ManagerDashboard() {
           {/* Dashboard Tab */}
           {activeTab === 'dashboard' && (
             <div className="space-y-6">
-              {/* Quick Actions Section */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {navigationButtons.map((button) => (
-                  <div
-                    key={button.id}
-                    onClick={() => router.push(button.url)}
-                    className="bg-white/80 backdrop-blur-sm rounded-2xl border border-white/20 shadow-xl shadow-slate-200/50 p-6 cursor-pointer hover:scale-105 transition-all group"
-                  >
-                    <div className="flex items-center space-x-4">
-                      <div className={`p-4 rounded-xl bg-gradient-to-r ${button.color} text-white text-2xl group-hover:shadow-lg transition-all`}>
-                        {button.icon}
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-semibold text-slate-800 group-hover:text-slate-900">
-                          {button.label}
-                        </h3>
-                        <p className="text-sm text-slate-600 group-hover:text-slate-700">
-                          {button.description}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="mt-4 flex items-center text-blue-600 text-sm font-medium">
-                      <span>Get Started</span>
-                      <span className="ml-1 group-hover:ml-2 transition-all">→</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
               
               <DashboardStats stats={dashboardStats} />
             </div>
@@ -327,37 +284,6 @@ export default function ManagerDashboard() {
             </div>
           )}
 
-          {/* Create MO Tab */}
-          {activeTab === 'create-mo' && (
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200/60">
-              <div className="p-6 border-b border-slate-200/60">
-                <h2 className="text-2xl font-bold text-slate-800 flex items-center space-x-2">
-                  <span>🏭</span>
-                  <span>Create Manufacturing Order</span>
-                </h2>
-                <p className="text-slate-600 mt-1">Create a new manufacturing order for production</p>
-              </div>
-              <div className="p-6">
-                <SimplifiedManufacturingOrderForm onSuccess={() => setActiveTab('mo-list')} />
-              </div>
-            </div>
-          )}
-
-          {/* Create PO Tab */}
-          {activeTab === 'create-po' && (
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200/60">
-              <div className="p-6 border-b border-slate-200/60">
-                <h2 className="text-2xl font-bold text-slate-800 flex items-center space-x-2">
-                  <span>📦</span>
-                  <span>Create Purchase Order</span>
-                </h2>
-                <p className="text-slate-600 mt-1">Create a new purchase order for raw materials</p>
-              </div>
-              <div className="p-6">
-                <PurchaseOrderForm onSuccess={() => setActiveTab('po-list')} />
-              </div>
-            </div>
-          )}
 
           {/* MO List Tab */}
           {activeTab === 'mo-list' && (

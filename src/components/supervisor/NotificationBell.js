@@ -58,7 +58,7 @@ export default function NotificationBell({ onNotificationClick }) {
   }, []);
 
   const handleNotificationClick = async (notification) => {
-    // Mark notification as read
+    // Mark notification as read first
     try {
       await notificationsAPI.markWorkflowNotificationRead(notification.id);
       
@@ -68,13 +68,33 @@ export default function NotificationBell({ onNotificationClick }) {
       // Navigate to MO detail if it's an MO-related notification
       if (notification.related_mo && notification.mo_id) {
         setIsOpen(false);
-        router.push(`/supervisor/mo-detail/${notification.related_mo}`);
-        if (onNotificationClick) {
-          onNotificationClick();
+        
+        // Try to navigate to MO detail, but handle errors gracefully
+        try {
+          router.push(`/supervisor/mo-detail/${notification.related_mo}`);
+          if (onNotificationClick) {
+            onNotificationClick();
+          }
+        } catch (navigationError) {
+          console.warn('Navigation error (MO might not exist):', navigationError);
+          // Show a user-friendly message
+          alert('This manufacturing order is no longer available. The notification has been removed.');
         }
       }
     } catch (error) {
-      console.error('Error marking notification as read:', error);
+      console.error('Error handling notification click:', error);
+      
+      // If it's an MO-related notification and there's an error, 
+      // it might be because the MO doesn't exist anymore
+      if (notification.related_mo && notification.mo_id) {
+        console.warn('MO might not exist, removing notification from list');
+        // Remove the notification from the local state
+        setNotifications(prev => prev.filter(n => n.id !== notification.id));
+        setUnreadCount(prev => Math.max(0, prev - 1));
+        
+        // Show user-friendly message
+        alert('This manufacturing order is no longer available. The notification has been removed.');
+      }
     }
   };
 

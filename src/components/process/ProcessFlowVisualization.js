@@ -23,7 +23,9 @@ export default function ProcessFlowVisualization({
   userRole = null,
   startingProcessId = null,
   completingProcessId = null,
-  batchData = { batches: [], summary: null }
+  batchData = { batches: [], summary: null },
+  canCompleteProcess = null,
+  getBatchCompletionStatus = null
 }) {
   const [expandedProcesses, setExpandedProcesses] = useState(new Set());
   const [animationEnabled, setAnimationEnabled] = useState(true);
@@ -240,6 +242,30 @@ export default function ProcessFlowVisualization({
                             </span>
                           )}
                         </div>
+                        
+                        {/* Batch Completion Status */}
+                        {getBatchCompletionStatus && batchData.batches.length > 0 && (
+                          <div className="mt-2 flex items-center space-x-4 text-sm">
+                            {(() => {
+                              const batchStatus = getBatchCompletionStatus(execution);
+                              return (
+                                <>
+                                  <span className={`font-medium ${
+                                    batchStatus.percentage === 100 ? 'text-green-600' : 
+                                    batchStatus.percentage > 0 ? 'text-blue-600' : 'text-gray-600'
+                                  }`}>
+                                    Batch Progress: {batchStatus.completed}/{batchStatus.total} ({Math.round(batchStatus.percentage)}%)
+                                  </span>
+                                  {batchStatus.percentage === 100 && (
+                                    <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full font-medium">
+                                      All Batches Complete
+                                    </span>
+                                  )}
+                                </>
+                              );
+                            })()}
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -270,12 +296,23 @@ export default function ProcessFlowVisualization({
                             e.stopPropagation();
                             onCompleteProcess?.(execution);
                           }}
-                          disabled={completingProcessId === execution.id}
-                          className="px-4 py-2 bg-emerald-600 text-white text-sm rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
-                          title="Complete this process (all steps must be finished first)"
+                          disabled={completingProcessId === execution.id || (canCompleteProcess && !canCompleteProcess(execution))}
+                          className={`px-4 py-2 text-white text-sm rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 ${
+                            canCompleteProcess && !canCompleteProcess(execution) 
+                              ? 'bg-gray-400 cursor-not-allowed' 
+                              : 'bg-emerald-600 hover:bg-emerald-700'
+                          }`}
+                          title={
+                            canCompleteProcess && !canCompleteProcess(execution)
+                              ? "Cannot complete process - not all batches have completed this process"
+                              : "Complete this process (all steps and batches must be finished first)"
+                          }
                         >
                           <CheckCircleIcon className="h-4 w-4" />
-                          <span>{completingProcessId === execution.id ? 'Completing...' : 'Complete Process'}</span>
+                          <span>
+                            {completingProcessId === execution.id ? 'Completing...' : 
+                             canCompleteProcess && !canCompleteProcess(execution) ? 'Complete Process' : 'Complete Process'}
+                          </span>
                         </button>
                       )}
 

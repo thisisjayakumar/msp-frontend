@@ -18,7 +18,24 @@ class ProcessTrackingAPI {
     if (response.success) {
       return response.data;
     }
-    throw new Error(response.error || 'API request failed');
+    
+    // Handle specific error cases gracefully
+    const errorMessage = response.error || 'API request failed';
+    
+    // Check if it's a "not found" error (MO doesn't exist)
+    if (errorMessage.includes('No ManufacturingOrder matches') || 
+        errorMessage.includes('Not Found') ||
+        errorMessage.includes('404')) {
+      // Return a structured error object instead of throwing
+      return {
+        error: true,
+        message: 'Manufacturing Order not found',
+        details: errorMessage,
+        status: 404
+      };
+    }
+    
+    throw new Error(errorMessage);
   }
 
   // Manufacturing Order Process Tracking (THROTTLED)

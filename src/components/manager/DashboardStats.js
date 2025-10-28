@@ -219,15 +219,7 @@ export default function DashboardStats({ stats }) {
           <span>⚡</span>
           <span>Quick Actions</span>
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <button className="bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl p-4 hover:from-blue-600 hover:to-blue-700 transition-all duration-300 group">
-            <div className="text-2xl mb-2 group-hover:scale-110 transition-transform">🏭</div>
-            <p className="font-medium">New MO</p>
-          </button>
-          <button className="bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-xl p-4 hover:from-purple-600 hover:to-purple-700 transition-all duration-300 group">
-            <div className="text-2xl mb-2 group-hover:scale-110 transition-transform">📦</div>
-            <p className="font-medium">New PO</p>
-          </button>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <button className="bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl p-4 hover:from-green-600 hover:to-green-700 transition-all duration-300 group">
             <div className="text-2xl mb-2 group-hover:scale-110 transition-transform">📊</div>
             <p className="font-medium">Reports</p>

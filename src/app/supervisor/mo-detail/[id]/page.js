@@ -44,6 +44,7 @@ export default function SupervisorMODetailPage() {
 
   const [mo, setMO] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [processesInitialized, setProcessesInitialized] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const [alerts, setAlerts] = useState([]);
@@ -93,6 +94,14 @@ export default function SupervisorMODetailPage() {
       setLoading(true);
       const data = await processTrackingAPI.getMOWithProcesses(moId);
       
+      // Check if the response is an error object (MO not found)
+      if (data && data.error) {
+        console.warn('MO not found:', data.message);
+        setError('This manufacturing order is no longer available. It may have been completed or removed.');
+        setLoading(false);
+        return;
+      }
+      
       // Filter process executions based on user's role
       if (data.process_executions && userProfile) {
         const filteredProcesses = data.process_executions.filter(process => {
@@ -130,6 +139,16 @@ export default function SupervisorMODetailPage() {
       await fetchBatchInfo();
     } catch (error) {
       console.error('Error fetching MO data:', error);
+      
+      // Handle specific error cases
+      if (error.message.includes('No ManufacturingOrder matches') || 
+          error.message.includes('Not Found') ||
+          error.message.includes('404')) {
+        console.warn('MO not found, redirecting to dashboard');
+        setError('This manufacturing order is no longer available. It may have been completed or removed.');
+        setLoading(false);
+        return;
+      }
       
       // Handle rate limiting errors gracefully
       if (error.message.includes('429') || error.message.includes('Too Many Requests')) {
@@ -175,6 +194,47 @@ export default function SupervisorMODetailPage() {
       });
     } catch (error) {
       console.error('Error fetching batch info:', error);
+    }
+  }, [moId]);
+
+  // Aggressive refresh function for batch operations
+  const refreshBatchStatus = useCallback(async () => {
+    try {
+      console.log('🔄 Refreshing batch status...');
+      
+      // Multiple parallel calls to ensure we get the latest data
+      const [moData, batchData] = await Promise.all([
+        processTrackingAPI.getMOWithProcesses(moId),
+        manufacturingAPI.batches.getByMO(moId)
+      ]);
+      
+      // Update MO data
+      if (moData && !moData.error) {
+        setMO(moData);
+        setProcessesInitialized(moData.process_executions && moData.process_executions.length > 0);
+        console.log('✅ MO data updated');
+      }
+      
+      // Update batch data
+      if (batchData) {
+        const enhancedBatches = (batchData.batches || []).map(batch => ({
+          ...batch,
+          completed_processes: [],
+          current_process_executions: {},
+        }));
+        
+        setBatchData({ 
+          batches: enhancedBatches, 
+          summary: batchData.summary || null 
+        });
+        console.log('✅ Batch data updated');
+      }
+      
+      // Force UI refresh
+      setBatchProcessLoadingStates(prev => ({ ...prev, _refresh: Date.now() }));
+      console.log('✅ UI refresh triggered');
+    } catch (error) {
+      console.error('❌ Error in aggressive refresh:', error);
     }
   }, [moId]);
 
@@ -258,8 +318,44 @@ export default function SupervisorMODetailPage() {
     const isFirstProcess = execution.sequence_order === 1;
     
     if (isFirstProcess && batchData.batches.length > 0) {
-      setSelectedProcessForBatch(execution);
-      setShowBatchModal(true);
+      // Auto-start the first batch if it's the first process
+      const firstBatch = batchData.batches[0];
+      if (firstBatch) {
+        try {
+          setStartingProcessId(execution.id);
+          
+          // Start the process
+          await processTrackingAPI.startProcess(execution.id, { batch_id: firstBatch.id });
+          
+          // Immediately start the first batch in this process
+          await processTrackingAPI.startBatchProcess(firstBatch.id, execution.process_id);
+          
+          // Immediate refresh with multiple calls to ensure status updates
+          await Promise.all([
+            fetchMOData(),
+            fetchBatchInfo()
+          ]);
+          
+          // Additional refresh after a short delay to catch any backend processing
+          setTimeout(async () => {
+            await Promise.all([
+              fetchMOData(),
+              fetchBatchInfo()
+            ]);
+          }, 1000);
+          
+          alert(`Process "${execution.process_name}" started with batch ${firstBatch.batch_id}!\n\nThe first batch has been automatically started. You can now start subsequent batches manually.`);
+        } catch (error) {
+          console.error('Error starting process with auto-batch:', error);
+          alert('Failed to start process: ' + error.message);
+        } finally {
+          setStartingProcessId(null);
+        }
+      } else {
+        // Fallback to batch selection modal
+        setSelectedProcessForBatch(execution);
+        setShowBatchModal(true);
+      }
     } else {
       // Start process directly if no batches or not first process
       await startProcessDirectly(execution);
@@ -272,7 +368,21 @@ export default function SupervisorMODetailPage() {
       setStartingProcessId(execution.id);
       // TODO: Update API to accept batch information
       await processTrackingAPI.startProcess(execution.id, { batch_id: selectedBatch.id });
-      await fetchMOData();
+      
+      // Immediate refresh with multiple calls to ensure status updates
+      await Promise.all([
+        fetchMOData(),
+        fetchBatchInfo()
+      ]);
+      
+      // Additional refresh after a short delay to catch any backend processing
+      setTimeout(async () => {
+        await Promise.all([
+          fetchMOData(),
+          fetchBatchInfo()
+        ]);
+      }, 1000);
+      
       alert(`Process "${execution.process_name}" started with batch ${selectedBatch.batch_id}!`);
     } catch (error) {
       console.error('Error starting process with batch:', error);
@@ -315,6 +425,21 @@ export default function SupervisorMODetailPage() {
       }
     }
 
+    // For batch-based production, check if all batches have completed this process
+    const moBatches = batchData.batches || [];
+    if (moBatches.length > 0) {
+      const incompleteBatches = moBatches.filter(batch => {
+        const batchProcKey = `PROCESS_${execution.id}_STATUS`;
+        return !(batch.notes || '').includes(`${batchProcKey}:completed;`);
+      });
+
+      if (incompleteBatches.length > 0) {
+        const incompleteBatchIds = incompleteBatches.map(b => b.batch_id).join(', ');
+        alert(`Cannot complete process "${execution.process_name}": ${incompleteBatches.length} batch(es) have not completed this process yet.\n\nIncomplete batches: ${incompleteBatchIds}\n\nPlease complete all batches in this process first. The process will be automatically marked as completed when all batches are done.`);
+        return;
+      }
+    }
+
     if (!window.confirm(`Complete process "${execution.process_name}"? This will mark the entire process as finished.`)) {
       return;
     }
@@ -336,6 +461,8 @@ export default function SupervisorMODetailPage() {
         alert(`Cannot complete process "${execution.process_name}": Process must be in progress to complete.`);
       } else if (error.message.includes('Only supervisors or assigned operators')) {
         alert(`Cannot complete process "${execution.process_name}": You don't have permission to complete this process.`);
+      } else if (error.message.includes('not all batches have completed')) {
+        alert(`Cannot complete process "${execution.process_name}": All batches must complete this process before marking the process as completed. Please complete all batches first.`);
       } else {
         alert('Failed to complete process: ' + error.message);
       }
@@ -354,24 +481,24 @@ export default function SupervisorMODetailPage() {
       // Call API to start batch in specific process
       await processTrackingAPI.startBatchProcess(batch.id, process.id);
       
-      // Add small delay to ensure backend has processed the update
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Use aggressive refresh immediately
+      await refreshBatchStatus();
       
-      // Fetch updated batch data first to get the latest notes
-      await fetchBatchInfo();
+      // Additional refreshes at different intervals to ensure status updates
+      setTimeout(async () => {
+        await refreshBatchStatus();
+      }, 300);
       
-      // Then refresh MO data
-      await fetchMOData();
+      setTimeout(async () => {
+        await refreshBatchStatus();
+      }, 800);
       
-      // Force component re-render by creating new loading states object
-      setBatchProcessLoadingStates(prev => ({ ...prev, [loadingKey]: false, _refresh: Date.now() }));
+      alert(`Batch "${batch.batch_id}" started in process "${process.process_name}"!\n\nYou can now complete this batch in the Process Flow tab.`);
       
-      alert(`Batch "${batch.batch_id}" started in process "${process.process_name}"!\n\nYou can now complete this batch in the Batch Flow tab.`);
-      
-      // Close modal and switch to batch flow tab to show completion UI
+      // Close modal and switch to processes tab to show completion UI
       setShowBatchModal(false);
       setSelectedProcessForBatch(null);
-      setActiveTab('batch-flow');
+      setActiveTab('processes');
     } catch (error) {
       console.error('Error starting batch process:', error);
       
@@ -400,17 +527,21 @@ export default function SupervisorMODetailPage() {
       // Call API to complete batch in specific process
       await processTrackingAPI.completeBatchProcess(batch.id, process.id);
       
-      // Add small delay to ensure backend has processed the update
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Use aggressive refresh immediately
+      await refreshBatchStatus();
       
-      // Fetch updated batch data first to get the latest notes
-      await fetchBatchInfo();
+      // Additional refreshes at different intervals to ensure status updates
+      setTimeout(async () => {
+        await refreshBatchStatus();
+      }, 300);
       
-      // Then refresh MO data
-      await fetchMOData();
+      setTimeout(async () => {
+        await refreshBatchStatus();
+      }, 800);
       
-      // Force component re-render by creating new loading states object
-      setBatchProcessLoadingStates(prev => ({ ...prev, [loadingKey]: false, _refresh: Date.now() }));
+      setTimeout(async () => {
+        await refreshBatchStatus();
+      }, 1500);
       
       alert(`Batch "${batch.batch_id}" completed in process "${process.process_name}"! It can now proceed to the next process.`);
     } catch (error) {
@@ -456,8 +587,87 @@ export default function SupervisorMODetailPage() {
     return colors[priority] || 'text-gray-600';
   };
 
-  if (loading && !mo) {
+  // Helper function to check if a process can be completed
+  const canCompleteProcess = (execution) => {
+    // Process must be in progress
+    if (execution.status !== 'in_progress') {
+      return false;
+    }
+
+    // All steps must be completed
+    if (execution.step_executions && execution.step_executions.length > 0) {
+      const incompleteSteps = execution.step_executions.filter(step => step.status !== 'completed');
+      if (incompleteSteps.length > 0) {
+        return false;
+      }
+    }
+
+    // For batch-based production, all batches must have completed this process
+    const moBatches = batchData.batches || [];
+    if (moBatches.length > 0) {
+      const incompleteBatches = moBatches.filter(batch => {
+        const batchProcKey = `PROCESS_${execution.id}_STATUS`;
+        return !(batch.notes || '').includes(`${batchProcKey}:completed;`);
+      });
+      return incompleteBatches.length === 0;
+    }
+
+    return true;
+  };
+
+  // Helper function to get batch completion status for a process
+  const getBatchCompletionStatus = (execution) => {
+    const moBatches = batchData.batches || [];
+    if (moBatches.length === 0) {
+      return { completed: 0, total: 0, percentage: 0 };
+    }
+
+    const batchProcKey = `PROCESS_${execution.id}_STATUS`;
+    const completedBatches = moBatches.filter(batch => 
+      (batch.notes || '').includes(`${batchProcKey}:completed;`)
+    );
+
+    return {
+      completed: completedBatches.length,
+      total: moBatches.length,
+      percentage: moBatches.length > 0 ? (completedBatches.length / moBatches.length) * 100 : 0
+    };
+  };
+
+  if (loading && !mo && !error) {
     return <LoadingSpinner />;
+  }
+
+  // Show error state if there's an error (including MO not found)
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <div className="text-6xl mb-4">⚠️</div>
+          <h2 className="text-2xl font-bold text-slate-800 mb-2">Manufacturing Order Not Available</h2>
+          <p className="text-slate-600 mb-6">
+            {error}
+          </p>
+          <div className="flex space-x-4 justify-center">
+            <button
+              onClick={() => router.replace('/supervisor/dashboard')}
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Back to Dashboard
+            </button>
+            <button
+              onClick={() => {
+                setError(null);
+                fetchMOData();
+              }}
+              className="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (!mo) {
@@ -482,8 +692,7 @@ export default function SupervisorMODetailPage() {
 
   const tabs = [
     { id: 'overview', label: 'Overview', icon: '📋' },
-    { id: 'processes', label: 'Process Flow', icon: '🏭' },
-    { id: 'batch-flow', label: 'Batch Flow', icon: '📦' },
+    { id: 'processes', label: 'Process & Batch Flow', icon: '🏭' },
     { id: 'alerts', label: 'Alerts', icon: '🚨', count: alerts.length },
   ];
 
@@ -707,6 +916,35 @@ export default function SupervisorMODetailPage() {
                 </button>
               </div>
             )}
+
+            {/* Batch Completion Workflow Information */}
+            {processesInitialized && batchData.batches.length > 0 && (
+              <div className="bg-blue-50/80 backdrop-blur-sm rounded-2xl shadow-lg shadow-blue-200/50 border border-blue-200/60 p-6">
+                <div className="flex items-start space-x-4">
+                  <div className="flex-shrink-0">
+                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                      <span className="text-2xl">📦</span>
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-blue-800 mb-2">Multi-Batch Production Workflow</h3>
+                    <div className="text-sm text-blue-700 space-y-2">
+                      <p><strong>How it works:</strong></p>
+                      <ul className="list-disc list-inside space-y-1 ml-4">
+                        <li>Each batch must complete all processes before the MO is finished</li>
+                        <li>Processes are marked as "completed" only when ALL batches have finished that process</li>
+                        <li>You can start new batches in completed processes until all RM is released</li>
+                        <li>Use the "Process & Batch Flow" tab to manage individual batch progress</li>
+                      </ul>
+                      <div className="mt-3 p-3 bg-blue-100 rounded-lg">
+                        <p className="font-medium text-blue-800">💡 Tip:</p>
+                        <p className="text-blue-700">Complete batches individually in each process. The process will automatically be marked as completed when all batches are done.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -714,19 +952,48 @@ export default function SupervisorMODetailPage() {
         {activeTab === 'processes' && (
           <div>
             {processesInitialized ? (
-              <ProcessFlowVisualization
-                processExecutions={mo.process_executions}
-                onProcessClick={handleProcessClick}
-                onStepClick={handleStepClick}
-                onStartProcess={handleStartProcess}
-                onCompleteProcess={handleCompleteProcess}
-                showSteps={true}
-                compact={false}
-                userRole="supervisor"
-                startingProcessId={startingProcessId}
-                completingProcessId={completingProcessId}
-                batchData={batchData}
-              />
+              <div className="space-y-6">
+                {/* Process Flow Visualization */}
+                <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200/60 p-6">
+                  <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center">
+                    <span className="mr-2">🏭</span>
+                    Process Flow
+                  </h3>
+                  <ProcessFlowVisualization
+                    processExecutions={mo.process_executions}
+                    onProcessClick={handleProcessClick}
+                    onStepClick={handleStepClick}
+                    onStartProcess={handleStartProcess}
+                    onCompleteProcess={handleCompleteProcess}
+                    showSteps={true}
+                    compact={false}
+                    userRole="supervisor"
+                    startingProcessId={startingProcessId}
+                    completingProcessId={completingProcessId}
+                    batchData={batchData}
+                    canCompleteProcess={canCompleteProcess}
+                    getBatchCompletionStatus={getBatchCompletionStatus}
+                  />
+                </div>
+
+                {/* Batch Flow Visualization */}
+                {batchData.batches.length > 0 && (
+                  <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200/60 p-6">
+                    <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center">
+                      <span className="mr-2">📦</span>
+                      Batch Flow Management
+                    </h3>
+                    <BatchProcessFlowVisualization
+                      processExecutions={mo.process_executions}
+                      batchData={batchData}
+                      onStartBatchProcess={handleStartBatchProcess}
+                      onCompleteBatchProcess={handleCompleteBatchProcess}
+                      userRole="supervisor"
+                      loadingStates={batchProcessLoadingStates}
+                    />
+                  </div>
+                )}
+              </div>
             ) : (
               <div className="text-center py-12 bg-white/80 backdrop-blur-sm rounded-xl">
                 <div className="text-6xl mb-4">🏭</div>
@@ -738,44 +1005,6 @@ export default function SupervisorMODetailPage() {
                   }
                 </p>
                 {mo.status === 'in_progress' && (
-                  <button
-                    onClick={handleInitializeProcesses}
-                    disabled={loading}
-                    className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-                  >
-                    {loading ? 'Initializing...' : 'Initialize Processes'}
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Batch Flow Tab */}
-        {activeTab === 'batch-flow' && (
-          <div>
-            {processesInitialized && batchData.batches.length > 0 ? (
-              <BatchProcessFlowVisualization
-                processExecutions={mo.process_executions}
-                batchData={batchData}
-                onStartBatchProcess={handleStartBatchProcess}
-                onCompleteBatchProcess={handleCompleteBatchProcess}
-                userRole="supervisor"
-                loadingStates={batchProcessLoadingStates}
-              />
-            ) : (
-              <div className="text-center py-12 bg-white/80 backdrop-blur-sm rounded-xl">
-                <div className="text-6xl mb-4">📦</div>
-                <h3 className="text-xl font-medium text-slate-600 mb-2">
-                  {!processesInitialized ? 'Processes Not Initialized' : 'No Batches Available'}
-                </h3>
-                <p className="text-slate-500 mb-6">
-                  {!processesInitialized 
-                    ? 'Initialize process tracking first to enable batch flow monitoring.'
-                    : 'No batches have been created for this MO yet. Batches are created by the RM Store team.'
-                  }
-                </p>
-                {!processesInitialized && mo.status === 'in_progress' && (
                   <button
                     onClick={handleInitializeProcesses}
                     disabled={loading}
