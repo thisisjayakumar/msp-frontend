@@ -38,11 +38,9 @@ export default function NotificationBell({ onNotificationClick }) {
     }
   }, []);
 
-  // Fetch notifications on mount and poll every 60 seconds (increased from 30 seconds)
+  // Fetch notifications on mount
   useEffect(() => {
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 60000);
-    return () => clearInterval(interval);
   }, [fetchNotifications]);
 
   // Close dropdown when clicking outside

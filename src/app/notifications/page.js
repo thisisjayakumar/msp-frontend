@@ -12,9 +12,6 @@ export default function NotificationCenter() {
 
   useEffect(() => {
     fetchNotifications();
-    // Set up real-time updates (polling every 30 seconds)
-    const interval = setInterval(fetchNotifications, 30000);
-    return () => clearInterval(interval);
   }, [filter]);
 
   const fetchNotifications = async () => {

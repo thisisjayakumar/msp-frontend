@@ -209,20 +209,17 @@ export const fgStoreAPI = {
     return apiRequest(`${FG_STORE_API_BASE}/dashboard/performance/?${queryParams}`);
   },
 
-  // Real-time updates
-  subscribeToStockUpdates: (callback) => {
-    // WebSocket implementation would go here
-    // For now, we'll use polling
-    const interval = setInterval(async () => {
-      try {
-        const updates = await apiRequest(`${FG_STORE_API_BASE}/dashboard/stock_updates/`);
-        callback(updates);
-      } catch (error) {
-        console.error('Failed to fetch stock updates:', error);
-      }
-    }, 30000); // Poll every 30 seconds
-
-    return () => clearInterval(interval);
+  // Real-time updates - polling removed, call getStockUpdates directly when needed
+  subscribeToStockUpdates: async (callback) => {
+    // Polling removed - just fetch once
+    try {
+      const updates = await apiRequest(`${FG_STORE_API_BASE}/dashboard/stock_updates/`);
+      callback(updates);
+    } catch (error) {
+      console.error('Failed to fetch stock updates:', error);
+    }
+    // Return no-op cleanup function for compatibility
+    return () => {};
   },
 
   // Notification management

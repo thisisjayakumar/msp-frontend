@@ -17,6 +17,7 @@ export default function BatchProcessFlowVisualization({
   batchData = { batches: [], summary: null },
   onStartBatchProcess,
   onCompleteBatchProcess,
+  onReturnRM,
   userRole = null,
   loadingStates = {}
 }) {
@@ -51,20 +52,21 @@ export default function BatchProcessFlowVisualization({
 
   // Get batch status in a specific process
   const getBatchProcessStatus = (batch, process) => {
+    // Check if batch is returned to RM
+    if (batch.status === 'returned_to_rm') {
+      return 'returned_to_rm';
+    }
+    
     const notes = batch.notes || "";
     
-    // Debug logging
-    console.log(`Checking batch ${batch.batch_id} in process ${process.process_name}:`);
-    console.log(`Batch notes: "${notes}"`);
-    console.log(`Batch status: ${batch.status}`);
-    console.log(`Process ID: ${process.id}`);
+    // Debug logging removed
     
     // Handle both old Python dict format and new string format
     let processStatus = null;
     
     // Check new string format first
     const newProcessKey = `PROCESS_${process.id}_STATUS`;
-    console.log(`Looking for key: ${newProcessKey}:in_progress;`);
+    // Debug logging removed
     if (notes.includes(`${newProcessKey}:in_progress;`)) {
       processStatus = 'in_progress';
     } else if (notes.includes(`${newProcessKey}:completed;`)) {
@@ -94,13 +96,11 @@ export default function BatchProcessFlowVisualization({
       // Check if notes has ANY process status markers
       const hasAnyProcessStatus = notes.includes('PROCESS_') && notes.includes('_STATUS:');
       if (!hasAnyProcessStatus) {
-        console.log(`Batch is in_process and this is first process with no process markers, marking as in_progress`);
         processStatus = 'in_progress';
       }
     }
     
     if (processStatus) {
-      console.log(`Found ${processStatus} status for batch ${batch.batch_id} in process ${process.process_name}`);
       return processStatus;
     }
     
@@ -112,7 +112,6 @@ export default function BatchProcessFlowVisualization({
     if (processIndex === 0) {
       // For first process, if batch is created or in_process, it's available to start
       const status = ['created', 'in_process'].includes(batch.status) ? 'available' : 'waiting';
-      console.log(`First process - batch status: ${batch.status}, returning: ${status}`);
       return status;
     }
     
@@ -126,16 +125,13 @@ export default function BatchProcessFlowVisualization({
       const completedOld = notes.includes(oldPrevKey) && notes.includes("'status': 'completed'");
       
       const completed = completedNew || completedOld;
-      console.log(`Previous process ${prevProcess.id} completed: ${completed}`);
       return completed;
     });
     
     if (!completedPreviousProcesses) {
-      console.log(`Waiting for previous processes to complete`);
       return 'waiting';
     }
     
-    console.log(`Previous processes completed, batch available`);
     return 'available';
   };
 
@@ -173,6 +169,11 @@ export default function BatchProcessFlowVisualization({
         color: 'bg-gray-100 text-gray-700 border-gray-300',
         icon: PauseIcon,
         bgColor: 'bg-gray-50'
+      },
+      returned_to_rm: {
+        color: 'bg-red-100 text-red-700 border-red-300',
+        icon: ExclamationTriangleIcon,
+        bgColor: 'bg-red-50'
       }
     };
     return statusMap[status] || statusMap.waiting;
@@ -356,26 +357,43 @@ export default function BatchProcessFlowVisualization({
 
                                 {/* Action Buttons */}
                                 <div className="flex space-x-2">
-                                  {canStart && (
-                                    <button
-                                      onClick={() => onStartBatchProcess?.(batch, process)}
-                                      disabled={isLoading}
-                                      className="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center space-x-1"
-                                    >
-                                      <PlayIcon className="h-3 w-3" />
-                                      <span>{isLoading ? 'Starting...' : 'Start'}</span>
-                                    </button>
-                                  )}
-                                  
-                                  {canComplete && (
-                                    <button
-                                      onClick={() => onCompleteBatchProcess?.(batch, process)}
-                                      disabled={isLoading}
-                                      className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center space-x-1"
-                                    >
-                                      <CheckCircleIcon className="h-3 w-3" />
-                                      <span>{isLoading ? 'Completing...' : 'Complete'}</span>
-                                    </button>
+                                  {batchStatus === 'returned_to_rm' ? (
+                                    <span className="px-3 py-1 bg-red-50 text-red-700 text-xs rounded border border-red-200 font-medium">
+                                      Batch Returned to RM
+                                    </span>
+                                  ) : (
+                                    <>
+                                      {canStart && (
+                                        <button
+                                          onClick={() => onStartBatchProcess?.(batch, process)}
+                                          disabled={isLoading}
+                                          className="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center space-x-1"
+                                        >
+                                          <PlayIcon className="h-3 w-3" />
+                                          <span>{isLoading ? 'Starting...' : 'Start'}</span>
+                                        </button>
+                                      )}
+                                      
+                                      {canComplete && (
+                                        <button
+                                          onClick={() => onCompleteBatchProcess?.(batch, process)}
+                                          disabled={isLoading}
+                                          className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center space-x-1"
+                                        >
+                                          <CheckCircleIcon className="h-3 w-3" />
+                                          <span>{isLoading ? 'Completing...' : 'Complete'}</span>
+                                        </button>
+                                      )}
+
+                                      {/* Return RM - allowed for batches that haven't been returned yet */}
+                                      <button
+                                        onClick={() => onReturnRM?.(batch, process)}
+                                        className="px-3 py-1 bg-orange-600 text-white text-xs rounded hover:bg-orange-700 transition-colors flex items-center space-x-1"
+                                      >
+                                        <ExclamationTriangleIcon className="h-3 w-3" />
+                                        <span>Return RM</span>
+                                      </button>
+                                    </>
                                   )}
                                 </div>
                               </div>

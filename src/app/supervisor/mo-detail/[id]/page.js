@@ -10,6 +10,7 @@ import BatchProcessFlowVisualization from '@/components/process/BatchProcessFlow
 import LoadingSpinner from '@/components/CommonComponents/ui/LoadingSpinner';
 import NotificationBell from '@/components/supervisor/NotificationBell';
 import BatchSelectionModal from '@/components/supervisor/BatchSelectionModal';
+import SupervisorReturnRMModal from '@/components/supervisor/SupervisorReturnRMModal';
 
 // API Services
 import manufacturingAPI from '@/components/API_Service/manufacturing-api';
@@ -57,6 +58,8 @@ export default function SupervisorMODetailPage() {
   const [selectedProcessForBatch, setSelectedProcessForBatch] = useState(null);
   const [batchProcessLoadingStates, setBatchProcessLoadingStates] = useState({});
   const [useBatchWiseFlow, setUseBatchWiseFlow] = useState(true);
+  const [showReturnModal, setShowReturnModal] = useState(false);
+  const [returnContext, setReturnContext] = useState(null); // { batch, process }
 
   // Fetch user profile (THROTTLED)
   const fetchUserProfile = useCallback(async () => {
@@ -210,9 +213,27 @@ export default function SupervisorMODetailPage() {
       
       // Update MO data
       if (moData && !moData.error) {
+        // Filter process executions if user profile exists
+        if (moData.process_executions && userProfile) {
+          const filteredProcesses = moData.process_executions.filter(pe => {
+            const userRole = userProfile.primary_role?.name;
+            if (['admin', 'manager', 'production_head'].includes(userRole)) {
+              return true;
+            }
+            if (userRole === 'supervisor') {
+              return pe.assigned_supervisor === userProfile.id;
+            }
+            if (['rm_store', 'fg_store'].includes(userRole)) {
+              return pe.assigned_supervisor === userProfile.id;
+            }
+            return false;
+          });
+          moData.process_executions = filteredProcesses;
+        }
+        
         setMO(moData);
         setProcessesInitialized(moData.process_executions && moData.process_executions.length > 0);
-        console.log('✅ MO data updated');
+        console.log('✅ MO data updated with', moData.process_executions?.length, 'processes');
       }
       
       // Update batch data
@@ -227,7 +248,7 @@ export default function SupervisorMODetailPage() {
           batches: enhancedBatches, 
           summary: batchData.summary || null 
         });
-        console.log('✅ Batch data updated');
+        console.log('✅ Batch data updated with', enhancedBatches.length, 'batches');
       }
       
       // Force UI refresh
@@ -236,7 +257,7 @@ export default function SupervisorMODetailPage() {
     } catch (error) {
       console.error('❌ Error in aggressive refresh:', error);
     }
-  }, [moId]);
+  }, [moId, userProfile]);
 
   // Check authentication and load data
   useEffect(() => {
@@ -255,10 +276,6 @@ export default function SupervisorMODetailPage() {
     };
 
     initializePage();
-
-    // Poll for updates every 30 seconds (reduced from 10 seconds)
-    const interval = setInterval(fetchMOData, 30000);
-    return () => clearInterval(interval);
   }, [fetchUserProfile, fetchMOData, router, moId]);
 
   // Handle start MO
@@ -328,7 +345,8 @@ export default function SupervisorMODetailPage() {
           await processTrackingAPI.startProcess(execution.id, { batch_id: firstBatch.id });
           
           // Immediately start the first batch in this process
-          await processTrackingAPI.startBatchProcess(firstBatch.id, execution.process_id);
+          // Pass execution.id (MOProcessExecution ID), not execution.process_id (Process ID)
+          await processTrackingAPI.startBatchProcess(firstBatch.id, execution.id);
           
           // Immediate refresh with multiple calls to ensure status updates
           await Promise.all([
@@ -525,25 +543,56 @@ export default function SupervisorMODetailPage() {
       setBatchProcessLoadingStates(prev => ({ ...prev, [loadingKey]: true }));
       
       // Call API to complete batch in specific process
-      await processTrackingAPI.completeBatchProcess(batch.id, process.id);
+      const response = await processTrackingAPI.completeBatchProcess(batch.id, process.id);
       
-      // Use aggressive refresh immediately
+      console.log('✅ Batch process completion response:', response);
+      
+      // Immediately update the batch notes in state if response contains batch data
+      if (response && response.batch) {
+        setBatchData(prev => ({
+          ...prev,
+          batches: prev.batches.map(b => 
+            b.id === batch.id ? { ...b, notes: response.batch.notes || b.notes } : b
+          )
+        }));
+      }
+      
+      // If process was completed, update the process execution status immediately
+      if (response && response.process_completed && mo && mo.process_executions) {
+        setMO(prev => ({
+          ...prev,
+          process_executions: prev.process_executions.map(pe => 
+            pe.id === process.id 
+              ? { 
+                  ...pe, 
+                  status: 'completed',
+                  progress_percentage: 100,
+                  actual_end_time: new Date().toISOString()
+                }
+              : pe
+          )
+        }));
+        console.log('✅ Process status updated to completed');
+      }
+      
+      // Use aggressive refresh to ensure everything is in sync
       await refreshBatchStatus();
       
-      // Additional refreshes at different intervals to ensure status updates
+      // Additional refresh after a short delay
       setTimeout(async () => {
         await refreshBatchStatus();
-      }, 300);
+      }, 500);
       
-      setTimeout(async () => {
-        await refreshBatchStatus();
-      }, 800);
+      // Build success message with additional info
+      let successMessage = `Batch "${batch.batch_id}" completed in process "${process.process_name}"!`;
+      if (response && response.process_completed) {
+        successMessage += `\n\n✅ The process has been marked as completed (${response.rm_batched_percentage?.toFixed(1)}% RM batched)`;
+      } else if (response && response.rm_batched_percentage !== undefined) {
+        successMessage += `\n\n📊 RM Batched: ${response.rm_batched_percentage.toFixed(1)}% (Process will complete when >= 90%)`;
+      }
+      successMessage += '\n\nThe batch can now proceed to the next process.';
       
-      setTimeout(async () => {
-        await refreshBatchStatus();
-      }, 1500);
-      
-      alert(`Batch "${batch.batch_id}" completed in process "${process.process_name}"! It can now proceed to the next process.`);
+      alert(successMessage);
     } catch (error) {
       console.error('Error completing batch process:', error);
       
@@ -556,6 +605,12 @@ export default function SupervisorMODetailPage() {
     } finally {
       setBatchProcessLoadingStates(prev => ({ ...prev, [loadingKey]: false }));
     }
+  };
+
+  // Handle Return RM click
+  const handleReturnRM = (batch, process) => {
+    setReturnContext({ batch, process });
+    setShowReturnModal(true);
   };
 
   const handleLogout = () => {
@@ -988,6 +1043,7 @@ export default function SupervisorMODetailPage() {
                       batchData={batchData}
                       onStartBatchProcess={handleStartBatchProcess}
                       onCompleteBatchProcess={handleCompleteBatchProcess}
+                      onReturnRM={handleReturnRM}
                       userRole="supervisor"
                       loadingStates={batchProcessLoadingStates}
                     />
@@ -1067,6 +1123,21 @@ export default function SupervisorMODetailPage() {
         batches={batchData.batches}
         processExecution={selectedProcessForBatch}
         onStartProcess={handleStartProcessWithBatch}
+      />
+
+      {/* Return RM Modal */}
+      <SupervisorReturnRMModal
+        isOpen={showReturnModal}
+        onClose={() => { setShowReturnModal(false); setReturnContext(null); }}
+        moId={moId}
+        mo={mo}
+        batch={returnContext?.batch || null}
+        processExecution={returnContext?.process || null}
+        onSuccess={async () => {
+          setShowReturnModal(false);
+          setReturnContext(null);
+          await refreshBatchStatus();
+        }}
       />
     </div>
   );

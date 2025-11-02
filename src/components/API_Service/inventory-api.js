@@ -477,6 +477,91 @@ export const heatNumbersAPI = {
   },
 };
 
+// RM Returns API Service
+export const rmReturnsAPI = {
+  // Get all RM returns with optional filters
+  getAll: async (filters = {}) => {
+    const queryParams = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        queryParams.append(key, value);
+      }
+    });
+
+    const url = queryParams.toString()
+      ? `${INVENTORY_APIS.RM_RETURNS_LIST}?${queryParams}`
+      : INVENTORY_APIS.RM_RETURNS_LIST;
+
+    const response = await apiRequest(url, {
+      method: 'GET',
+    });
+
+    return handleResponse(response);
+  },
+
+  // Get RM return by ID
+  getById: async (id) => {
+    const response = await apiRequest(INVENTORY_APIS.RM_RETURNS_DETAIL(id), {
+      method: 'GET',
+    });
+
+    return handleResponse(response);
+  },
+
+  // Create new RM return (for supervisors)
+  create: async (returnData) => {
+    const response = await apiRequest(INVENTORY_APIS.RM_RETURNS_CREATE, {
+      method: 'POST',
+      body: returnData,
+    });
+
+    return handleResponse(response);
+  },
+
+  // Get pending RM returns
+  getPending: async () => {
+    const response = await apiRequest(INVENTORY_APIS.RM_RETURNS_PENDING, {
+      method: 'GET',
+    });
+
+    return handleResponse(response);
+  },
+
+  // Get RM returns by batch
+  getByBatch: async (batchId) => {
+    const response = await apiRequest(`${INVENTORY_APIS.RM_RETURNS_BY_BATCH}?batch_id=${batchId}`, {
+      method: 'GET',
+    });
+
+    return handleResponse(response);
+  },
+
+  // Process disposition (return to RM or return to vendor, optionally vendor acceptance and received qty)
+  processDisposition: async (id, disposition, notes = '', extras = {}) => {
+    const body = {
+      disposition,
+      disposition_notes: notes,
+    };
+
+    if (extras && typeof extras === 'object') {
+      if (extras.category) body.category = extras.category; // 'return_to_rm' | 'return_to_vendor'
+      if (extras.vendorAcceptedQuantity !== undefined && extras.vendorAcceptedQuantity !== null) {
+        body.vendor_accepted_quantity_kg = Number(extras.vendorAcceptedQuantity);
+      }
+      if (extras.receivedReturnQuantityKg !== undefined && extras.receivedReturnQuantityKg !== null) {
+        body.received_return_quantity_kg = Number(extras.receivedReturnQuantityKg);
+      }
+    }
+
+    const response = await apiRequest(INVENTORY_APIS.RM_RETURNS_PROCESS_DISPOSITION(id), {
+      method: 'POST',
+      body,
+    });
+
+    return handleResponse(response);
+  },
+};
+
 // Combined inventory API service
 export const inventoryAPI = {
   products: productsAPI,
@@ -486,6 +571,7 @@ export const inventoryAPI = {
   transactions: transactionsAPI,
   grmReceipts: grmReceiptsAPI,
   heatNumbers: heatNumbersAPI,
+  rmReturns: rmReturnsAPI,
 };
 
 // Export individual services for convenience
@@ -500,4 +586,5 @@ export {
   transactionsAPI,
   grmReceiptsAPI,
   heatNumbersAPI,
+  rmReturnsAPI,
 };

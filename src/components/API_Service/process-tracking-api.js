@@ -215,25 +215,17 @@ class ProcessTrackingAPI {
     return this.handleResponse(response);
   }
 
-  // Real-time updates simulation (you can replace with WebSocket later)
+  // Real-time updates - removed polling, call getMOWithProcesses directly when needed
   async pollProcessUpdates(moId, callback, interval = 5000) {
-    const poll = async () => {
-      try {
-        const data = await this.getMOWithProcesses(moId);
-        callback(data);
-      } catch (error) {
-        console.error('Error polling process updates:', error);
-      }
-    };
-
-    // Initial call
-    await poll();
-
-    // Set up polling
-    const intervalId = setInterval(poll, interval);
-    
-    // Return cleanup function
-    return () => clearInterval(intervalId);
+    // Polling removed - just fetch once
+    try {
+      const data = await this.getMOWithProcesses(moId);
+      callback(data);
+    } catch (error) {
+      console.error('Error fetching process updates:', error);
+    }
+    // Return no-op cleanup function for compatibility
+    return () => {};
   }
 
   // Get dashboard statistics
@@ -258,6 +250,13 @@ class ProcessTrackingAPI {
       method: 'POST',
       body: { batch_id: batchId, process_id: processId, ...completionData },
     });
+    
+    // For batch process completion, we want the full response including process_completed flag
+    // Return the full response data instead of just response.data
+    if (response.success && response.data) {
+      return response.data;
+    }
+    
     return this.handleResponse(response);
   }
 

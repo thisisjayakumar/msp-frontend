@@ -149,6 +149,16 @@ export const INVENTORY_APIS = {
   HEAT_NUMBERS_DELETE: (id) => `${API_BASE_URL}/inventory/heat-numbers/${id}/`,
   HEAT_NUMBERS_BY_MATERIAL: (materialId) => `${API_BASE_URL}/inventory/heat-numbers/by_material/${materialId}/`,
   HEAT_NUMBERS_BULK_CREATE: `${API_BASE_URL}/inventory/heat-numbers/bulk_create/`,
+
+  // RM Returns
+  RM_RETURNS_LIST: `${API_BASE_URL}/inventory/rm-returns/`,
+  RM_RETURNS_CREATE: `${API_BASE_URL}/inventory/rm-returns/`,
+  RM_RETURNS_DETAIL: (id) => `${API_BASE_URL}/inventory/rm-returns/${id}/`,
+  RM_RETURNS_UPDATE: (id) => `${API_BASE_URL}/inventory/rm-returns/${id}/`,
+  RM_RETURNS_DELETE: (id) => `${API_BASE_URL}/inventory/rm-returns/${id}/`,
+  RM_RETURNS_PENDING: `${API_BASE_URL}/inventory/rm-returns/pending/`,
+  RM_RETURNS_BY_BATCH: `${API_BASE_URL}/inventory/rm-returns/by-batch/`,
+  RM_RETURNS_PROCESS_DISPOSITION: (id) => `${API_BASE_URL}/inventory/rm-returns/${id}/process-disposition/`,
 };
 
 // Notifications APIs

@@ -13,9 +13,10 @@ import MOListTab from './MOListTab';
 import POListTab from './POListTab';
 import GRMReceiptsTab from './GRMReceiptsTab';
 import InventoryTransactionsTab from './InventoryTransactionsTab';
+import ReturnRMTab from './ReturnRMTab';
 
 export default function RMStoreDashboard() {
-  const [activeTab, setActiveTab] = useState('stock'); // 'stock', 'rm_inward', 'grm_receipts', 'mo_list', 'transactions'
+  const [activeTab, setActiveTab] = useState('stock'); // 'stock', 'rm_inward', 'grm_receipts', 'mo_list', 'transactions', 'rm_returns'
   const [rawMaterials, setRawMaterials] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -178,6 +179,7 @@ export default function RMStoreDashboard() {
           {activeTab === 'grm_receipts' && 'Track GRM receipts and heat numbers for complete traceability'}
           {activeTab === 'mo_list' && 'Process Manufacturing Orders and manage raw material outward'}
           {activeTab === 'transactions' && 'Audit every inventory movement across RM inward and outward operations'}
+          {activeTab === 'rm_returns' && 'Process raw materials returned from production with quality issues'}
         </p>
       </div>
 
@@ -234,6 +236,16 @@ export default function RMStoreDashboard() {
                 } whitespace-nowrap py-3 px-2 sm:py-4 sm:px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors`}
               >
                 Inventory Transactions
+              </button>
+              <button
+                onClick={() => setActiveTab('rm_returns')}
+                className={`${
+                  activeTab === 'rm_returns'
+                    ? 'border-orange-500 text-orange-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                } whitespace-nowrap py-3 px-2 sm:py-4 sm:px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors`}
+              >
+                Return RM
               </button>
             </nav>
           </div>
@@ -473,6 +485,9 @@ export default function RMStoreDashboard() {
 
       {/* Transactions Tab */}
       {activeTab === 'transactions' && <InventoryTransactionsTab />}
+
+      {/* Return RM Tab */}
+      {activeTab === 'rm_returns' && <ReturnRMTab />}
     </div>
   );
 }

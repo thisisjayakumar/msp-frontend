@@ -27,7 +27,6 @@ export default function MODetailPage() {
   const [processesInitialized, setProcessesInitialized] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const [alerts, setAlerts] = useState([]);
-  const [pollingCleanup, setPollingCleanup] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({});
   const [supervisorsList, setSupervisorsList] = useState([]);
@@ -122,8 +121,11 @@ export default function MODetailPage() {
       setRmAllocationLoading(true);
       const response = await manufacturingAPI.rawMaterialAllocations.getByMO(moId);
       
-      if (response.success) {
-        setRmAllocationData(response.data);
+      // handleResponse already returns unwrapped data
+      if (response && !response.error) {
+        setRmAllocationData(response);
+      } else if (response && response.error) {
+        console.error('Error fetching RM allocation data:', response.message);
       }
     } catch (error) {
       console.error('Error fetching RM allocation data:', error);
@@ -195,42 +197,29 @@ export default function MODetailPage() {
     }
   }, [moId, router]);
 
-  // Initialize data and polling - only run once on mount
+  // Initialize data - only run once on mount
   useEffect(() => {
-    let cleanupFunction = null;
     let mounted = true;
 
-    const initializePolling = async () => {
+    const initializeData = async () => {
       if (!mounted) return;
       
-      await Promise.all([fetchMOData(), fetchSupervisors(), fetchRmAllocationData(), fetchBatchInfo()]);
-
-      if (!mounted) return;
-
-      // Set up real-time polling for updates
-      cleanupFunction = await processTrackingAPI.pollProcessUpdates(moId, (data) => {
-        if (mounted) {
-          setMO(data);
-          setProcessesInitialized(data.process_executions && data.process_executions.length > 0);
-        }
-      }, 30000); // Poll every 30 seconds
-
-      if (mounted) {
-        setPollingCleanup(() => cleanupFunction);
-      }
+      await Promise.all([
+        fetchMOData(), 
+        fetchSupervisors(), 
+        fetchRmAllocationData(), 
+        fetchBatchInfo()
+      ]);
     };
 
-    initializePolling();
+    initializeData();
 
     // Cleanup on unmount
     return () => {
       mounted = false;
-      if (cleanupFunction && typeof cleanupFunction === 'function') {
-        cleanupFunction();
-      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty dependency array - only run once on mount to prevent duplicate polling
+  }, []); // Empty dependency array - only run once on mount
 
   // Initialize processes for the MO - Changes status from mo_approved to in_progress
   const handleInitializeProcesses = async () => {
@@ -809,7 +798,7 @@ export default function MODetailPage() {
                                   {rmAllocationData.allocations.map((allocation, index) => (
                                     <tr key={index}>
                                       <td className="px-4 py-3 text-sm text-slate-800">
-                                        {allocation.raw_material_display || 'N/A'}
+                                        {allocation.raw_material_name || 'N/A'}
                                       </td>
                                       <td className="px-4 py-3 text-sm text-slate-800">
                                         {parseFloat(allocation.allocated_quantity_kg).toFixed(2)} kg

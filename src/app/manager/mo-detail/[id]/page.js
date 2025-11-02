@@ -24,7 +24,6 @@ export default function MODetailPage() {
   const [processesInitialized, setProcessesInitialized] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const [alerts, setAlerts] = useState([]);
-  const [pollingCleanup, setPollingCleanup] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({});
   const [supervisorsList, setSupervisorsList] = useState([]);
@@ -131,30 +130,13 @@ export default function MODetailPage() {
     }
   }, [moId, router]);
 
-  // Initialize data and polling
+  // Initialize data
   useEffect(() => {
-    let cleanupFunction = null;
-
-    const initializePolling = async () => {
+    const initializeData = async () => {
       await Promise.all([fetchMOData(), fetchSupervisors()]);
-
-      // Set up real-time polling for updates
-      cleanupFunction = await processTrackingAPI.pollProcessUpdates(moId, (data) => {
-        setMO(data);
-        setProcessesInitialized(data.process_executions && data.process_executions.length > 0);
-      }, 30000); // Poll every 30 seconds (increased from 10 seconds)
-
-      setPollingCleanup(() => cleanupFunction);
     };
 
-    initializePolling();
-
-    // Cleanup on unmount
-    return () => {
-      if (cleanupFunction && typeof cleanupFunction === 'function') {
-        cleanupFunction();
-      }
-    };
+    initializeData();
   }, [fetchMOData, fetchSupervisors, moId]);
 
   // Handle process click
