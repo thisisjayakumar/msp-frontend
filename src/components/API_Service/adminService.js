@@ -331,12 +331,7 @@ export const adminAPI = {
   dashboard: dashboardAPI,
 };
 
-// Export individual services for convenience
-export {
-  usersAPI,
-  rolesAPI,
-  dashboardAPI,
-};
+// Individual services are already exported inline above
 
 // ==================== BACKWARD COMPATIBILITY WRAPPERS ====================
 // These functions wrap the new API to maintain the old { success, data } format

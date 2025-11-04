@@ -574,17 +574,5 @@ export const inventoryAPI = {
   rmReturns: rmReturnsAPI,
 };
 
-// Export individual services for convenience
+// Individual services are already exported inline above
 export default inventoryAPI;
-
-// Export all services
-export {
-  productsAPI,
-  stockBalancesAPI,
-  rawMaterialsAPI,
-  dashboardAPI,
-  transactionsAPI,
-  grmReceiptsAPI,
-  heatNumbersAPI,
-  rmReturnsAPI,
-};
