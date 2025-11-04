@@ -186,7 +186,7 @@ export default function WorkCentersManagementPage() {
               {workCenters.length === 0 ? (
                 <tr>
                   <td colSpan="6" className="px-6 py-12 text-center text-slate-500">
-                    No work centers configured. Click "Add Work Center" to create one.
+                    No work centers configured. Click &quot;Add Work Center&quot; to create one.
                   </td>
                 </tr>
               ) : (

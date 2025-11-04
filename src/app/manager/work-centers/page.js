@@ -320,7 +320,7 @@ export default function WorkCentersPage() {
                 {!Array.isArray(workCenters) || workCenters.length === 0 ? (
                   <tr>
                     <td colSpan="6" className="px-6 py-8 text-center text-slate-500">
-                      No work centers configured yet. Click "Add Work Center" to get started.
+                      No work centers configured yet. Click &quot;Add Work Center&quot; to get started.
                     </td>
                   </tr>
                 ) : (

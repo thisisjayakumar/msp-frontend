@@ -221,7 +221,7 @@ export default function SupervisorActivityPage() {
           {/* Today's Activity Table */}
           <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
             <div className="px-6 py-4 bg-gradient-to-r from-blue-600 to-indigo-600">
-              <h3 className="text-lg font-bold text-white">Today's Work Center Activity</h3>
+              <h3 className="text-lg font-bold text-white">Today&apos;s Work Center Activity</h3>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">

@@ -829,7 +829,7 @@ export default function MODetailPage() {
                           <div className="text-center py-4 bg-slate-50 rounded-lg">
                             <div className="text-slate-400 text-xl mb-1">📊</div>
                             <h4 className="text-sm font-medium text-slate-600 mb-1">Allocation Details</h4>
-                            <p className="text-xs text-slate-500">RM allocation details are not available. This may be because the MO hasn't been allocated yet or the allocation API is not accessible.</p>
+                            <p className="text-xs text-slate-500">RM allocation details are not available. This may be because the MO hasn&apos;t been allocated yet or the allocation API is not accessible.</p>
                           </div>
                         )}
                       </div>

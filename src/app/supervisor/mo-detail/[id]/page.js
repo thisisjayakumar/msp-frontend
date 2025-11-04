@@ -732,7 +732,7 @@ export default function SupervisorMODetailPage() {
           <div className="text-6xl mb-4">⚠️</div>
           <h2 className="text-2xl font-bold text-slate-800 mb-2">Manufacturing Order Not Available</h2>
           <p className="text-slate-600 mb-6">
-            This manufacturing order is either not assigned to you, has been deleted, or you don't have permission to access it.
+            This manufacturing order is either not assigned to you, has been deleted, or you don&apos;t have permission to access it.
           </p>
           <button
             onClick={() => router.replace('/supervisor/dashboard')}
@@ -987,9 +987,9 @@ export default function SupervisorMODetailPage() {
                       <p><strong>How it works:</strong></p>
                       <ul className="list-disc list-inside space-y-1 ml-4">
                         <li>Each batch must complete all processes before the MO is finished</li>
-                        <li>Processes are marked as "completed" only when ALL batches have finished that process</li>
+                        <li>Processes are marked as &quot;completed&quot; only when ALL batches have finished that process</li>
                         <li>You can start new batches in completed processes until all RM is released</li>
-                        <li>Use the "Process & Batch Flow" tab to manage individual batch progress</li>
+                        <li>Use the &quot;Process &amp; Batch Flow&quot; tab to manage individual batch progress</li>
                       </ul>
                       <div className="mt-3 p-3 bg-blue-100 rounded-lg">
                         <p className="font-medium text-blue-800">💡 Tip:</p>

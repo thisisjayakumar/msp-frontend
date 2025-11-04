@@ -111,7 +111,7 @@ export default function AdditionalRMApprovalTab({ userRole }) {
   if (!canView) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-500">You don't have permission to view approval requests.</p>
+        <p className="text-gray-500">You don&apos;t have permission to view approval requests.</p>
       </div>
     );
   }

@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
  * @param {string} props.error - Error message
  * @returns {JSX.Element} Input component
  */
-export default function Input({
+export function Input({
   className,
   type = "text",
   placeholder,
@@ -37,3 +37,5 @@ export default function Input({
     </div>
   );
 }
+
+export default Input;

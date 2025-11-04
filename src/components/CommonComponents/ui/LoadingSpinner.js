@@ -1,6 +1,6 @@
 "use client";
 
-export default function LoadingSpinner({ size = "medium", text = "Loading..." }) {
+export function LoadingSpinner({ size = "medium", text = "Loading..." }) {
   const sizeClasses = {
     small: "w-4 h-4",
     medium: "w-8 h-8",
@@ -18,3 +18,5 @@ export default function LoadingSpinner({ size = "medium", text = "Loading..." })
     </div>
   );
 }
+
+export default LoadingSpinner;

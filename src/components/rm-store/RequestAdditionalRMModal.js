@@ -228,7 +228,7 @@ export default function RequestAdditionalRMModal({ mo, onClose, onSuccess }) {
                 <li>Production Head can view but cannot approve</li>
                 <li>Only Manager can approve the request</li>
                 <li>Once approved, you can release RM up to the new limit</li>
-                <li>Status will appear as "Pending Approval" in the system</li>
+                <li>Status will appear as &quot;Pending Approval&quot; in the system</li>
               </ul>
             </div>
 

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { ChevronDownIcon, MagnifyingGlassIcon, XMarkIcon } from '@heroicons/react/24/outline';
 
-export default function SearchableDropdown({
+export function SearchableDropdown({
   options = [],
   value,
   onChange,
@@ -205,3 +205,5 @@ export default function SearchableDropdown({
     </div>
   );
 }
+
+export default SearchableDropdown;

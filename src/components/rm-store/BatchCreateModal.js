@@ -315,7 +315,7 @@ export default function BatchCreateModal({ mo, onClose, onSuccess }) {
                     </div>
                     <p className="text-xs text-slate-500 mt-1">
                       Enter the raw material amount to allocate. Tolerance will be applied automatically. 
-                      <span className="font-medium">Use "Max" to allocate all remaining RM</span> 
+                      <span className="font-medium">Use &quot;Max&quot; to allocate all remaining RM</span> 
                       (auto-scrap if remaining &lt; 0.05 {batchSummary?.rm_unit}).
                     </p>
                   </div>

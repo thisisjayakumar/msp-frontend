@@ -337,7 +337,7 @@ export default function SupervisorDashboard() {
             <div className="text-6xl mb-4">📋</div>
             <h3 className="text-xl font-semibold text-slate-700 mb-2">No Manufacturing Orders</h3>
             <p className="text-slate-500">
-              You don't have any manufacturing orders assigned yet.
+              You don&apos;t have any manufacturing orders assigned yet.
             </p>
           </div>
         )}

@@ -28,7 +28,7 @@ const buttonVariants = {
  * @param {Function} props.onClick - Click handler
  * @returns {JSX.Element} Button component
  */
-export default function Button({
+export function Button({
   className,
   variant = "default",
   size = "default",
@@ -51,3 +51,5 @@ export default function Button({
     </button>
   );
 }
+
+export default Button;
