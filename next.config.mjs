@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Enable output file tracing for Docker
-  output: 'standalone',
+  output: 'export',
 
   // Enable experimental features for better performance
   experimental: {
@@ -14,7 +14,7 @@ const nextConfig = {
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
     // Configure for production deployment
-    unoptimized: process.env.NODE_ENV === 'production' && !process.env.NEXT_PUBLIC_VERCEL_URL,
+    unoptimized: true,
   },
 
   // Compression

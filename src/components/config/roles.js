@@ -4,6 +4,7 @@ export const ROLE_HIERARCHY = [
   { key: 'manager', label: 'Manager', path: '/manager' },
   { key: 'production_head', label: 'Production Head', path: '/production-head' },
   { key: 'supervisor', label: 'Supervisor', path: '/supervisor' },
+  { key: 'outsourcing_incharge', label: 'Outsourcing Incharge', path: '/outsourcing-incharge' },
   { key: 'rm_store', label: 'RM Store', path: '/rm-store' },
   { key: 'fg_store', label: 'FG Store', path: '/fg-store' }
 ];
@@ -63,6 +64,15 @@ export const ROLE_CONFIG = {
     secondaryColor: '#fdba74', // orange-300
     icon: 'building-storefront',
     permissions: ['dispatch_management', 'stock_levels', 'mo_dispatch', 'transactions_log', 'stock_alerts', 'packaging']
+  },
+  outsourcing_incharge: {
+    title: 'Outsourcing Incharge Dashboard',
+    subtitle: 'Outsourcing Management',
+    description: 'Send and receive batches for outsourcing processes, track quantities and manage vendor operations',
+    primaryColor: '#8b5cf6', // violet-500
+    secondaryColor: '#c4b5fd', // violet-300
+    icon: 'truck',
+    permissions: ['send_outsource', 'receive_outsource', 'manage_outsource_batches', 'view_outsource_history']
   }
 };
 

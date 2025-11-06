@@ -318,69 +318,91 @@ export default function ProductionHeadOutsourcingManagement() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {requests.map((request) => (
-                  <tr key={request.id} className={request.is_overdue ? 'bg-red-50' : ''}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {request.request_id}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {request.vendor_name}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(request.status)}`}>
-                        {request.status_display}
-                      </span>
-                      {request.is_overdue && (
-                        <span className="ml-2 inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
-                          Overdue
+                {requests.map((request) => {
+                  const hasShortage = request.requires_clearance || (request.total_qty > request.returned_qty) || (request.total_kg > request.returned_kg);
+                  const isRework = request.status === 'rework' || request.notes?.toLowerCase().includes('rework');
+                  const rowBgColor = hasShortage ? 'bg-orange-50' : (isRework ? 'bg-yellow-50' : (request.is_overdue ? 'bg-red-50' : ''));
+                  
+                  return (
+                    <tr key={request.id} className={rowBgColor}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {request.request_id}
+                        {isRework && <span className="ml-2 inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">🔄 Rework</span>}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {request.vendor_name}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(request.status)}`}>
+                          {request.status_display}
                         </span>
-                      )}
-                    </td>
+                        {request.is_overdue && (
+                          <span className="ml-2 inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
+                            Overdue
+                          </span>
+                        )}
+                        {hasShortage && request.status === 'returned' && (
+                          <span className="ml-2 inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-800">
+                            ⚠️ Shortage
+                          </span>
+                        )}
+                        {request.is_cleared && (
+                          <span className="ml-2 inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                            ✓ Checked
+                          </span>
+                        )}
+                      </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {request.date_sent || '-'}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {request.expected_return_date}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {request.total_items} items
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex space-x-2">
-                        {request.status === 'draft' && (
-                          <button
-                            onClick={() => handleSendRequest(request.id)}
-                            className="text-blue-600 hover:text-blue-900"
-                          >
-                            Send
-                          </button>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {request.expected_return_date}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <div>{request.total_items} items</div>
+                        {hasShortage && (
+                          <div className="text-xs text-orange-600 mt-1">
+                            Shortage: {((request.total_qty || request.total_kg || 0) - (request.returned_qty || request.returned_kg || 0)).toFixed(3)}
+                          </div>
                         )}
-                        {request.status === 'sent' && (
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <div className="flex space-x-2">
+                          {request.status === 'draft' && (
+                            <button
+                              onClick={() => handleSendRequest(request.id)}
+                              className="text-blue-600 hover:text-blue-900"
+                            >
+                              Send
+                            </button>
+                          )}
+                          {request.status === 'sent' && (
+                            <button
+                              onClick={() => handleReturnItems(request.id)}
+                              className="text-green-600 hover:text-green-900"
+                            >
+                              Mark Returned
+                            </button>
+                          )}
+                          {request.status === 'returned' && (
+                            <button
+                              onClick={() => handleCloseRequest(request.id)}
+                              className="text-purple-600 hover:text-purple-900"
+                            >
+                              Close
+                            </button>
+                          )}
                           <button
-                            onClick={() => handleReturnItems(request.id)}
-                            className="text-green-600 hover:text-green-900"
+                            onClick={() => router.push(`/production-head/outsourcing/${request.id}`)}
+                            className="text-gray-600 hover:text-gray-900"
                           >
-                            Mark Returned
+                            View
                           </button>
-                        )}
-                        {request.status === 'returned' && (
-                          <button
-                            onClick={() => handleCloseRequest(request.id)}
-                            className="text-purple-600 hover:text-purple-900"
-                          >
-                            Close
-                          </button>
-                        )}
-                        <button
-                          onClick={() => router.push(`/production-head/outsourcing/${request.id}`)}
-                          className="text-gray-600 hover:text-gray-900"
-                        >
-                          View
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
             
