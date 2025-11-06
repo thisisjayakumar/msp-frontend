@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Enable output file tracing for Docker
-  output: 'export',
+  output: 'standalone',
 
   // Enable experimental features for better performance
   experimental: {

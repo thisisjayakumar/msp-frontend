@@ -134,7 +134,7 @@ export default function ReceiveFromOutsourceModal({ isOpen, onClose, batch, onSu
                     Received <strong>{difference.toFixed(3)} kg</strong> less than sent.
                   </p>
                   <p className="text-orange-700 mt-1">
-                    This batch will be moved to <strong>"Checked/Cleared"</strong> tab for verification.
+                    This batch will be moved to <strong>&quot;Checked/Cleared&quot;</strong> tab for verification.
                   </p>
                 </div>
               </div>
@@ -218,7 +218,7 @@ export default function ReceiveFromOutsourceModal({ isOpen, onClose, batch, onSu
                     This batch will need to be sent again for the same process.
                   </p>
                   <p className="text-red-700 mt-1">
-                    🔄 A special "Rework" indicator will be displayed for tracking.
+                    🔄 A special &quot;Rework&quot; indicator will be displayed for tracking.
                   </p>
                 </div>
               </div>

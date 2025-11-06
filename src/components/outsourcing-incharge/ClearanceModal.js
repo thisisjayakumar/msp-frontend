@@ -141,8 +141,8 @@ export default function ClearanceModal({ isOpen, onClose, batch, onSuccess }) {
               <strong>Note:</strong> Once cleared, this batch will be moved to the Completed tab. Choose:
             </p>
             <ul className="mt-2 text-sm text-yellow-700 space-y-1 ml-4">
-              <li>• <strong>"Checked and Cleared"</strong> - Shortage verified and accepted</li>
-              <li>• <strong>"Close Without Verification"</strong> - Close without full verification</li>
+              <li>• <strong>&quot;Checked and Cleared&quot;</strong> - Shortage verified and accepted</li>
+              <li>• <strong>&quot;Close Without Verification&quot;</strong> - Close without full verification</li>
             </ul>
           </div>
 
