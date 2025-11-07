@@ -11,6 +11,7 @@ import OrdersList from '@/components/manager/OrdersList';
 import ProcessTrackingSummary from '@/components/manager/ProcessTrackingSummary';
 import InventoryTransactionsList from '@/components/production-head/InventoryTransactionsList';
 import LoadingSpinner from '@/components/CommonComponents/ui/LoadingSpinner';
+import PatrolManagementTab from '@/components/patrol/PatrolManagementTab';
 
 export default function ProductionHeadDashboard() {
   const router = useRouter();
@@ -91,6 +92,7 @@ export default function ProductionHeadDashboard() {
     { id: 'outsourcing', label: 'Outsourcing', icon: '🚚' },
     { id: 'work-centers', label: 'Work Centers', icon: '⚙️' },
     { id: 'supervisor-dashboard', label: 'Supervisors', icon: '👥' },
+    { id: 'patrol', label: 'Patrol', icon: '🛡️' },
   ];
 
   if (loading) {
@@ -301,6 +303,12 @@ export default function ProductionHeadDashboard() {
                     <div className="text-xs text-green-100">Check attendance and manage overrides</div>
                   </div>
                 </button>
+              </div>
+            )}
+
+            {activeTab === 'patrol' && (
+              <div>
+                <PatrolManagementTab isReadOnly={false} />
               </div>
             )}
           </div>

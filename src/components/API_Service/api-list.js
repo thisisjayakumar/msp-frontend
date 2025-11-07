@@ -231,6 +231,37 @@ export const WORK_CENTER_APIS = {
   ACTIVITY_LOG_SUMMARY: `${API_BASE_URL}/processes/api/supervisor-activity/summary/`,
 };
 
+// Patrol Management APIs
+export const PATROL_APIS = {
+  // Patrol Duties
+  DUTY_LIST: `${API_BASE_URL}/patrol/duties/`,
+  DUTY_CREATE: `${API_BASE_URL}/patrol/duties/`,
+  DUTY_DETAIL: (id) => `${API_BASE_URL}/patrol/duties/${id}/`,
+  DUTY_UPDATE: (id) => `${API_BASE_URL}/patrol/duties/${id}/`,
+  DUTY_DELETE: (id) => `${API_BASE_URL}/patrol/duties/${id}/`,
+  DUTY_CANCEL: (id) => `${API_BASE_URL}/patrol/duties/${id}/cancel_duty/`,
+  DUTY_ACTIVE: `${API_BASE_URL}/patrol/duties/active_duties/`,
+  PATROL_USERS: `${API_BASE_URL}/patrol/duties/patrol_users/`,
+  PROCESS_LIST: `${API_BASE_URL}/patrol/duties/process_list/`,
+
+  // Patrol Uploads
+  UPLOAD_LIST: `${API_BASE_URL}/patrol/uploads/`,
+  UPLOAD_DETAIL: (id) => `${API_BASE_URL}/patrol/uploads/${id}/`,
+  UPLOAD_SUBMIT: (id) => `${API_BASE_URL}/patrol/uploads/${id}/submit_upload/`,
+  UPLOAD_DELETE: (id) => `${API_BASE_URL}/patrol/uploads/${id}/delete_upload/`,
+  MY_TODAY_UPLOADS: `${API_BASE_URL}/patrol/uploads/my_today_uploads/`,
+  UPLOAD_DOWNLOAD: `${API_BASE_URL}/patrol/uploads/download_uploads/`,
+
+  // Patrol Alerts
+  ALERT_LIST: `${API_BASE_URL}/patrol/alerts/`,
+  ALERT_MARK_READ: (id) => `${API_BASE_URL}/patrol/alerts/${id}/mark_as_read/`,
+  ALERT_MARK_ACTION: (id) => `${API_BASE_URL}/patrol/alerts/${id}/mark_action_taken/`,
+  ALERT_UNREAD_COUNT: `${API_BASE_URL}/patrol/alerts/unread_count/`,
+
+  // Dashboard
+  DASHBOARD_STATS: `${API_BASE_URL}/patrol/dashboard/statistics/`,
+};
+
 // Export all APIs
 export const API_ENDPOINTS = {
   AUTH: AUTH_APIS,
@@ -242,6 +273,7 @@ export const API_ENDPOINTS = {
   PROCESS_TRACKING: PROCESS_TRACKING_APIS,
   ADMIN: ADMIN_APIS,
   WORK_CENTER: WORK_CENTER_APIS,
+  PATROL: PATROL_APIS,
 };
 
 export default API_ENDPOINTS;

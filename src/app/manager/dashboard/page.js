@@ -9,6 +9,7 @@ import ProcessTrackingSummary from '@/components/manager/ProcessTrackingSummary'
 import DashboardStats from '@/components/manager/DashboardStats';
 import manufacturingAPI, { getDashboardStats } from '@/components/API_Service/manufacturing-api';
 import ManagerNotificationBell from '@/components/manager/NotificationBell';
+import PatrolManagementTab from '@/components/patrol/PatrolManagementTab';
 
 export default function ManagerDashboard() {
   const router = useRouter();
@@ -131,6 +132,7 @@ export default function ManagerDashboard() {
     { id: 'outsourcing', label: 'Outsourcing', icon: '🚚' },
     { id: 'work-centers', label: 'Work Centers', icon: '⚙️' },
     { id: 'supervisor-dashboard', label: 'Supervisors', icon: '👥' },
+    { id: 'patrol', label: 'Patrol', icon: '🛡️' },
   ];
 
 
@@ -396,6 +398,14 @@ export default function ManagerDashboard() {
                     <div className="text-xs text-green-100">Check attendance and manage overrides</div>
                   </div>
                 </button>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'patrol' && (
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200/60">
+              <div className="p-6">
+                <PatrolManagementTab isReadOnly={true} />
               </div>
             </div>
           )}

@@ -6,7 +6,8 @@ export const ROLE_HIERARCHY = [
   { key: 'supervisor', label: 'Supervisor', path: '/supervisor' },
   { key: 'outsourcing_incharge', label: 'Outsourcing Incharge', path: '/outsourcing-incharge' },
   { key: 'rm_store', label: 'RM Store', path: '/rm-store' },
-  { key: 'fg_store', label: 'FG Store', path: '/fg-store' }
+  { key: 'fg_store', label: 'FG Store', path: '/fg-store' },
+  { key: 'patrol', label: 'Patrol', path: '/patrol' }
 ];
 
 // Role-specific configurations
@@ -73,6 +74,15 @@ export const ROLE_CONFIG = {
     secondaryColor: '#c4b5fd', // violet-300
     icon: 'truck',
     permissions: ['send_outsource', 'receive_outsource', 'manage_outsource_batches', 'view_outsource_history']
+  },
+  patrol: {
+    title: 'Patrol Dashboard',
+    subtitle: 'Quality Control Monitoring',
+    description: 'Monitor assigned processes, upload QC sheets at scheduled intervals, and track patrol duties',
+    primaryColor: '#10b981', // emerald-500
+    secondaryColor: '#6ee7b7', // emerald-300
+    icon: 'shield-check',
+    permissions: ['upload_qc', 'view_patrol_duties', 'view_qc_sheets']
   }
 };
 
