@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import outsourcingAPI from '@/components/API_Service/outsourcing-api';
 import LoadingSpinner from '@/components/CommonComponents/ui/LoadingSpinner';
@@ -16,6 +16,8 @@ export default function OutsourcingManagement() {
     search: ''
   });
   const [userRole, setUserRole] = useState(null);
+  const fetchingRef = useRef(false);
+  const lastFiltersRef = useRef(null);
 
   useEffect(() => {
     const checkAuth = () => {
@@ -34,36 +36,106 @@ export default function OutsourcingManagement() {
     checkAuth();
   }, [router]);
 
-  useEffect(() => {
-    if (!loading) {
-      fetchData();
+  const fetchData = useCallback(async () => {
+    // Prevent multiple simultaneous fetches
+    if (fetchingRef.current) {
+      console.log('Fetch already in progress, skipping...');
+      return;
     }
-  }, [loading, filters]);
-
-  const fetchData = async () => {
+    
+    fetchingRef.current = true;
+    let loadingTimeout = null;
     try {
       setLoading(true);
+      console.log('Fetching outsourcing data with filters:', filters);
+      
+      // Set a timeout to ensure loading doesn't hang forever
+      loadingTimeout = setTimeout(() => {
+        console.warn('API call taking longer than expected, forcing loading to false');
+        setLoading(false);
+      }, 30000); // 30 second timeout
       
       // Fetch requests with filters
       const requestsData = await outsourcingAPI.getAll(filters);
-      if (requestsData?.error) {
-        console.error('Error fetching requests:', requestsData.message);
-        setRequests([]);
+      console.log('Requests data received:', requestsData);
+      
+      // Clear timeout if request completes
+      if (loadingTimeout) {
+        clearTimeout(loadingTimeout);
+        loadingTimeout = null;
+      }
+      
+      // Handle response - check if it's an error response or success response
+      if (requestsData && typeof requestsData === 'object') {
+        if (requestsData.error || (requestsData.success === false)) {
+          console.error('Error fetching requests:', requestsData.error || requestsData.message || 'Unknown error');
+          setRequests([]);
+        } else if (requestsData.success === true && requestsData.data) {
+          // apiRequest returns { success: true, data: {...} }
+          const data = requestsData.data;
+          setRequests(data?.results || data || []);
+        } else if (requestsData.results || Array.isArray(requestsData)) {
+          // Direct response without wrapper
+          setRequests(requestsData.results || requestsData || []);
+        } else {
+          console.warn('Unexpected response structure:', requestsData);
+          setRequests([]);
+        }
       } else {
-        setRequests(requestsData?.results || requestsData || []);
+        console.warn('Invalid response received:', requestsData);
+        setRequests([]);
       }
 
-      // Fetch summary
-      const summaryData = await outsourcingAPI.getSummary();
-      if (!summaryData?.error) {
-        setSummary(summaryData);
+      // Fetch summary (don't block on this)
+      try {
+        const summaryData = await outsourcingAPI.getSummary();
+        console.log('Summary data received:', summaryData);
+        
+        if (summaryData && typeof summaryData === 'object') {
+          if (!summaryData.error && summaryData.success === true && summaryData.data) {
+            setSummary(summaryData.data);
+          } else if (!summaryData.error && !summaryData.success && (summaryData.total_requests !== undefined || Array.isArray(summaryData))) {
+            // Direct response without wrapper
+            setSummary(summaryData);
+          }
+        }
+      } catch (summaryError) {
+        console.error('Error fetching summary (non-blocking):', summaryError);
+        // Don't set summary on error, just log it
       }
     } catch (error) {
       console.error('Error fetching outsourcing data:', error);
+      setRequests([]);
+      setSummary(null);
     } finally {
+      // Clear timeout if it exists
+      if (loadingTimeout) {
+        clearTimeout(loadingTimeout);
+      }
       setLoading(false);
+      fetchingRef.current = false;
     }
-  };
+  }, [filters]);
+
+  // Fetch data when filters change or on initial load
+  useEffect(() => {
+    if (!userRole) {
+      return;
+    }
+    
+    // Prevent multiple simultaneous fetches
+    if (fetchingRef.current) {
+      return;
+    }
+    
+    // Only fetch if filters have changed (or on initial load when lastFiltersRef is null)
+    const filtersKey = JSON.stringify(filters);
+    if (lastFiltersRef.current === null || lastFiltersRef.current !== filtersKey) {
+      lastFiltersRef.current = filtersKey;
+      fetchData();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userRole, filters]);
 
   const handleSendRequest = async (requestId) => {
     try {
@@ -73,8 +145,8 @@ export default function OutsourcingManagement() {
         vendor_contact_person: ''
       });
       
-      if (result?.error) {
-        alert(`Error: ${result.message}`);
+      if (result?.error || !result?.success) {
+        alert(`Error: ${result?.error || result?.message || 'Unknown error'}`);
       } else {
         alert('Request sent successfully!');
         fetchData(); // Refresh data
@@ -108,8 +180,8 @@ export default function OutsourcingManagement() {
         returned_items: returnedItems
       });
       
-      if (result?.error) {
-        alert(`Error: ${result.message}`);
+      if (result?.error || !result?.success) {
+        alert(`Error: ${result?.error || result?.message || 'Unknown error'}`);
       } else {
         alert('Items returned successfully!');
         fetchData(); // Refresh data
@@ -124,8 +196,8 @@ export default function OutsourcingManagement() {
     try {
       const result = await outsourcingAPI.close(requestId);
       
-      if (result?.error) {
-        alert(`Error: ${result.message}`);
+      if (result?.error || !result?.success) {
+        alert(`Error: ${result?.error || result?.message || 'Unknown error'}`);
       } else {
         alert('Request closed successfully!');
         fetchData(); // Refresh data

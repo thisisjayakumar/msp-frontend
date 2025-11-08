@@ -46,20 +46,24 @@ export default function ProductionHeadOutsourcingManagement() {
       
       // Fetch requests with filters
       const requestsData = await outsourcingAPI.getAll(filters);
-      if (requestsData?.error) {
-        console.error('Error fetching requests:', requestsData.message);
+      if (requestsData?.error || !requestsData?.success) {
+        console.error('Error fetching requests:', requestsData?.error || requestsData?.message || 'Unknown error');
         setRequests([]);
       } else {
-        setRequests(requestsData?.results || requestsData || []);
+        // apiRequest returns { success: true, data: {...} }
+        const data = requestsData?.data || requestsData;
+        setRequests(data?.results || data || []);
       }
 
       // Fetch summary
       const summaryData = await outsourcingAPI.getSummary();
-      if (!summaryData?.error) {
-        setSummary(summaryData);
+      if (!summaryData?.error && summaryData?.success) {
+        // apiRequest returns { success: true, data: {...} }
+        setSummary(summaryData?.data || summaryData);
       }
     } catch (error) {
       console.error('Error fetching outsourcing data:', error);
+      setRequests([]);
     } finally {
       setLoading(false);
     }
@@ -73,8 +77,8 @@ export default function ProductionHeadOutsourcingManagement() {
         vendor_contact_person: ''
       });
       
-      if (result?.error) {
-        alert(`Error: ${result.message}`);
+      if (result?.error || !result?.success) {
+        alert(`Error: ${result?.error || result?.message || 'Unknown error'}`);
       } else {
         alert('Request sent successfully!');
         fetchData(); // Refresh data
@@ -108,8 +112,8 @@ export default function ProductionHeadOutsourcingManagement() {
         returned_items: returnedItems
       });
       
-      if (result?.error) {
-        alert(`Error: ${result.message}`);
+      if (result?.error || !result?.success) {
+        alert(`Error: ${result?.error || result?.message || 'Unknown error'}`);
       } else {
         alert('Items returned successfully!');
         fetchData(); // Refresh data
@@ -124,8 +128,8 @@ export default function ProductionHeadOutsourcingManagement() {
     try {
       const result = await outsourcingAPI.close(requestId);
       
-      if (result?.error) {
-        alert(`Error: ${result.message}`);
+      if (result?.error || !result?.success) {
+        alert(`Error: ${result?.error || result?.message || 'Unknown error'}`);
       } else {
         alert('Request closed successfully!');
         fetchData(); // Refresh data

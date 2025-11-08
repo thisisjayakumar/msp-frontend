@@ -284,13 +284,27 @@ export const apiRequest = async (url, options = {}, retryCount = 0) => {
       
       let errorMessage = `HTTP error! status: ${response.status}`;
       
-      if (data.message) {
+      // Detect HTML responses (like 404 pages)
+      const isHtmlResponse = typeof data === 'string' && (
+        data.trim().startsWith('<!DOCTYPE') || 
+        data.trim().startsWith('<html') ||
+        data.includes('<html')
+      );
+      
+      if (isHtmlResponse) {
+        // For HTML responses (usually 404), provide a user-friendly message
+        if (response.status === 404) {
+          errorMessage = `API endpoint not found (404). Please check if the backend server is running and the endpoint exists: ${url}`;
+        } else {
+          errorMessage = `Server returned HTML instead of JSON (status: ${response.status}). The endpoint may not exist or there's a server configuration issue.`;
+        }
+      } else if (data && typeof data === 'object' && data.message) {
         errorMessage = data.message;
-      } else if (data.detail) {
+      } else if (data && typeof data === 'object' && data.detail) {
         errorMessage = data.detail;
-      } else if (data.error) {
+      } else if (data && typeof data === 'object' && data.error) {
         errorMessage = data.error;
-      } else if (typeof data === 'string') {
+      } else if (typeof data === 'string' && !isHtmlResponse) {
         errorMessage = data;
       } else if (typeof data === 'object') {
         // Handle validation errors

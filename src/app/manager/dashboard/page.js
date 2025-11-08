@@ -10,6 +10,9 @@ import DashboardStats from '@/components/manager/DashboardStats';
 import manufacturingAPI, { getDashboardStats } from '@/components/API_Service/manufacturing-api';
 import ManagerNotificationBell from '@/components/manager/NotificationBell';
 import PatrolManagementTab from '@/components/patrol/PatrolManagementTab';
+import WorkCenterManagementTab from '@/components/manager/WorkCenterManagementTab';
+import SupervisorDashboardTab from '@/components/manager/SupervisorDashboardTab';
+import OutsourcingManagementTab from '@/components/manager/OutsourcingManagementTab';
 
 export default function ManagerDashboard() {
   const router = useRouter();
@@ -322,32 +325,15 @@ export default function ManagerDashboard() {
           {/* Outsourcing Tab */}
           {activeTab === 'outsourcing' && (
             <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200/60">
-              <div className="p-6 border-b border-slate-200/60">
-                <h2 className="text-2xl font-bold text-slate-800 flex items-center space-x-2">
+              <div className="p-4 border-b border-slate-200/60">
+                <h2 className="text-lg font-bold text-slate-800 flex items-center space-x-2">
                   <span>🚚</span>
                   <span>Outsourcing Management</span>
                 </h2>
-                <p className="text-slate-600 mt-1">Track items sent to external vendors for processing</p>
+                <p className="text-xs text-slate-600 mt-0.5">Track items sent to external vendors for processing</p>
               </div>
-              <div className="p-6 text-center">
-                <div className="py-8">
-                  <h3 className="text-xl font-semibold text-slate-800 mb-4">
-                    Outsourcing Requests
-                  </h3>
-                  <p className="text-slate-600 mb-6">
-                    Monitor and manage outsourcing requests, track returns, and maintain inventory traceability
-                  </p>
-                  <button
-                    onClick={() => router.push('/manager/outsourcing')}
-                    className="inline-flex items-center space-x-3 px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-medium hover:shadow-lg transition-all"
-                  >
-                    <span className="text-2xl">🚚</span>
-                    <div className="text-left">
-                      <div className="font-semibold">Manage Outsourcing</div>
-                      <div className="text-xs text-blue-100">View requests and track returns</div>
-                    </div>
-                  </button>
-                </div>
+              <div className="p-4">
+                <OutsourcingManagementTab isReadOnly={false} />
               </div>
             </div>
           )}
@@ -355,24 +341,15 @@ export default function ManagerDashboard() {
           {/* Work Centers Tab */}
           {activeTab === 'work-centers' && (
             <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200/60">
-              <div className="p-6 border-b border-slate-200/60">
-                <h2 className="text-2xl font-bold text-slate-800 flex items-center space-x-2">
+              <div className="p-4 border-b border-slate-200/60">
+                <h2 className="text-lg font-bold text-slate-800 flex items-center space-x-2">
                   <span>⚙️</span>
                   <span>Work Center Management</span>
                 </h2>
-                <p className="text-slate-600 mt-1">Configure work centers and supervisor assignments</p>
+                <p className="text-xs text-slate-600 mt-0.5">Configure work centers and supervisor assignments</p>
               </div>
-              <div className="p-6 text-center">
-                <button
-                  onClick={() => router.push('/manager/work-centers')}
-                  className="inline-flex items-center space-x-3 px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-medium hover:shadow-lg transition-all"
-                >
-                  <span className="text-2xl">⚙️</span>
-                  <div className="text-left">
-                    <div className="font-semibold">Manage Work Centers</div>
-                    <div className="text-xs text-blue-100">Configure supervisors and settings</div>
-                  </div>
-                </button>
+              <div className="p-4">
+                <WorkCenterManagementTab isReadOnly={false} />
               </div>
             </div>
           )}
@@ -380,31 +357,29 @@ export default function ManagerDashboard() {
           {/* Supervisor Dashboard Tab */}
           {activeTab === 'supervisor-dashboard' && (
             <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200/60">
-              <div className="p-6 border-b border-slate-200/60">
-                <h2 className="text-2xl font-bold text-slate-800 flex items-center space-x-2">
+              <div className="p-4 border-b border-slate-200/60">
+                <h2 className="text-lg font-bold text-slate-800 flex items-center space-x-2">
                   <span>👥</span>
                   <span>Supervisor Attendance Dashboard</span>
                 </h2>
-                <p className="text-slate-600 mt-1">Monitor daily supervisor attendance and assignments</p>
+                <p className="text-xs text-slate-600 mt-0.5">Monitor daily supervisor attendance and assignments</p>
               </div>
-              <div className="p-6 text-center">
-                <button
-                  onClick={() => router.push('/admin/supervisor-dashboard')}
-                  className="inline-flex items-center space-x-3 px-8 py-4 bg-gradient-to-r from-green-600 to-teal-600 text-white rounded-xl font-medium hover:shadow-lg transition-all"
-                >
-                  <span className="text-2xl">👥</span>
-                  <div className="text-left">
-                    <div className="font-semibold">View Supervisor Dashboard</div>
-                    <div className="text-xs text-green-100">Check attendance and manage overrides</div>
-                  </div>
-                </button>
+              <div className="p-4">
+                <SupervisorDashboardTab isReadOnly={false} />
               </div>
             </div>
           )}
 
           {activeTab === 'patrol' && (
             <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200/60">
-              <div className="p-6">
+              <div className="p-4 border-b border-slate-200/60">
+                <h2 className="text-lg font-bold text-slate-800 flex items-center space-x-2">
+                  <span>📋</span>
+                  <span>Patrol Management</span>
+                </h2>
+                <p className="text-xs text-slate-600 mt-0.5">Manage patrol duties and uploads</p>
+              </div>
+              <div className="p-4">
                 <PatrolManagementTab isReadOnly={true} />
               </div>
             </div>
