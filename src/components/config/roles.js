@@ -7,6 +7,7 @@ export const ROLE_HIERARCHY = [
   { key: 'outsourcing_incharge', label: 'Outsourcing Incharge', path: '/outsourcing-incharge' },
   { key: 'rm_store', label: 'RM Store', path: '/rm-store' },
   { key: 'fg_store', label: 'FG Store', path: '/fg-store' },
+  { key: 'packing_zone', label: 'Packing Zone', path: '/packing-zone' },
   { key: 'patrol', label: 'Patrol', path: '/patrol' }
 ];
 
@@ -74,6 +75,15 @@ export const ROLE_CONFIG = {
     secondaryColor: '#c4b5fd', // violet-300
     icon: 'truck',
     permissions: ['send_outsource', 'receive_outsource', 'manage_outsource_batches', 'view_outsource_history']
+  },
+  packing_zone: {
+    title: 'Packing Zone Dashboard',
+    subtitle: 'Packing & Labeling Operations',
+    description: 'Verify batches, pack products, manage loose stock, merge heat numbers, and generate labels',
+    primaryColor: '#6366f1', // indigo-500
+    secondaryColor: '#a5b4fc', // indigo-300
+    icon: 'archive-box',
+    permissions: ['verify_batches', 'pack_products', 'manage_loose_stock', 'request_merge', 'request_adjustment', 'generate_labels']
   },
   patrol: {
     title: 'Patrol Dashboard',

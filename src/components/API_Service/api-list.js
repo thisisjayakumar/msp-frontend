@@ -262,6 +262,61 @@ export const PATROL_APIS = {
   DASHBOARD_STATS: `${API_BASE_URL}/patrol/dashboard/statistics/`,
 };
 
+// Packing Zone Management APIs
+export const PACKING_ZONE_APIS = {
+  // Packing Batches
+  BATCH_LIST: `${API_BASE_URL}/packing-zone/batches/`,
+  BATCH_CREATE: `${API_BASE_URL}/packing-zone/batches/`,
+  BATCH_DETAIL: (id) => `${API_BASE_URL}/packing-zone/batches/${id}/`,
+  BATCH_UPDATE: (id) => `${API_BASE_URL}/packing-zone/batches/${id}/`,
+  BATCH_DELETE: (id) => `${API_BASE_URL}/packing-zone/batches/${id}/`,
+  BATCH_VERIFY: (id) => `${API_BASE_URL}/packing-zone/batches/${id}/verify/`,
+  BATCH_REPORT_ISSUE: (id) => `${API_BASE_URL}/packing-zone/batches/${id}/report_issue/`,
+  BATCH_RELEASE_HOLD: (id) => `${API_BASE_URL}/packing-zone/batches/${id}/release_from_hold/`,
+  BATCH_TO_BE_PACKED: `${API_BASE_URL}/packing-zone/batches/to_be_packed/`,
+
+  // Packing Transactions
+  TRANSACTION_LIST: `${API_BASE_URL}/packing-zone/transactions/`,
+  TRANSACTION_CREATE: `${API_BASE_URL}/packing-zone/transactions/`,
+  TRANSACTION_DETAIL: (id) => `${API_BASE_URL}/packing-zone/transactions/${id}/`,
+  TRANSACTION_MY_TRANSACTIONS: `${API_BASE_URL}/packing-zone/transactions/my_transactions/`,
+
+  // Loose Stock
+  LOOSE_STOCK_LIST: `${API_BASE_URL}/packing-zone/loose-stock/`,
+  LOOSE_STOCK_DETAIL: (id) => `${API_BASE_URL}/packing-zone/loose-stock/${id}/`,
+  LOOSE_STOCK_OLD: `${API_BASE_URL}/packing-zone/loose-stock/old_stock/`,
+
+  // Merge Requests
+  MERGE_REQUEST_LIST: `${API_BASE_URL}/packing-zone/merge-requests/`,
+  MERGE_REQUEST_CREATE: `${API_BASE_URL}/packing-zone/merge-requests/`,
+  MERGE_REQUEST_DETAIL: (id) => `${API_BASE_URL}/packing-zone/merge-requests/${id}/`,
+  MERGE_REQUEST_APPROVE: (id) => `${API_BASE_URL}/packing-zone/merge-requests/${id}/approve/`,
+  MERGE_REQUEST_REJECT: (id) => `${API_BASE_URL}/packing-zone/merge-requests/${id}/reject/`,
+
+  // Stock Adjustments
+  ADJUSTMENT_LIST: `${API_BASE_URL}/packing-zone/adjustments/`,
+  ADJUSTMENT_CREATE: `${API_BASE_URL}/packing-zone/adjustments/`,
+  ADJUSTMENT_DETAIL: (id) => `${API_BASE_URL}/packing-zone/adjustments/${id}/`,
+  ADJUSTMENT_APPROVE: (id) => `${API_BASE_URL}/packing-zone/adjustments/${id}/approve/`,
+  ADJUSTMENT_REJECT: (id) => `${API_BASE_URL}/packing-zone/adjustments/${id}/reject/`,
+
+  // Packing Labels
+  LABEL_LIST: `${API_BASE_URL}/packing-zone/labels/`,
+  LABEL_CREATE: `${API_BASE_URL}/packing-zone/labels/`,
+  LABEL_DETAIL: (id) => `${API_BASE_URL}/packing-zone/labels/${id}/`,
+  LABEL_REPRINT: (id) => `${API_BASE_URL}/packing-zone/labels/${id}/reprint/`,
+  LABEL_TRACEABILITY_EXPORT: `${API_BASE_URL}/packing-zone/labels/traceability_export/`,
+
+  // FG Stock
+  FG_STOCK_LIST: `${API_BASE_URL}/packing-zone/fg-stock/`,
+  FG_STOCK_DETAIL: (id) => `${API_BASE_URL}/packing-zone/fg-stock/${id}/`,
+  FG_STOCK_SUMMARY: `${API_BASE_URL}/packing-zone/fg-stock/summary/`,
+
+  // Dashboard
+  DASHBOARD_STATS: `${API_BASE_URL}/packing-zone/dashboard/statistics/`,
+  PRODUCT_LIST: `${API_BASE_URL}/packing-zone/dashboard/product_list/`,
+};
+
 // Export all APIs
 export const API_ENDPOINTS = {
   AUTH: AUTH_APIS,
@@ -274,6 +329,7 @@ export const API_ENDPOINTS = {
   ADMIN: ADMIN_APIS,
   WORK_CENTER: WORK_CENTER_APIS,
   PATROL: PATROL_APIS,
+  PACKING_ZONE: PACKING_ZONE_APIS,
 };
 
 export default API_ENDPOINTS;
