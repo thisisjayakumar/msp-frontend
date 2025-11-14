@@ -1,7 +1,7 @@
 // Manufacturing API Service
 // Centralized API calls for Manufacturing Orders and Purchase Orders
 
-import { MANUFACTURING_APIS, API_ENDPOINTS } from './api-list';
+import { MANUFACTURING_APIS, API_ENDPOINTS, INVENTORY_APIS } from './api-list';
 import { apiRequest } from './api-utils';
 import { throttledGet, throttledPost, throttledPatch, throttledDelete } from './throttled-api';
 
@@ -538,13 +538,26 @@ export const purchaseOrdersAPI = {
     }
   },
 
-  // Get raw materials for dropdown (THROTTLED)
+  // Get raw material codes only (LIGHTWEIGHT - for initial dropdown load)
+  getRawMaterialCodes: async () => {
+    const response = await throttledGet(INVENTORY_APIS.RAW_MATERIAL_CODES);
+    return handleResponse(response);
+  },
+
+  // Get detailed information for a specific material (loaded on selection)
+  getMaterialDetail: async (materialId) => {
+    const response = await throttledGet(INVENTORY_APIS.RAW_MATERIAL_DETAIL(materialId));
+    return handleResponse(response);
+  },
+
+  // DEPRECATED: Use getRawMaterialCodes() + getMaterialDetail() instead
+  // Kept for backward compatibility
   getRawMaterials: async () => {
     const response = await throttledGet(MANUFACTURING_APIS.PO_RAW_MATERIALS);
     return handleResponse(response);
   },
 
-  // Get vendors for dropdown (THROTTLED)
+  // Get vendors for dropdown (THROTTLED) - DEPRECATED, vendor now comes with material detail
   getVendors: async (vendorType = null) => {
     const url = vendorType 
       ? `${MANUFACTURING_APIS.PO_VENDORS}?vendor_type=${vendorType}`
@@ -553,9 +566,6 @@ export const purchaseOrdersAPI = {
     const response = await throttledGet(url);
     return handleResponse(response);
   },
-
-  // Material and vendor details are already included in the dropdown APIs
-  // No need for separate detail endpoints
 };
 
 // Combined dashboard stats with graceful error handling

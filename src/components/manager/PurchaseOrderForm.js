@@ -155,7 +155,7 @@ export default function PurchaseOrderForm({ onSuccess, autoFillData = null }) {
   const [success, setSuccess] = useState(false);
   const [isAutoFilled, setIsAutoFilled] = useState(false);
 
-  // Fetch dropdown data
+  // Fetch dropdown data - OPTIMIZED: Only fetch material codes initially
   useEffect(() => {
     const fetchDropdownData = async () => {
       // Check permissions first
@@ -166,34 +166,23 @@ export default function PurchaseOrderForm({ onSuccess, autoFillData = null }) {
       }
 
       try {
-        const [rawMaterialsResponse, vendorsResponse] = await Promise.all([
-          manufacturingAPI.purchaseOrders.getRawMaterials(),
-          manufacturingAPI.purchaseOrders.getVendors('rm_vendor')
-        ]);
+        // Only fetch material codes - much faster (< 100ms vs 4+ seconds)
+        const rawMaterialCodesResponse = await manufacturingAPI.purchaseOrders.getRawMaterialCodes();
         
-        // Check if responses are error objects
-        // Handle both array and paginated responses
-        const rawMaterials = rawMaterialsResponse?.error 
+        // Check if response is error object
+        const rawMaterials = rawMaterialCodesResponse?.error 
           ? [] 
-          : (Array.isArray(rawMaterialsResponse) 
-              ? rawMaterialsResponse 
-              : (Array.isArray(rawMaterialsResponse?.results) ? rawMaterialsResponse.results : []));
+          : (Array.isArray(rawMaterialCodesResponse) 
+              ? rawMaterialCodesResponse 
+              : (Array.isArray(rawMaterialCodesResponse?.results) ? rawMaterialCodesResponse.results : []));
         
-        const vendors = vendorsResponse?.error 
-          ? [] 
-          : (Array.isArray(vendorsResponse) 
-              ? vendorsResponse 
-              : (Array.isArray(vendorsResponse?.results) ? vendorsResponse.results : []));
-        
-        // Show error toast if any API call failed
-        if (rawMaterialsResponse?.error) {
-          toast.error(rawMaterialsResponse.message || 'Failed to load raw materials');
-        }
-        if (vendorsResponse?.error) {
-          toast.error(vendorsResponse.message || 'Failed to load vendors');
+        // Show error toast if API call failed
+        if (rawMaterialCodesResponse?.error) {
+          toast.error(rawMaterialCodesResponse.message || 'Failed to load raw materials');
         }
         
-        setDropdownData({ rawMaterials, vendors });
+        // Set only material codes - vendor details will be loaded when material is selected
+        setDropdownData({ rawMaterials, vendors: [] });
       } catch (error) {
         // Handle permission errors gracefully
         if (error.message?.includes('403') || error.message?.includes('Forbidden') || error.message?.includes('Permission denied')) {
@@ -281,21 +270,41 @@ export default function PurchaseOrderForm({ onSuccess, autoFillData = null }) {
     }
   }, [dropdownData.rawMaterials]);
 
-  // Handle material selection and auto-populate fields
+  // Handle material selection and auto-populate fields - OPTIMIZED with lazy loading
   const handleMaterialChange = async (materialId) => {
     try {
-      const material = dropdownData.rawMaterials.find(m => m.id === parseInt(materialId));
+      // Fetch detailed material info including vendor details on demand
+      const materialDetail = await manufacturingAPI.purchaseOrders.getMaterialDetail(materialId);
       
-      if (material) {
-        // Set the material from dropdown data (already contains all needed info)
-        setSelectedMaterial(material);
+      if (materialDetail && !materialDetail.error) {
+        // Set the complete material details
+        setSelectedMaterial(materialDetail);
+        
+        // If material has a vendor, auto-fill vendor details
+        if (materialDetail.vendor_details) {
+          setSelectedVendor(materialDetail.vendor_details);
+          setFormData(prev => ({
+            ...prev,
+            rm_code_id: materialId,
+            vendor_name_id: materialDetail.vendor?.toString() || ''
+          }));
+        } else {
+          // No vendor linked, just set the material
+          setFormData(prev => ({
+            ...prev,
+            rm_code_id: materialId
+          }));
+        }
+      } else {
+        // If detailed fetch fails, just update the form with selected ID
+        toast.error('Failed to load material details');
+        setFormData(prev => ({
+          ...prev,
+          rm_code_id: materialId
+        }));
       }
-      
-      setFormData(prev => ({
-        ...prev,
-        rm_code_id: materialId
-      }));
     } catch (error) {
+      console.error('Error fetching material details:', error);
       // Still update the form even if there's an error
       setFormData(prev => ({
         ...prev,
@@ -658,7 +667,7 @@ export default function PurchaseOrderForm({ onSuccess, autoFillData = null }) {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-2">
-            {isAutoFilled && autoFillData && autoFillData.type === 'coil' ? 'KG Needed' : 'Pieces Needed'} <span className="text-red-500">*</span>
+            {isAutoFilled && autoFillData && autoFillData.type === 'coil' ? 'Quantity Needed' : 'kg Needed'} <span className="text-red-500">*</span>
             {isAutoFilled && autoFillData && (
               <span className="ml-2 text-amber-600 text-xs font-normal">
                 (Required: {autoFillData.requiredQuantity - (autoFillData.availableQuantity || 0)} {autoFillData.type === 'coil' ? 'kg' : 'pcs'} shortage)

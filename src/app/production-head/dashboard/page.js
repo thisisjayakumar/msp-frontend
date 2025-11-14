@@ -12,6 +12,9 @@ import ProcessTrackingSummary from '@/components/manager/ProcessTrackingSummary'
 import InventoryTransactionsList from '@/components/production-head/InventoryTransactionsList';
 import LoadingSpinner from '@/components/CommonComponents/ui/LoadingSpinner';
 import PatrolManagementTab from '@/components/patrol/PatrolManagementTab';
+import WorkCenterManagementTab from '@/components/manager/WorkCenterManagementTab';
+import SupervisorDashboardTab from '@/components/manager/SupervisorDashboardTab';
+import OutsourcingManagementTab from '@/components/manager/OutsourcingManagementTab';
 
 export default function ProductionHeadDashboard() {
   const router = useRouter();
@@ -170,145 +173,153 @@ export default function ProductionHeadDashboard() {
             )}
 
             {activeTab === 'process-tracking' && (
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xl font-semibold text-gray-800">
-                    Process Tracking Overview
-                  </h3>
-                  <button
-                    onClick={handleRefreshProcessTracking}
-                    className="inline-flex items-center px-3 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                  >
-                    <ArrowPathIcon className="h-4 w-4 mr-2" />
-                    Refresh
-                  </button>
+              <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200/60">
+                <div className="p-6 border-b border-slate-200/60">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-2xl font-bold text-slate-800 flex items-center space-x-2">
+                        <span>🏭</span>
+                        <span>Process Tracking Overview</span>
+                      </h2>
+                      <p className="text-slate-600 mt-1">Monitor manufacturing processes and production flow</p>
+                    </div>
+                    <button
+                      onClick={handleRefreshProcessTracking}
+                      className="inline-flex items-center px-3 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                    >
+                      <ArrowPathIcon className="h-4 w-4 mr-2" />
+                      Refresh
+                    </button>
+                  </div>
                 </div>
-                <ProcessTrackingSummary />
+                <div className="p-6">
+                  <ProcessTrackingSummary />
+                </div>
               </div>
             )}
 
             {activeTab === 'mo-list' && (
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xl font-semibold text-gray-800">
-                    Manufacturing Orders
-                  </h3>
-                  <button
-                    onClick={() => router.push('/production-head/create-mo')}
-                    className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg transition-colors"
-                  >
-                    + Create New MO
-                  </button>
+              <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200/60">
+                <div className="p-6 border-b border-slate-200/60">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-2xl font-bold text-slate-800 flex items-center space-x-2">
+                        <span>📋</span>
+                        <span>Manufacturing Orders</span>
+                      </h2>
+                      <p className="text-slate-600 mt-1">View and manage manufacturing orders</p>
+                    </div>
+                    <button
+                      onClick={() => router.push('/production-head/create-mo')}
+                      className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg transition-colors"
+                    >
+                      + Create New MO
+                    </button>
+                  </div>
                 </div>
-                <OrdersList type="mo" />
+                <div className="p-6">
+                  <OrdersList type="mo" />
+                </div>
               </div>
             )}
 
             {activeTab === 'po-list' && (
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xl font-semibold text-gray-800">
-                    Purchase Orders
-                  </h3>
-                  <button
-                    onClick={() => router.push('/production-head/create-po')}
-                    className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg transition-colors"
-                  >
-                    + Create New PO
-                  </button>
+              <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200/60">
+                <div className="p-6 border-b border-slate-200/60">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-2xl font-bold text-slate-800 flex items-center space-x-2">
+                        <span>📄</span>
+                        <span>Purchase Orders</span>
+                      </h2>
+                      <p className="text-slate-600 mt-1">View and manage purchase orders</p>
+                    </div>
+                    <button
+                      onClick={() => router.push('/production-head/create-po')}
+                      className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg transition-colors"
+                    >
+                      + Create New PO
+                    </button>
+                  </div>
                 </div>
-                <OrdersList type="po" />
+                <div className="p-6">
+                  <OrdersList type="po" />
+                </div>
               </div>
             )}
 
             {activeTab === 'inventory-transactions' && (
-              <div>
-                <h3 className="text-xl font-semibold text-gray-800 mb-4">
-                  Inventory Transactions
-                </h3>
-                <InventoryTransactionsList />
+              <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200/60">
+                <div className="p-6 border-b border-slate-200/60">
+                  <h2 className="text-2xl font-bold text-slate-800 flex items-center space-x-2">
+                    <span>📦</span>
+                    <span>Inventory Transactions</span>
+                  </h2>
+                  <p className="text-slate-600 mt-1">View and track inventory movements and transactions</p>
+                </div>
+                <div className="p-6">
+                  <InventoryTransactionsList />
+                </div>
               </div>
             )}
 
             {activeTab === 'outsourcing' && (
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xl font-semibold text-gray-800">
-                    Outsourcing Requests
-                  </h3>
-                  <button
-                    onClick={() => router.push('/production-head/create-outsourcing')}
-                    className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg transition-colors"
-                  >
-                    + Create New Request
-                  </button>
+              <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200/60">
+                <div className="p-4 border-b border-slate-200/60">
+                  <h2 className="text-lg font-bold text-slate-800 flex items-center space-x-2">
+                    <span>🚚</span>
+                    <span>Outsourcing Management</span>
+                  </h2>
+                  <p className="text-xs text-slate-600 mt-0.5">Track items sent to external vendors for processing</p>
                 </div>
-                <div className="text-center py-8">
-                  <h4 className="text-lg font-medium text-gray-700 mb-4">
-                    Outsourcing Management
-                  </h4>
-                  <p className="text-gray-600 mb-6">
-                    Track items sent to external vendors for processing
-                  </p>
-                  <button
-                    onClick={() => router.push('/production-head/outsourcing')}
-                    className="inline-flex items-center space-x-3 px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-medium hover:shadow-lg transition-all"
-                  >
-                    <span className="text-2xl">🚚</span>
-                    <div className="text-left">
-                      <div className="font-semibold">Manage Outsourcing</div>
-                      <div className="text-xs text-blue-100">View requests and track returns</div>
-                    </div>
-                  </button>
+                <div className="p-4">
+                  <OutsourcingManagementTab isReadOnly={false} />
                 </div>
               </div>
             )}
 
             {activeTab === 'work-centers' && (
-              <div className="text-center py-8">
-                <h3 className="text-xl font-semibold text-gray-800 mb-4">
-                  Work Center Management
-                </h3>
-                <p className="text-gray-600 mb-6">
-                  Configure work centers and supervisor assignments
-                </p>
-                <button
-                  onClick={() => router.push('/manager/work-centers')}
-                  className="inline-flex items-center space-x-3 px-8 py-4 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-xl font-medium hover:shadow-lg transition-all"
-                >
-                  <span className="text-2xl">⚙️</span>
-                  <div className="text-left">
-                    <div className="font-semibold">Manage Work Centers</div>
-                    <div className="text-xs text-amber-100">Configure supervisors and settings</div>
-                  </div>
-                </button>
+              <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200/60">
+                <div className="p-4 border-b border-slate-200/60">
+                  <h2 className="text-lg font-bold text-slate-800 flex items-center space-x-2">
+                    <span>⚙️</span>
+                    <span>Work Center Management</span>
+                  </h2>
+                  <p className="text-xs text-slate-600 mt-0.5">Configure work centers and supervisor assignments</p>
+                </div>
+                <div className="p-4">
+                  <WorkCenterManagementTab isReadOnly={false} />
+                </div>
               </div>
             )}
 
             {activeTab === 'supervisor-dashboard' && (
-              <div className="text-center py-8">
-                <h3 className="text-xl font-semibold text-gray-800 mb-4">
-                  Supervisor Attendance Dashboard
-                </h3>
-                <p className="text-gray-600 mb-6">
-                  Monitor daily supervisor attendance and assignments
-                </p>
-                <button
-                  onClick={() => router.push('/admin/supervisor-dashboard')}
-                  className="inline-flex items-center space-x-3 px-8 py-4 bg-gradient-to-r from-green-600 to-teal-600 text-white rounded-xl font-medium hover:shadow-lg transition-all"
-                >
-                  <span className="text-2xl">👥</span>
-                  <div className="text-left">
-                    <div className="font-semibold">View Supervisor Dashboard</div>
-                    <div className="text-xs text-green-100">Check attendance and manage overrides</div>
-                  </div>
-                </button>
+              <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200/60">
+                <div className="p-4 border-b border-slate-200/60">
+                  <h2 className="text-lg font-bold text-slate-800 flex items-center space-x-2">
+                    <span>👥</span>
+                    <span>Supervisor Attendance Dashboard</span>
+                  </h2>
+                  <p className="text-xs text-slate-600 mt-0.5">Monitor daily supervisor attendance and assignments</p>
+                </div>
+                <div className="p-4">
+                  <SupervisorDashboardTab isReadOnly={false} />
+                </div>
               </div>
             )}
 
             {activeTab === 'patrol' && (
-              <div>
-                <PatrolManagementTab isReadOnly={false} />
+              <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200/60">
+                <div className="p-4 border-b border-slate-200/60">
+                  <h2 className="text-lg font-bold text-slate-800 flex items-center space-x-2">
+                    <span>🛡️</span>
+                    <span>Patrol Management</span>
+                  </h2>
+                  <p className="text-xs text-slate-600 mt-0.5">Manage patrol duties and uploads</p>
+                </div>
+                <div className="p-4">
+                  <PatrolManagementTab isReadOnly={false} />
+                </div>
               </div>
             )}
           </div>
