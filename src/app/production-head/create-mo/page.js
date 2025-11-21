@@ -154,17 +154,53 @@ export default function CreateMOPage() {
                       </div>
                     )}
 
-                    {/* Create PO Button */}
+                    {/* Create PO Button with Smart Production Info */}
                     {stockData.isStockInsufficient && stockData.selectedProductDetails?.materials && (
-                      <button
-                        type="button"
-                        onClick={() => stockData.handleCreatePO()}
-                        className="w-full px-4 py-3 text-sm bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-lg font-medium hover:from-amber-700 hover:to-orange-700 transition-all shadow-md shadow-amber-600/25 flex items-center justify-center space-x-2"
-                        title="Create Purchase Order to fulfill stock requirement"
-                      >
-                        <span>📦</span>
-                        <span>Create PO</span>
-                      </button>
+                      <div className="space-y-2">
+                        {/* Info Box - Show what will happen */}
+                        {(() => {
+                          const totalAvailable = stockData.selectedProductDetails.materials.reduce((sum, m) => sum + (m.available_quantity || 0), 0);
+                          const gramsPerProd = parseFloat(stockData.selectedProductDetails.product?.grams_per_product || 0);
+                          const canMake = totalAvailable > 0 && gramsPerProd > 0 
+                            ? Math.floor((totalAvailable * 1000) / gramsPerProd) 
+                            : 0;
+                          
+                          if (canMake > 0) {
+                            return (
+                              <div className="bg-blue-50 border border-blue-300 rounded-lg p-3">
+                                <div className="flex items-start space-x-2">
+                                  <span className="text-blue-500 text-lg">💡</span>
+                                  <div className="flex-1">
+                                    <p className="text-xs font-bold text-blue-900 mb-1">Smart Production Plan</p>
+                                    <p className="text-xs text-blue-700 mb-2">
+                                      Can produce <strong>{canMake} pieces</strong> with available stock now!
+                                    </p>
+                                    <p className="text-xs text-blue-600">
+                                      Clicking "Create PO" will:
+                                    </p>
+                                    <ul className="text-xs text-blue-700 ml-3 mt-1 space-y-0.5">
+                                      <li>• Create PO for shortage</li>
+                                      <li>• Auto-create MO for {canMake} pcs</li>
+                                      <li>• Start production immediately</li>
+                                    </ul>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
+                        
+                        <button
+                          type="button"
+                          onClick={() => stockData.handleCreatePO()}
+                          className="w-full px-4 py-3 text-sm bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-lg font-medium hover:from-amber-700 hover:to-orange-700 transition-all shadow-md shadow-amber-600/25 flex items-center justify-center space-x-2"
+                          title="Create Purchase Order and Partial MO"
+                        >
+                          <span>📦</span>
+                          <span>Create PO & Partial MO</span>
+                        </button>
+                      </div>
                     )}
 
                     {/* Material Requirement with Tolerance */}

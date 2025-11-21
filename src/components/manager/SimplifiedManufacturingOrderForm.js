@@ -367,30 +367,51 @@ export default function SimplifiedManufacturingOrderForm({
 
     const shortage = requiredMaterialKg - totalAvailableStock;
 
+    // Calculate how many pieces can be made with available stock
+    // Using base material (without tolerance) for available stock calculation
+    const piecesWithAvailableStock = totalAvailableStock > 0 
+      ? Math.floor((totalAvailableStock * 1000) / gramsPerProduct) 
+      : 0;
+
     // Prepare auto-fill data for PO form
     const autoFillData = {
       materials: selectedProductDetails.materials,
       requiredQuantity: requiredMaterialKg, // Material quantity in kg (including tolerance)
-      productQuantity: productQuantity, // Number of products
+      productQuantity: productQuantity, // Number of products requested
       gramsPerProduct: gramsPerProduct, // Grams per product
       availableQuantity: totalAvailableStock,
       shortageQuantity: shortage,
       productDetails: selectedProductDetails.product,
-      moReference: `MO for ${selectedProductDetails.product.product_code}`
+      moReference: `MO for ${selectedProductDetails.product.product_code}`,
+      
+      // Partial MO creation data
+      partialMO: {
+        product_code_id: formData.product_code_id,
+        customer_name: formData.customer_name,
+        customer_id: formData.customer_id,
+        quantity: piecesWithAvailableStock, // Quantity that can be made with available stock
+        planned_start_date: formData.planned_start_date,
+        planned_end_date: formData.planned_end_date,
+        priority: formData.priority,
+        special_instructions: `${formData.special_instructions ? formData.special_instructions + ' | ' : ''}Partial MO (${piecesWithAvailableStock}/${productQuantity} pcs) - waiting for PO to complete remaining ${productQuantity - piecesWithAvailableStock} pcs`,
+        tolerance_percentage: formData.tolerance_percentage,
+        remainingQuantity: productQuantity - piecesWithAvailableStock, // For reference
+        isPartialMO: true
+      }
     };
 
     // Store auto-fill data and navigate to PO creation page
     sessionStorage.setItem('autoFillPOData', JSON.stringify(autoFillData));
 
     // Show navigation notification
-    toast.navigation.redirecting('Purchase Order Creation');
+    toast.navigation.redirecting('Purchase Order Creation & Partial MO Setup');
 
     // Navigate to PO creation page
     setTimeout(() => {
       router.push('/production-head/create-po');
     }, 1000);
 
-    console.log('Auto-fill data for PO:', autoFillData);
+    console.log('Auto-fill data for PO and partial MO:', autoFillData);
   };
 
   const resetForm = () => {
@@ -447,10 +468,10 @@ export default function SimplifiedManufacturingOrderForm({
                 options={productsList}
                 value={formData.product_code_id}
                 onChange={handleProductChange}
-                placeholder="Select Product"
-                displayKey="display_name"
+                placeholder="Select Product Code"
+                displayKey="product_code"
                 valueKey="id"
-                searchKeys={["display_name", "product_code", "description"]}
+                searchKeys={["product_code"]}
                 error={!!errors.product_code_id}
                 className="w-full"
                 loading={productsList.length === 0}

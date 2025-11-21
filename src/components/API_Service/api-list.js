@@ -126,7 +126,7 @@ export const INVENTORY_APIS = {
   RAW_MATERIAL_UPDATE: (id) => `${API_BASE_URL}/inventory/raw-materials/${id}/`,
   RAW_MATERIAL_DELETE: (id) => `${API_BASE_URL}/inventory/raw-materials/${id}/`,
   RAW_MATERIAL_DROPDOWN: `${API_BASE_URL}/inventory/raw-materials/dropdown/`,
-  RAW_MATERIAL_CODES: `${API_BASE_URL}/inventory/raw-materials/material-codes/`,  // Lightweight endpoint for dropdowns
+  RAW_MATERIAL_CODES: `${API_BASE_URL}/inventory/raw-materials/dropdown/`,  // Lightweight endpoint for dropdowns
 
   // Dashboard
   DASHBOARD_STATS: `${API_BASE_URL}/inventory/dashboard/stats/`,

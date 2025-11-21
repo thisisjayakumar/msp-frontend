@@ -252,10 +252,10 @@ export default function ManufacturingOrderForm({ onSuccess }) {
                   options={productsList}
                   value={formData.product_code_id}
                   onChange={handleProductChange}
-                  placeholder="Search and select product..."
-                  displayKey="display_name"
+                  placeholder="Search and select product code..."
+                  displayKey="product_code"
                   valueKey="id"
-                  searchKeys={["display_name", "product_code", "description"]}
+                  searchKeys={["product_code"]}
                   error={!!errors.product_code_id}
                   className="w-full"
                   loading={productsList.length === 0}
