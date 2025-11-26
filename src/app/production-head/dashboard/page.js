@@ -135,7 +135,7 @@ export default function ProductionHeadDashboard() {
 
         {/* Tabs */}
         <div className="bg-white rounded-xl shadow-md mb-6">
-          <div className="border-b border-gray-200 overflow-x-auto">
+          <div className="border-b border-gray-200 overflow-x-auto custom-scrollbar">
             <nav className="flex space-x-4 sm:space-x-8 px-6 min-w-max sm:min-w-0">
               {tabs.map((tab) => (
                 <button

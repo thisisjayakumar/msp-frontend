@@ -43,10 +43,13 @@ export default function PatrolDashboard() {
     try {
       const data = await patrolAPI.duties.getActiveDuties();
       if (!data.error) {
-        setDuties(data);
+        // Handle both array and paginated response formats
+        const dutiesArray = Array.isArray(data) ? data : (data.results || []);
+        setDuties(dutiesArray);
       }
     } catch (error) {
       console.error('Error fetching duties:', error);
+      setDuties([]);
     }
   }, []);
 
@@ -56,10 +59,13 @@ export default function PatrolDashboard() {
       const filters = { date: selectedDate };
       const data = await patrolAPI.uploads.getAll(filters);
       if (!data.error) {
-        setUploads(data);
+        // Handle both array and paginated response formats
+        const uploadsArray = Array.isArray(data) ? data : (data.results || []);
+        setUploads(uploadsArray);
       }
     } catch (error) {
       console.error('Error fetching uploads:', error);
+      setUploads([]);
     }
   }, [selectedDate]);
 
@@ -81,7 +87,9 @@ export default function PatrolDashboard() {
   // Group uploads by process
   const uploadsByProcess = useMemo(() => {
     const grouped = {};
-    uploads.forEach(upload => {
+    // Ensure uploads is an array before iterating
+    const uploadsArray = Array.isArray(uploads) ? uploads : [];
+    uploadsArray.forEach(upload => {
       if (!grouped[upload.process_name]) {
         grouped[upload.process_name] = [];
       }
@@ -152,7 +160,7 @@ export default function PatrolDashboard() {
                 type="date"
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                className="px-4 py-2 text-slate-800 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                 max={new Date().toISOString().split('T')[0]}
               />
             </div>
@@ -171,31 +179,31 @@ export default function PatrolDashboard() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="bg-blue-50 rounded-lg p-4">
               <div className="text-sm text-blue-600 font-medium">Total Uploads</div>
-              <div className="text-2xl font-bold text-blue-700">{uploads.length}</div>
+              <div className="text-2xl font-bold text-blue-700">{Array.isArray(uploads) ? uploads.length : 0}</div>
             </div>
             <div className="bg-green-50 rounded-lg p-4">
               <div className="text-sm text-green-600 font-medium">Submitted</div>
               <div className="text-2xl font-bold text-green-700">
-                {uploads.filter(u => ['submitted', 'reuploaded'].includes(u.status)).length}
+                {Array.isArray(uploads) ? uploads.filter(u => ['submitted', 'reuploaded'].includes(u.status)).length : 0}
               </div>
             </div>
             <div className="bg-yellow-50 rounded-lg p-4">
               <div className="text-sm text-yellow-600 font-medium">Pending</div>
               <div className="text-2xl font-bold text-yellow-700">
-                {uploads.filter(u => u.status === 'pending').length}
+                {Array.isArray(uploads) ? uploads.filter(u => u.status === 'pending').length : 0}
               </div>
             </div>
             <div className="bg-red-50 rounded-lg p-4">
               <div className="text-sm text-red-600 font-medium">Missed</div>
               <div className="text-2xl font-bold text-red-700">
-                {uploads.filter(u => u.status === 'missed').length}
+                {Array.isArray(uploads) ? uploads.filter(u => u.status === 'missed').length : 0}
               </div>
             </div>
           </div>
         </div>
 
         {/* Active Duties Info */}
-        {duties.length > 0 && (
+        {Array.isArray(duties) && duties.length > 0 && (
           <div className="bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-200 rounded-xl p-6 mb-6">
             <h3 className="text-lg font-semibold text-emerald-900 mb-3">Active Duties</h3>
             <div className="space-y-2">
@@ -204,7 +212,7 @@ export default function PatrolDashboard() {
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="font-medium text-gray-900">
-                        Processes: {duty.process_names.join(', ')}
+                        Processes: {Array.isArray(duty.process_names) ? duty.process_names.join(', ') : (duty.process_names || 'N/A')}
                       </div>
                       <div className="text-sm text-gray-600 mt-1">
                         Frequency: Every {duty.frequency_hours} hour(s) | 
