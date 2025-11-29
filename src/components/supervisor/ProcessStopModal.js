@@ -62,14 +62,29 @@ export default function ProcessStopModal({ batch, processExecution, onClose, onS
     try {
       setLoading(true);
       
-      await processSupervisorAPI.stopProcess({
-        batch_id: batch.id,
+      // Stop process - batch_id is optional, backend will stop all active batches for the process
+      const payload = {
         process_execution_id: processExecution.id,
         stop_reason: formData.stop_reason,
         stop_reason_detail: formData.stop_reason_detail.trim()
-      });
+      };
+      
+      // Only include batch_id if we have a valid batch object with an id
+      // batch.id is the database primary key, which is what the backend expects
+      if (batch && batch.id) {
+        payload.batch_id = batch.id;
+      }
+      // If no valid batch, backend will stop all active batches for the process
+      
+      const result = await processSupervisorAPI.stopProcess(payload);
 
-      alert(`Process stopped successfully for batch ${batch.batch_id}`);
+      // Show success message with batch count
+      const batchCount = result.total_stops || 1;
+      const message = batchCount > 1 
+        ? `Process stopped successfully for ${batchCount} batch(es)`
+        : `Process stopped successfully`;
+      
+      alert(message);
       onSuccess?.();
       onClose();
     } catch (error) {
@@ -91,7 +106,9 @@ export default function ProcessStopModal({ batch, processExecution, onClose, onS
             </div>
             <div>
               <h2 className="text-lg font-semibold text-slate-800">Stop Process</h2>
-              <p className="text-sm text-slate-600">Batch: {batch.batch_id}</p>
+              <p className="text-sm text-slate-600">
+                {batch && batch.batch_id ? `Batch: ${batch.batch_id}` : `MO: ${processExecution.mo_id || 'N/A'}`}
+              </p>
             </div>
           </div>
           <button
@@ -134,7 +151,7 @@ export default function ProcessStopModal({ batch, processExecution, onClose, onS
               name="stop_reason"
               value={formData.stop_reason}
               onChange={handleInputChange}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
+              className={`w-full px-3 py-2 border text-slate-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
                 errors.stop_reason ? 'border-red-500' : 'border-slate-300'
               }`}
             >
