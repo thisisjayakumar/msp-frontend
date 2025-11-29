@@ -70,29 +70,7 @@ const PackingZoneDashboard = () => {
     setActiveTab(tabId);
   }, []);
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user || !hasAccess) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-red-600 mb-4">Access Denied</h1>
-          <p className="text-gray-600">You don&apos;t have permission to access the Packing Zone dashboard.</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Tabs configuration
+  // Tabs configuration (must be before early returns - React hooks rule)
   const tabs = useMemo(() => {
     const allTabs = [
       { id: 'verification', label: 'Verification', icon: '✓', count: dashboardStats?.to_be_verified },
@@ -115,7 +93,7 @@ const PackingZoneDashboard = () => {
     return allTabs;
   }, [isProductionHead, dashboardStats]);
 
-  // Render active tab content
+  // Render active tab content (must be before early returns - React hooks rule)
   const renderActiveTab = useCallback(() => {
     const commonProps = {
       isReadOnly,
@@ -144,6 +122,29 @@ const PackingZoneDashboard = () => {
         return <VerificationTab {...commonProps} />;
     }
   }, [activeTab, isReadOnly, isProductionHead, fetchDashboardStats]);
+
+  // Early returns (after all hooks)
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user || !hasAccess) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-red-600 mb-4">Access Denied</h1>
+          <p className="text-gray-600">You don&apos;t have permission to access the Packing Zone dashboard.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">

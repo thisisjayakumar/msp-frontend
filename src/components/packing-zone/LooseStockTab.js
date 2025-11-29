@@ -492,7 +492,7 @@ const LooseStockTab = ({ isReadOnly, isProductionHead, onRefresh }) => {
           <div className="text-2xl font-bold text-indigo-900">{stats.totalPieces}</div>
         </div>
         <div className="bg-amber-50 rounded-lg p-4">
-          <div className="text-sm text-amber-600 font-medium">Old Stock (>50d)</div>
+          <div className="text-sm text-amber-600 font-medium">Old Stock (&gt;50d)</div>
           <div className="text-2xl font-bold text-amber-900">{stats.oldCount}</div>
         </div>
       </div>
