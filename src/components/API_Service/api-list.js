@@ -176,6 +176,13 @@ export const PROCESS_TRACKING_APIS = {
   ACTIVE_ALERTS: `${API_BASE_URL}/manufacturing/process-alerts/active_alerts/`,
 };
 
+// Authentication & User APIs
+export const AUTHENTICATION_APIS = {
+  // All Users List
+  USERS_LIST: `${API_BASE_URL}/authentication/users/`,
+  USER_DETAIL: (id) => `${API_BASE_URL}/authentication/users/${id}/`,
+};
+
 // Admin Dashboard APIs
 export const ADMIN_APIS = {
   // User Management
@@ -209,27 +216,37 @@ export const ADMIN_APIS = {
 
 // Work Center & Supervisor Management APIs
 export const WORK_CENTER_APIS = {
+  // Processes (Work Centers)
+  PROCESSES_LIST: `${API_BASE_URL}/processes/processes/`,
+  
   // Work Center Masters
-  WC_LIST: `${API_BASE_URL}/processes/api/work-centers/`,
-  WC_CREATE: `${API_BASE_URL}/processes/api/work-centers/`,
-  WC_DETAIL: (id) => `${API_BASE_URL}/processes/api/work-centers/${id}/`,
-  WC_UPDATE: (id) => `${API_BASE_URL}/processes/api/work-centers/${id}/`,
-  WC_DELETE: (id) => `${API_BASE_URL}/processes/api/work-centers/${id}/`,
-  WC_AVAILABLE: `${API_BASE_URL}/processes/api/work-centers/available_work_centers/`,
-  WC_SUPERVISORS: `${API_BASE_URL}/processes/api/work-centers/supervisors/`,
+  WC_LIST: `${API_BASE_URL}/processes/work-centers/`,
+  WC_CREATE: `${API_BASE_URL}/processes/work-centers/`,
+  WC_DETAIL: (id) => `${API_BASE_URL}/processes/work-centers/${id}/`,
+  WC_UPDATE: (id) => `${API_BASE_URL}/processes/work-centers/${id}/`,
+  WC_DELETE: (id) => `${API_BASE_URL}/processes/work-centers/${id}/`,
+  WC_AVAILABLE: `${API_BASE_URL}/processes/work-centers/available_work_centers/`,
+  WC_SUPERVISORS: `${API_BASE_URL}/processes/work-centers/supervisors/`,
 
   // Daily Supervisor Status
-  SUPERVISOR_STATUS_LIST: `${API_BASE_URL}/processes/api/supervisor-status/`,
-  SUPERVISOR_STATUS_DETAIL: (id) => `${API_BASE_URL}/processes/api/supervisor-status/${id}/`,
-  SUPERVISOR_STATUS_TODAY: `${API_BASE_URL}/processes/api/supervisor-status/today_dashboard/`,
-  SUPERVISOR_STATUS_MANUAL_UPDATE: (id) => `${API_BASE_URL}/processes/api/supervisor-status/${id}/manual_update/`,
-  SUPERVISOR_STATUS_RUN_CHECK: `${API_BASE_URL}/processes/api/supervisor-status/run_attendance_check/`,
+  SUPERVISOR_STATUS_LIST: `${API_BASE_URL}/processes/supervisor-status/`,
+  SUPERVISOR_STATUS_DETAIL: (id) => `${API_BASE_URL}/processes/supervisor-status/${id}/`,
+  SUPERVISOR_STATUS_TODAY: `${API_BASE_URL}/processes/supervisor-status/today_dashboard/`,
+  SUPERVISOR_STATUS_MANUAL_UPDATE: (id) => `${API_BASE_URL}/processes/supervisor-status/${id}/manual_update/`,
+  SUPERVISOR_STATUS_RUN_CHECK: `${API_BASE_URL}/processes/supervisor-status/run_attendance_check/`,
 
   // Supervisor Activity Logs
-  ACTIVITY_LOG_LIST: `${API_BASE_URL}/processes/api/supervisor-activity/`,
-  ACTIVITY_LOG_DETAIL: (id) => `${API_BASE_URL}/processes/api/supervisor-activity/${id}/`,
-  ACTIVITY_LOG_TODAY: `${API_BASE_URL}/processes/api/supervisor-activity/today/`,
-  ACTIVITY_LOG_SUMMARY: `${API_BASE_URL}/processes/api/supervisor-activity/summary/`,
+  ACTIVITY_LOG_LIST: `${API_BASE_URL}/processes/supervisor-activity/`,
+  ACTIVITY_LOG_DETAIL: (id) => `${API_BASE_URL}/processes/supervisor-activity/${id}/`,
+  ACTIVITY_LOG_TODAY: `${API_BASE_URL}/processes/supervisor-activity/today/`,
+  ACTIVITY_LOG_SUMMARY: `${API_BASE_URL}/processes/supervisor-activity/summary/`,
+  
+  // Work Center Supervisor Shift Configurations
+  SUPERVISOR_SHIFTS_LIST: `${API_BASE_URL}/manufacturing/supervisor-shifts/`,
+  SUPERVISOR_SHIFTS_CREATE: `${API_BASE_URL}/manufacturing/supervisor-shifts/`,
+  SUPERVISOR_SHIFTS_DETAIL: (id) => `${API_BASE_URL}/manufacturing/supervisor-shifts/${id}/`,
+  SUPERVISOR_SHIFTS_UPDATE: (id) => `${API_BASE_URL}/manufacturing/supervisor-shifts/${id}/`,
+  SUPERVISOR_SHIFTS_DELETE: (id) => `${API_BASE_URL}/manufacturing/supervisor-shifts/${id}/`,
 };
 
 // Patrol Management APIs
@@ -321,6 +338,7 @@ export const PACKING_ZONE_APIS = {
 // Export all APIs
 export const API_ENDPOINTS = {
   AUTH: AUTH_APIS,
+  AUTHENTICATION: AUTHENTICATION_APIS,
   USER: USER_APIS,
   MANUFACTURING: MANUFACTURING_APIS,
   FG_STORE: FG_STORE_APIS,

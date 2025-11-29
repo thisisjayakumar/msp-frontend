@@ -128,10 +128,43 @@ export default function SupervisorDashboard() {
     initializeDashboard();
   }, [fetchUserProfile, fetchDashboardData, router, refreshTrigger]);
 
-  const handleLogout = () => {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('userRole');
-    router.replace('/login');
+  const handleLogout = async () => {
+    try {
+      // Import roleAuthService dynamically
+      const { default: roleAuthService } = await import('@/components/API_Service/role-auth');
+      
+      // Call logout with reassignment
+      const result = await roleAuthService.logout();
+      
+      // Show notification about reassignments if any
+      if (result.reassignment_summary && result.reassignment_summary.length > 0) {
+        const reassignedCount = result.reassignment_summary.filter(
+          r => r.status === 'reassigned_to_backup'
+        ).length;
+        const unassignedCount = result.reassignment_summary.filter(
+          r => r.status !== 'reassigned_to_backup'
+        ).length;
+        
+        let message = 'Logged out successfully.\n';
+        if (reassignedCount > 0) {
+          message += `✓ ${reassignedCount} process(es) reassigned to backup supervisor.\n`;
+        }
+        if (unassignedCount > 0) {
+          message += `⚠ ${unassignedCount} process(es) left unassigned (no backup available).`;
+        }
+        
+        alert(message);
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Clear local storage anyway
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('userRole');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('userData');
+    } finally {
+      router.replace('/login');
+    }
   };
 
   const handleMOClick = (moId) => {
@@ -255,8 +288,23 @@ export default function SupervisorDashboard() {
   // Render batch card based on status
   const renderBatchCard = (item) => {
     const isReworkBatch = activeTab === 'rework_pending';
-    const batch = isReworkBatch ? item.original_batch : item;
+    // Get batch object - could be item itself, item.batch, or item.original_batch
+    let batch = isReworkBatch ? item.original_batch : (item.batch || item);
     const processExecution = item.process_execution || item;
+    
+    // If batch doesn't have batch_id, it might be a process execution or MO
+    // For MO objects from supervisor_dashboard, get the first active batch
+    if (batch && !batch.batch_id) {
+      // Check if item is an MO with batches array
+      if (item.batches && item.batches.length > 0) {
+        // Get first non-completed batch, or just the first batch
+        const activeBatch = item.batches.find(b => b.status !== 'completed' && b.status !== 'cancelled') || item.batches[0];
+        batch = activeBatch;
+      } else if (processExecution && processExecution.mo_id) {
+        // This is likely a process execution, let backend handle all batches
+        batch = null; // Don't send batch_id, let backend stop all active batches
+      }
+    }
     
     return (
       <div

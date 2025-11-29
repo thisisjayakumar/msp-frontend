@@ -27,22 +27,22 @@ const handleResponse = async (response) => {
 
 const WORK_CENTER_APIS = {
   // Work Center Master
-  WORK_CENTERS: `${API_BASE_URL}/processes/api/work-centers/`,
-  WORK_CENTER_DETAIL: (id) => `${API_BASE_URL}/processes/api/work-centers/${id}/`,
-  AVAILABLE_WORK_CENTERS: `${API_BASE_URL}/processes/api/work-centers/available_work_centers/`,
-  SUPERVISORS: `${API_BASE_URL}/processes/api/work-centers/supervisors/`,
+  WORK_CENTERS: `${API_BASE_URL}/api/processes/work-centers/`,
+  WORK_CENTER_DETAIL: (id) => `${API_BASE_URL}/api/processes/work-centers/${id}/`,
+  AVAILABLE_WORK_CENTERS: `${API_BASE_URL}/api/processes/work-centers/available_work_centers/`,
+  SUPERVISORS: `${API_BASE_URL}/api/processes/work-centers/supervisors/`,
   
   // Supervisor Status
-  SUPERVISOR_STATUS: `${API_BASE_URL}/processes/api/supervisor-status/`,
-  SUPERVISOR_STATUS_DETAIL: (id) => `${API_BASE_URL}/processes/api/supervisor-status/${id}/`,
-  SUPERVISOR_STATUS_TODAY: `${API_BASE_URL}/processes/api/supervisor-status/today_dashboard/`,
-  SUPERVISOR_STATUS_MANUAL_UPDATE: (id) => `${API_BASE_URL}/processes/api/supervisor-status/${id}/manual_update/`,
-  RUN_ATTENDANCE_CHECK: `${API_BASE_URL}/processes/api/supervisor-status/run_attendance_check/`,
+  SUPERVISOR_STATUS: `${API_BASE_URL}/api/processes/supervisor-status/`,
+  SUPERVISOR_STATUS_DETAIL: (id) => `${API_BASE_URL}/api/processes/supervisor-status/${id}/`,
+  SUPERVISOR_STATUS_TODAY: `${API_BASE_URL}/api/processes/supervisor-status/today_dashboard/`,
+  SUPERVISOR_STATUS_MANUAL_UPDATE: (id) => `${API_BASE_URL}/api/processes/supervisor-status/${id}/manual_update/`,
+  RUN_ATTENDANCE_CHECK: `${API_BASE_URL}/api/processes/supervisor-status/run_attendance_check/`,
   
   // Supervisor Activity
-  SUPERVISOR_ACTIVITY: `${API_BASE_URL}/processes/api/supervisor-activity/`,
-  SUPERVISOR_ACTIVITY_SUMMARY: `${API_BASE_URL}/processes/api/supervisor-activity/summary/`,
-  SUPERVISOR_ACTIVITY_TODAY: `${API_BASE_URL}/processes/api/supervisor-activity/today/`,
+  SUPERVISOR_ACTIVITY: `${API_BASE_URL}/api/processes/supervisor-activity/`,
+  SUPERVISOR_ACTIVITY_SUMMARY: `${API_BASE_URL}/api/processes/supervisor-activity/summary/`,
+  SUPERVISOR_ACTIVITY_TODAY: `${API_BASE_URL}/api/processes/supervisor-activity/today/`,
 };
 
 const workCenterAPI = {

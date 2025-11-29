@@ -653,6 +653,204 @@ const fgStoreAPI = {
   },
 };
 
+// Supervisor Shift Management API
+export const supervisorShiftsAPI = {
+  getAll: async (filters = {}) => {
+    const queryParams = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        queryParams.append(key, value);
+      }
+    });
+    
+    const url = queryParams.toString()
+      ? `/api/manufacturing/supervisor-shifts/?${queryParams}`
+      : '/api/manufacturing/supervisor-shifts/';
+    
+    const response = await apiRequest(url, { method: 'GET' });
+    return handleResponse(response);
+  },
+
+  get: async (id) => {
+    const response = await apiRequest(`/api/manufacturing/supervisor-shifts/${id}/`, {
+      method: 'GET'
+    });
+    return handleResponse(response);
+  },
+
+  create: async (data) => {
+    const response = await apiRequest('/api/manufacturing/supervisor-shifts/', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+    return handleResponse(response);
+  },
+
+  update: async (id, data) => {
+    const response = await apiRequest(`/api/manufacturing/supervisor-shifts/${id}/`, {
+      method: 'PATCH',
+      body: JSON.stringify(data)
+    });
+    return handleResponse(response);
+  },
+
+  delete: async (id) => {
+    const response = await apiRequest(`/api/manufacturing/supervisor-shifts/${id}/`, {
+      method: 'DELETE'
+    });
+    return handleResponse(response);
+  },
+
+  getSummary: async () => {
+    const response = await apiRequest('/api/manufacturing/supervisor-shifts/summary/', {
+      method: 'GET'
+    });
+    return handleResponse(response);
+  }
+};
+
+// MO Supervisor Configuration API
+export const moSupervisorConfigAPI = {
+  getForMO: async (moId) => {
+    const response = await apiRequest(`/api/manufacturing/mo-supervisor-config/for_mo/?mo_id=${moId}`, {
+      method: 'GET'
+    });
+    return handleResponse(response);
+  },
+
+  addShiftToMO: async (data) => {
+    const response = await apiRequest('/api/manufacturing/mo-supervisor-config/add_shift_to_mo/', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+    return handleResponse(response);
+  },
+
+  addSupervisorOverride: async (data) => {
+    const response = await apiRequest('/api/manufacturing/mo-supervisor-config/add_supervisor_override/', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+    return handleResponse(response);
+  },
+
+  updateSupervisorOverride: async (data) => {
+    const response = await apiRequest('/api/manufacturing/mo-supervisor-config/update_supervisor_override/', {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+    return handleResponse(response);
+  },
+
+  removeSupervisorOverride: async (overrideId) => {
+    const response = await apiRequest(`/api/manufacturing/mo-supervisor-config/remove_supervisor_override/?override_id=${overrideId}`, {
+      method: 'DELETE'
+    });
+    return handleResponse(response);
+  }
+};
+
+// Daily Supervisor Status API
+export const dailySupervisorStatusAPI = {
+  getToday: async () => {
+    const response = await apiRequest('/api/manufacturing/daily-supervisor-status/today/', {
+      method: 'GET'
+    });
+    return handleResponse(response);
+  },
+
+  getAll: async (filters = {}) => {
+    const queryParams = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        queryParams.append(key, value);
+      }
+    });
+    
+    const url = queryParams.toString()
+      ? `/api/manufacturing/daily-supervisor-status/?${queryParams}`
+      : '/api/manufacturing/daily-supervisor-status/';
+    
+    const response = await apiRequest(url, { method: 'GET' });
+    return handleResponse(response);
+  },
+
+  manualOverride: async (statusId, newSupervisorId, reason) => {
+    const response = await apiRequest(`/api/manufacturing/daily-supervisor-status/${statusId}/manual_override/`, {
+      method: 'POST',
+      body: JSON.stringify({
+        new_supervisor_id: newSupervisorId,
+        reason: reason
+      })
+    });
+    return handleResponse(response);
+  }
+};
+
+// Supervisor Reports API
+export const supervisorReportsAPI = {
+  getAssignmentReport: async (filters = {}) => {
+    const queryParams = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        queryParams.append(key, value);
+      }
+    });
+    
+    const url = queryParams.toString()
+      ? `/api/manufacturing/supervisor-reports/assignment_report/?${queryParams}`
+      : '/api/manufacturing/supervisor-reports/assignment_report/';
+    
+    const response = await apiRequest(url, { method: 'GET' });
+    return handleResponse(response);
+  },
+
+  getSupervisorWorkload: async (startDate, endDate) => {
+    const queryParams = new URLSearchParams();
+    if (startDate) queryParams.append('start_date', startDate);
+    if (endDate) queryParams.append('end_date', endDate);
+    
+    const url = `/api/manufacturing/supervisor-reports/supervisor_workload/?${queryParams}`;
+    const response = await apiRequest(url, { method: 'GET' });
+    return handleResponse(response);
+  },
+
+  getShiftSummary: async (date) => {
+    const url = date 
+      ? `/api/manufacturing/supervisor-reports/shift_summary/?date=${date}`
+      : '/api/manufacturing/supervisor-reports/shift_summary/';
+    
+    const response = await apiRequest(url, { method: 'GET' });
+    return handleResponse(response);
+  }
+};
+
+// Supervisor Change Logs API
+export const supervisorChangeLogsAPI = {
+  getForMO: async (moId) => {
+    const response = await apiRequest(`/api/manufacturing/supervisor-change-logs/for_mo/?mo_id=${moId}`, {
+      method: 'GET'
+    });
+    return handleResponse(response);
+  },
+
+  getAll: async (filters = {}) => {
+    const queryParams = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        queryParams.append(key, value);
+      }
+    });
+    
+    const url = queryParams.toString()
+      ? `/api/manufacturing/supervisor-change-logs/?${queryParams}`
+      : '/api/manufacturing/supervisor-change-logs/';
+    
+    const response = await apiRequest(url, { method: 'GET' });
+    return handleResponse(response);
+  }
+};
+
 export default {
   manufacturingOrders: manufacturingOrdersAPI,
   purchaseOrders: purchaseOrdersAPI,
@@ -660,4 +858,9 @@ export default {
   fgStore: fgStoreAPI,
   rawMaterialAllocations: manufacturingOrdersAPI.rawMaterialAllocations,
   getDashboardStats,
+  supervisorShifts: supervisorShiftsAPI,
+  moSupervisorConfig: moSupervisorConfigAPI,
+  dailySupervisorStatus: dailySupervisorStatusAPI,
+  supervisorReports: supervisorReportsAPI,
+  supervisorChangeLogs: supervisorChangeLogsAPI,
 };

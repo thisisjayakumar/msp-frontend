@@ -82,10 +82,37 @@ export default function FinalInspectionPage() {
     init();
   }, [fetchUserProfile, fetchFIBatches, router, refreshTrigger]);
 
-  const handleLogout = () => {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('userRole');
-    router.replace('/login');
+  const handleLogout = async () => {
+    try {
+      const { default: roleAuthService } = await import('@/components/API_Service/role-auth');
+      const result = await roleAuthService.logout();
+      
+      if (result.reassignment_summary && result.reassignment_summary.length > 0) {
+        const reassignedCount = result.reassignment_summary.filter(
+          r => r.status === 'reassigned_to_backup'
+        ).length;
+        const unassignedCount = result.reassignment_summary.filter(
+          r => r.status !== 'reassigned_to_backup'
+        ).length;
+        
+        let message = 'Logged out successfully.\n';
+        if (reassignedCount > 0) {
+          message += `✓ ${reassignedCount} process(es) reassigned to backup supervisor.\n`;
+        }
+        if (unassignedCount > 0) {
+          message += `⚠ ${unassignedCount} process(es) left unassigned (no backup available).`;
+        }
+        alert(message);
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('userRole');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('userData');
+    } finally {
+      router.replace('/login');
+    }
   };
 
   const handleRefresh = () => {

@@ -143,11 +143,68 @@ export const roleAuthService = {
     return permissions.includes(permission) || permissions.includes('all');
   },
 
-  // Logout (clears all role-specific data)
-  logout: () => {
-    if (typeof window !== 'undefined') {
+  // Logout (clears all role-specific data and handles supervisor reassignment)
+  logout: async () => {
+    if (typeof window === 'undefined') {
+      return { success: true };
+    }
+
+    try {
+      const refreshToken = localStorage.getItem('refreshToken');
+      const authToken = localStorage.getItem('authToken');
+      
+      // Call logout API if tokens exist
+      if (authToken) {
+        const response = await fetch(AUTH_APIS.LOGOUT, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
+          },
+          body: JSON.stringify({ refresh: refreshToken })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          console.log('✅ Logout successful:', data.message);
+          
+          // Show reassignment summary if supervisor logged out
+          if (data.reassignment_summary && data.reassignment_summary.length > 0) {
+            console.log('📋 Work reassignment summary:', data.reassignment_summary);
+            
+            // You can show a notification here if needed
+            const reassignedCount = data.reassignment_summary.filter(
+              r => r.status === 'reassigned_to_backup'
+            ).length;
+            const unassignedCount = data.reassignment_summary.filter(
+              r => r.status !== 'reassigned_to_backup'
+            ).length;
+            
+            if (reassignedCount > 0) {
+              console.log(`✓ ${reassignedCount} process(es) reassigned to backup supervisor`);
+            }
+            if (unassignedCount > 0) {
+              console.warn(`⚠ ${unassignedCount} process(es) left unassigned (no backup available)`);
+            }
+          }
+          
+          return {
+            success: true,
+            reassignment_summary: data.reassignment_summary
+          };
+        } else {
+          console.warn('Logout API call failed, clearing local storage anyway');
+        }
+      }
+    } catch (error) {
+      console.error('Error during logout:', error);
+      // Continue with local cleanup even if API call fails
+    } finally {
+      // Clear all local storage data
       localStorage.removeItem('userRole');
       localStorage.removeItem('authToken');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('userData');
       localStorage.removeItem('adminPermissions');
       localStorage.removeItem('managerPermissions');
       localStorage.removeItem('production_headPermissions');
@@ -155,6 +212,8 @@ export const roleAuthService = {
       localStorage.removeItem('rm_storePermissions');
       localStorage.removeItem('fg_storePermissions');
     }
+
+    return { success: true };
   },
 
   // Check if user is authenticated with specific role
