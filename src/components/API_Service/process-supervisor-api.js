@@ -64,6 +64,14 @@ class ProcessSupervisorAPI {
   }
 
   /**
+   * Get stopped processes (alias for getActiveStops for dashboard compatibility)
+   */
+  async getStoppedProcesses() {
+    const response = await throttledGet(`${this.baseURL}/process-stops/active_stops/`);
+    return handleResponse(response);
+  }
+
+  /**
    * Get my active stops (current user)
    */
   async getMyStops() {

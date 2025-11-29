@@ -12,7 +12,7 @@ import ProcessTrackingSummary from '@/components/manager/ProcessTrackingSummary'
 import InventoryTransactionsList from '@/components/production-head/InventoryTransactionsList';
 import LoadingSpinner from '@/components/CommonComponents/ui/LoadingSpinner';
 import PatrolManagementTab from '@/components/patrol/PatrolManagementTab';
-import WorkCenterManagementTab from '@/components/manager/WorkCenterManagementTab';
+import WorkCenterShiftManagement from '@/components/manager/WorkCenterShiftManagement';
 import SupervisorDashboardTab from '@/components/manager/SupervisorDashboardTab';
 import OutsourcingManagementTab from '@/components/manager/OutsourcingManagementTab';
 
@@ -280,15 +280,8 @@ export default function ProductionHeadDashboard() {
 
             {activeTab === 'work-centers' && (
               <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200/60">
-                <div className="p-4 border-b border-slate-200/60">
-                  <h2 className="text-lg font-bold text-slate-800 flex items-center space-x-2">
-                    <span>⚙️</span>
-                    <span>Work Center Management</span>
-                  </h2>
-                  <p className="text-xs text-slate-600 mt-0.5">Configure work centers and supervisor assignments</p>
-                </div>
-                <div className="p-4">
-                  <WorkCenterManagementTab isReadOnly={false} />
+                <div className="p-6">
+                  <WorkCenterShiftManagement />
                 </div>
               </div>
             )}
