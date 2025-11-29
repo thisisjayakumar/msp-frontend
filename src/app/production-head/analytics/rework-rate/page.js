@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowPathIcon, ChartBarIcon, ArrowLeftIcon, TrendingUpIcon, TrendingDownIcon } from '@heroicons/react/24/outline';
+import { ArrowPathIcon, ChartBarIcon, ArrowLeftIcon, ArrowTrendingUpIcon, ArrowTrendingDownIcon } from '@heroicons/react/24/outline';
 
 // Components
 import LoadingSpinner from '@/components/CommonComponents/ui/LoadingSpinner';
@@ -251,7 +251,7 @@ export default function ReworkRatePage() {
                           <span className="text-base font-semibold text-slate-700">{process.process_name}</span>
                           {trend !== 0 && (
                             <span className={`flex items-center text-xs ${trend > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                              {trend > 0 ? <TrendingUpIcon className="h-4 w-4 mr-1" /> : <TrendingDownIcon className="h-4 w-4 mr-1" />}
+                              {trend > 0 ? <ArrowTrendingUpIcon className="h-4 w-4 mr-1" /> : <ArrowTrendingDownIcon className="h-4 w-4 mr-1" />}
                               {Math.abs(trend).toFixed(1)}%
                             </span>
                           )}
