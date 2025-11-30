@@ -42,12 +42,16 @@ export default function SupervisorAssignmentModal({
         notes
       );
 
-      if (response.success) {
-        alert(`Supervisor assigned successfully!\nOld: ${response.old_supervisor}\nNew: ${response.new_supervisor}`);
-        onSuccess && onSuccess(response.process_execution);
+      // Check if response has assigned_supervisor (success) or error
+      if (response && response.assigned_supervisor) {
+        // Success - show message and trigger refresh
+        onSuccess && onSuccess();
         onClose();
+      } else if (response && (response.error || response.message)) {
+        // Error response from handleResponse
+        setError(response.message || response.error || 'Failed to assign supervisor');
       } else {
-        setError(response.error || 'Failed to assign supervisor');
+        setError('Failed to assign supervisor: Unexpected response format');
       }
     } catch (err) {
       setError(err.message || 'Error assigning supervisor');

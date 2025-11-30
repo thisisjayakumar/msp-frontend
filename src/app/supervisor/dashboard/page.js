@@ -36,8 +36,8 @@ export default function SupervisorDashboard() {
   const [userProfile, setUserProfile] = useState(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   
-  // Tab state
-  const [activeTab, setActiveTab] = useState('to_process');
+  // Tab state - Default to 'in_progress' since 'to_process' is removed
+  const [activeTab, setActiveTab] = useState('in_progress');
   
   // Modal states
   const [stopModal, setStopModal] = useState({ isOpen: false, batch: null, execution: null });
@@ -206,31 +206,40 @@ export default function SupervisorDashboard() {
     return 'bg-purple-100 text-purple-700 border-purple-300';
   };
 
-  // Filter and search batches
-  const filterBatches = useCallback((batches) => {
-    if (!batches) return [];
-    
-    return batches.filter(batch => {
-      const matchesSearch = !searchQuery || 
-        batch.batch_id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        batch.mo_id?.toLowerCase().includes(searchQuery.toLowerCase());
-      
-      const matchesDate = !filterDate || 
-        (batch.created_at && new Date(batch.created_at).toISOString().split('T')[0] === filterDate);
-      
-      return matchesSearch && matchesDate;
-    });
-  }, [searchQuery, filterDate]);
+  // Handle MO stop action
+  const handleStopMO = async (moId) => {
+    if (!window.confirm(`Are you sure you want to stop MO ${moId}?`)) {
+      return;
+    }
 
-  // Get current tab data
+    try {
+      // Find the first active process execution for this MO to stop
+      const mo = dashboardData.in_progress?.find(m => m.id === moId || m.mo_id === moId);
+      if (!mo) {
+        alert('MO not found');
+        return;
+      }
+
+      // Get the first in-progress process execution
+      const processExecution = mo.process_executions?.find(pe => pe.status === 'in_progress');
+      if (!processExecution) {
+        alert('No active process found to stop');
+        return;
+      }
+
+      setStopModal({ isOpen: true, batch: null, execution: processExecution, moId: moId });
+    } catch (error) {
+      console.error('Error stopping MO:', error);
+      alert('Failed to stop MO: ' + error.message);
+    }
+  };
+
+  // Get current tab data - Now filtering MOs instead of batches
   const currentTabData = useMemo(() => {
     if (!dashboardData) return [];
     
     let data = [];
     switch (activeTab) {
-      case 'to_process':
-        data = dashboardData.pending_start || [];
-        break;
       case 'in_progress':
         data = dashboardData.in_progress || [];
         break;
@@ -250,12 +259,21 @@ export default function SupervisorDashboard() {
         data = [];
     }
     
-    return filterBatches(data);
-  }, [activeTab, dashboardData, filterBatches]);
+    // Filter MOs by search query and date
+    return data.filter(mo => {
+      const matchesSearch = !searchQuery || 
+        mo.mo_id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        mo.product_code_display?.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      const matchesDate = !filterDate || 
+        (mo.created_at && new Date(mo.created_at).toISOString().split('T')[0] === filterDate);
+      
+      return matchesSearch && matchesDate;
+    });
+  }, [activeTab, dashboardData, searchQuery, filterDate]);
 
-  // Tab configuration
+  // Tab configuration - Removed 'to_process' tab as requested
   const tabs = [
-    { id: 'to_process', label: 'To Process', icon: PlayIcon, color: 'green' },
     { id: 'in_progress', label: 'In Progress', icon: CheckCircleIcon, color: 'blue' },
     { id: 'stopped', label: 'Stopped', icon: PauseCircleIcon, color: 'red' },
     { id: 'rework_pending', label: 'Rework Pending', icon: ArrowPathIcon, color: 'orange' },
@@ -268,8 +286,6 @@ export default function SupervisorDashboard() {
     if (!dashboardData) return 0;
     
     switch (tabId) {
-      case 'to_process':
-        return dashboardData.pending_start?.length || 0;
       case 'in_progress':
         return dashboardData.in_progress?.length || 0;
       case 'stopped':
@@ -285,47 +301,33 @@ export default function SupervisorDashboard() {
     }
   };
 
-  // Render batch card based on status
-  const renderBatchCard = (item) => {
+  // Render MO card - Updated to show MOs instead of batches
+  const renderMOCard = (mo) => {
     const isReworkBatch = activeTab === 'rework_pending';
-    // Get batch object - could be item itself, item.batch, or item.original_batch
-    let batch = isReworkBatch ? item.original_batch : (item.batch || item);
-    const processExecution = item.process_execution || item;
-    
-    // If batch doesn't have batch_id, it might be a process execution or MO
-    // For MO objects from supervisor_dashboard, get the first active batch
-    if (batch && !batch.batch_id) {
-      // Check if item is an MO with batches array
-      if (item.batches && item.batches.length > 0) {
-        // Get first non-completed batch, or just the first batch
-        const activeBatch = item.batches.find(b => b.status !== 'completed' && b.status !== 'cancelled') || item.batches[0];
-        batch = activeBatch;
-      } else if (processExecution && processExecution.mo_id) {
-        // This is likely a process execution, let backend handle all batches
-        batch = null; // Don't send batch_id, let backend stop all active batches
-      }
-    }
     
     return (
       <div
-        key={item.id}
-        className="bg-white/80 backdrop-blur-sm rounded-xl shadow-lg shadow-slate-200/50 border border-slate-200/60 p-6 hover:shadow-xl transition-all"
+        key={mo.id || mo.mo_id}
+        onClick={() => activeTab !== 'in_progress' && handleMOClick(mo.id || mo.mo_id)}
+        className={`bg-white/80 backdrop-blur-sm rounded-xl shadow-lg shadow-slate-200/50 border border-slate-200/60 p-6 hover:shadow-xl transition-all ${
+          activeTab !== 'in_progress' ? 'cursor-pointer' : ''
+        }`}
       >
         <div className="flex items-start justify-between mb-4">
           <div className="flex-1">
             <div className="flex items-center space-x-2 mb-1">
-              <h3 className="text-lg font-bold text-slate-800">{batch?.batch_id || item.mo_id}</h3>
-              {isReworkBatch && item.rework_cycle && (
-                <span className={`px-2 py-0.5 text-xs font-medium rounded border ${getReworkBadgeColor(item.rework_cycle)}`}>
-                  R{item.rework_cycle}
+              <h3 className="text-lg font-bold text-slate-800">{mo.mo_id}</h3>
+              {isReworkBatch && mo.rework_cycle && (
+                <span className={`px-2 py-0.5 text-xs font-medium rounded border ${getReworkBadgeColor(mo.rework_cycle)}`}>
+                  R{mo.rework_cycle}
                 </span>
               )}
             </div>
-            <p className="text-sm text-slate-600">{item.process_name || 'N/A'}</p>
-            <p className="text-xs text-slate-500">{batch?.mo_id || item.mo_id}</p>
+            <p className="text-sm text-slate-600">{mo.product_code_display || mo.product_code_value || 'N/A'}</p>
+            <p className="text-xs text-slate-500">{mo.material_name || 'N/A'}</p>
           </div>
-          <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(item.status)}`}>
-            {item.status_display || item.status}
+          <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(mo.status)}`}>
+            {mo.status_display || mo.status}
           </span>
         </div>
 
@@ -333,14 +335,20 @@ export default function SupervisorDashboard() {
           <div className="flex justify-between text-sm">
             <span className="text-slate-600">Quantity:</span>
             <span className="font-medium text-slate-800">
-              {isReworkBatch ? `${item.rework_quantity} kg` : `${item.quantity || item.planned_quantity || 0} kg`}
+              {mo.quantity?.toLocaleString() || 0}
             </span>
           </div>
-          {item.created_at && (
+          {mo.overall_progress !== undefined && (
+            <div className="flex justify-between text-sm">
+              <span className="text-slate-600">Progress:</span>
+              <span className="font-medium text-slate-800">{mo.overall_progress}%</span>
+            </div>
+          )}
+          {mo.created_at && (
             <div className="flex justify-between text-sm">
               <span className="text-slate-600">Created:</span>
               <span className="font-medium text-slate-800">
-                {new Date(item.created_at).toLocaleDateString()}
+                {new Date(mo.created_at).toLocaleDateString()}
               </span>
             </div>
           )}
@@ -348,60 +356,63 @@ export default function SupervisorDashboard() {
 
         {/* Action Buttons */}
         <div className="mt-4 pt-4 border-t border-slate-200 space-y-2">
-          {activeTab === 'to_process' && (
-            <>
-              <button
-                onClick={() => setVerifyModal({ isOpen: true, batch, execution: processExecution, expectedQuantity: item.planned_quantity || 0 })}
-                className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center space-x-2"
-              >
-                <CheckCircleIcon className="h-4 w-4" />
-                <span>Verify & Start</span>
-              </button>
-            </>
-          )}
-          
           {activeTab === 'in_progress' && (
             <div className="flex space-x-2">
               <button
-                onClick={() => setStopModal({ isOpen: true, batch, execution: processExecution })}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleStopMO(mo.id || mo.mo_id);
+                }}
                 className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center space-x-2"
               >
                 <PauseCircleIcon className="h-4 w-4" />
-                <span>Stop</span>
+                <span>Stop MO</span>
               </button>
               <button
-                onClick={() => setReworkModal({ isOpen: true, batch, execution: processExecution, isReworkCompletion: false })}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleMOClick(mo.id || mo.mo_id);
+                }}
                 className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2"
               >
-                <CheckCircleIcon className="h-4 w-4" />
-                <span>Complete</span>
+                <span>View Details</span>
               </button>
             </div>
           )}
           
           {activeTab === 'stopped' && (
             <button
-              onClick={() => setResumeModal({ isOpen: true, processStop: item, batch })}
+              onClick={(e) => {
+                e.stopPropagation();
+                // Handle resume - you may need to implement this
+                handleMOClick(mo.id || mo.mo_id);
+              }}
               className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center space-x-2"
             >
               <PlayIcon className="h-4 w-4" />
-              <span>Resume Process</span>
+              <span>View Details</span>
             </button>
           )}
           
           {activeTab === 'rework_pending' && (
             <button
-              onClick={() => setReworkModal({ isOpen: true, batch, execution: processExecution, isReworkCompletion: true, reworkBatch: item })}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleMOClick(mo.id || mo.mo_id);
+              }}
               className="w-full px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors flex items-center justify-center space-x-2"
             >
               <ArrowPathIcon className="h-4 w-4" />
-              <span>Complete Rework</span>
+              <span>View Details</span>
             </button>
           )}
           
           {activeTab === 'on_hold' && (
             <button
-              onClick={() => handleMOClick(item.mo_id || batch?.mo_id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleMOClick(mo.id || mo.mo_id);
+              }}
               className="w-full px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors"
             >
               View Details
@@ -410,7 +421,10 @@ export default function SupervisorDashboard() {
           
           {activeTab === 'completed' && (
             <button
-              onClick={() => handleMOClick(item.mo_id || batch?.mo_id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleMOClick(mo.id || mo.mo_id);
+              }}
               className="w-full px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
             >
               View Details
@@ -494,7 +508,7 @@ export default function SupervisorDashboard() {
               <MagnifyingGlassIcon className="h-5 w-5 text-slate-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
               <input
                 type="text"
-                placeholder="Search by Batch ID or MO ID..."
+                placeholder="Search by MO ID or Product Code..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -532,14 +546,14 @@ export default function SupervisorDashboard() {
 
         {currentTabData.length > 0 ? (
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-            {currentTabData.map(item => renderBatchCard(item))}
+            {currentTabData.map(mo => renderMOCard(mo))}
           </div>
         ) : (
           <div className="text-center py-16 bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200/60">
             <div className="text-6xl mb-4">📋</div>
-            <h3 className="text-xl font-semibold text-slate-700 mb-2">No Items</h3>
+            <h3 className="text-xl font-semibold text-slate-700 mb-2">No Manufacturing Orders</h3>
             <p className="text-slate-500">
-              No batches found in "{tabs.find(t => t.id === activeTab)?.label}".
+              No MOs found in "{tabs.find(t => t.id === activeTab)?.label}".
             </p>
           </div>
         )}
@@ -550,7 +564,8 @@ export default function SupervisorDashboard() {
         <ProcessStopModal
           batch={stopModal.batch}
           processExecution={stopModal.execution}
-          onClose={() => setStopModal({ isOpen: false, batch: null, execution: null })}
+          moId={stopModal.moId}
+          onClose={() => setStopModal({ isOpen: false, batch: null, execution: null, moId: null })}
           onSuccess={handleRefresh}
         />
       )}
