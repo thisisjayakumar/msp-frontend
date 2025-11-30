@@ -497,9 +497,32 @@ export default function SupervisorMODetailPage() {
       setBatchProcessLoadingStates(prev => ({ ...prev, [loadingKey]: true }));
       
       // Call API to start batch in specific process
-      await processTrackingAPI.startBatchProcess(batch.id, process.id);
+      const response = await processTrackingAPI.startBatchProcess(batch.id, process.id);
       
-      // Use aggressive refresh immediately
+      // Immediately update batch notes in local state to reflect the process status
+      // This ensures UI updates without waiting for refresh
+      const processStatusKey = `PROCESS_${process.id}_STATUS`;
+      const currentNotes = batch.notes || '';
+      // Remove existing status for this process if any
+      const cleanedNotes = currentNotes.replace(new RegExp(`${processStatusKey}:[^;]*;`, 'g'), '');
+      // Add new in_progress status
+      const updatedNotes = cleanedNotes + `${processStatusKey}:in_progress;`;
+      
+      // Update batch data immediately
+      setBatchData(prev => ({
+        ...prev,
+        batches: prev.batches.map(b => 
+          b.id === batch.id 
+            ? { 
+                ...b, 
+                notes: updatedNotes,
+                status: b.status === 'created' ? 'in_process' : b.status // Update status if needed
+              }
+            : b
+        )
+      }));
+      
+      // Use aggressive refresh to get latest data from server
       await refreshBatchStatus();
       
       // Additional refreshes at different intervals to ensure status updates
@@ -547,15 +570,28 @@ export default function SupervisorMODetailPage() {
       
       console.log('✅ Batch process completion response:', response);
       
-      // Immediately update the batch notes in state if response contains batch data
-      if (response && response.batch) {
-        setBatchData(prev => ({
-          ...prev,
-          batches: prev.batches.map(b => 
-            b.id === batch.id ? { ...b, notes: response.batch.notes || b.notes } : b
-          )
-        }));
-      }
+      // Immediately update batch notes in local state to reflect the completed status
+      // This ensures UI updates without waiting for refresh
+      const processStatusKey = `PROCESS_${process.id}_STATUS`;
+      const currentNotes = batch.notes || '';
+      // Remove existing status for this process if any
+      const cleanedNotes = currentNotes.replace(new RegExp(`${processStatusKey}:[^;]*;`, 'g'), '');
+      // Add new completed status
+      const updatedNotes = cleanedNotes + `${processStatusKey}:completed;`;
+      
+      // Update batch data immediately
+      setBatchData(prev => ({
+        ...prev,
+        batches: prev.batches.map(b => 
+          b.id === batch.id 
+            ? { 
+                ...b, 
+                notes: response?.batch?.notes || updatedNotes, // Use response if available, otherwise use our update
+                actual_quantity_completed: response?.batch?.actual_quantity_completed ?? b.actual_quantity_completed
+              }
+            : b
+        )
+      }));
       
       // If process was completed, update the process execution status immediately
       if (response && response.process_completed && mo && mo.process_executions) {
@@ -608,6 +644,32 @@ export default function SupervisorMODetailPage() {
   };
 
   // Handle Return RM click
+  // Handle verify batch (before starting in first process)
+  const handleVerifyBatch = async (batch, process) => {
+    const loadingKey = `verify_${batch.id}_${process.id}`;
+    
+    if (!window.confirm(`Verify batch "${batch.batch_id}" before starting production?`)) {
+      return;
+    }
+    
+    try {
+      setBatchProcessLoadingStates(prev => ({ ...prev, [loadingKey]: true }));
+      
+      // Call API to verify batch
+      await manufacturingAPI.batches.verifyBatch(batch.id);
+      
+      // Refresh batch data
+      await refreshBatchStatus();
+      
+      alert(`Batch "${batch.batch_id}" verified successfully! You can now start the batch.`);
+    } catch (error) {
+      console.error('Error verifying batch:', error);
+      alert('Failed to verify batch: ' + error.message);
+    } finally {
+      setBatchProcessLoadingStates(prev => ({ ...prev, [loadingKey]: false }));
+    }
+  };
+
   const handleReturnRM = (batch, process) => {
     setReturnContext({ batch, process });
     setShowReturnModal(true);
@@ -1030,52 +1092,57 @@ export default function SupervisorMODetailPage() {
           </div>
         )}
 
-        {/* Processes Tab */}
+        {/* Processes Tab - Integrated Process & Batch Flow */}
         {activeTab === 'processes' && (
           <div>
             {processesInitialized ? (
               <div className="space-y-6">
-                {/* Process Flow Visualization */}
+                {/* Integrated Process & Batch Flow Visualization */}
                 <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200/60 p-6">
                   <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center">
                     <span className="mr-2">🏭</span>
-                    Process Flow
+                    Process & Batch Flow Management
                   </h3>
-                  <ProcessFlowVisualization
-                    processExecutions={mo.process_executions}
-                    onProcessClick={handleProcessClick}
-                    onStepClick={handleStepClick}
-                    onStartProcess={handleStartProcess}
-                    onCompleteProcess={handleCompleteProcess}
-                    showSteps={true}
-                    compact={false}
-                    userRole="supervisor"
-                    startingProcessId={startingProcessId}
-                    completingProcessId={completingProcessId}
-                    batchData={batchData}
-                    canCompleteProcess={canCompleteProcess}
-                    getBatchCompletionStatus={getBatchCompletionStatus}
-                  />
-                </div>
-
-                {/* Batch Flow Visualization */}
-                {batchData.batches.length > 0 && (
-                  <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200/60 p-6">
-                    <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center">
-                      <span className="mr-2">📦</span>
-                      Batch Flow Management
-                    </h3>
-                    <BatchProcessFlowVisualization
+                  
+                  {/* Process Flow with Batch Integration */}
+                  <div className="mb-6">
+                    <ProcessFlowVisualization
                       processExecutions={mo.process_executions}
-                      batchData={batchData}
-                      onStartBatchProcess={handleStartBatchProcess}
-                      onCompleteBatchProcess={handleCompleteBatchProcess}
-                      onReturnRM={handleReturnRM}
+                      onProcessClick={handleProcessClick}
+                      onStepClick={handleStepClick}
+                      onStartProcess={handleStartProcess}
+                      onCompleteProcess={handleCompleteProcess}
+                      showSteps={true}
+                      compact={false}
                       userRole="supervisor"
-                      loadingStates={batchProcessLoadingStates}
+                      startingProcessId={startingProcessId}
+                      completingProcessId={completingProcessId}
+                      batchData={batchData}
+                      canCompleteProcess={canCompleteProcess}
+                      getBatchCompletionStatus={getBatchCompletionStatus}
                     />
                   </div>
-                )}
+
+                  {/* Batch Management Section - Integrated below Process Flow */}
+                  {batchData.batches.length > 0 && (
+                    <div className="mt-6 pt-6 border-t border-slate-200/60">
+                      <h4 className="text-md font-semibold text-slate-700 mb-4 flex items-center">
+                        <span className="mr-2">📦</span>
+                        Batch Management
+                      </h4>
+                      <BatchProcessFlowVisualization
+                        processExecutions={mo.process_executions}
+                        batchData={batchData}
+                        onVerifyBatch={handleVerifyBatch}
+                        onStartBatchProcess={handleStartBatchProcess}
+                        onCompleteBatchProcess={handleCompleteBatchProcess}
+                        onReturnRM={handleReturnRM}
+                        userRole="supervisor"
+                        loadingStates={batchProcessLoadingStates}
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
             ) : (
               <div className="text-center py-12 bg-white/80 backdrop-blur-sm rounded-xl">

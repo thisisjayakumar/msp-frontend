@@ -18,6 +18,7 @@ export default function BatchProcessFlowVisualization({
   onStartBatchProcess,
   onCompleteBatchProcess,
   onReturnRM,
+  onVerifyBatch,
   userRole = null,
   loadingStates = {}
 }) {
@@ -50,6 +51,11 @@ export default function BatchProcessFlowVisualization({
     );
   }
 
+  // Check if batch is verified (has verification note)
+  const isBatchVerified = (batch) => {
+    return batch.notes && batch.notes.includes('[BATCH_VERIFIED]');
+  };
+
   // Get batch status in a specific process
   const getBatchProcessStatus = (batch, process) => {
     // Check if batch is returned to RM
@@ -59,14 +65,11 @@ export default function BatchProcessFlowVisualization({
     
     const notes = batch.notes || "";
     
-    // Debug logging removed
-    
     // Handle both old Python dict format and new string format
     let processStatus = null;
     
     // Check new string format first
     const newProcessKey = `PROCESS_${process.id}_STATUS`;
-    // Debug logging removed
     if (notes.includes(`${newProcessKey}:in_progress;`)) {
       processStatus = 'in_progress';
     } else if (notes.includes(`${newProcessKey}:completed;`)) {
@@ -108,11 +111,18 @@ export default function BatchProcessFlowVisualization({
     const processIndex = processExecutions.findIndex(p => p.id === process.id);
     const previousProcesses = processExecutions.slice(0, processIndex);
     
-    // If this is the first process, check if batch is available
+    // If this is the first process, check batch verification status
     if (processIndex === 0) {
-      // For first process, if batch is created or in_process, it's available to start
-      const status = ['created', 'in_process'].includes(batch.status) ? 'available' : 'waiting';
-      return status;
+      // For first process, check if batch is verified
+      if (batch.status === 'created') {
+        // Batch is pending verification
+        return isBatchVerified(batch) ? 'verified' : 'pending';
+      }
+      // If batch is in_process, it's available to start
+      if (batch.status === 'in_process') {
+        return 'available';
+      }
+      return 'waiting';
     }
     
     // For subsequent processes, check if batch completed all previous processes
@@ -135,10 +145,17 @@ export default function BatchProcessFlowVisualization({
     return 'available';
   };
 
-  // Check if batch can start in a process
+  // Check if batch can be verified (pending verification in first process)
+  const canVerifyBatch = (batch, process) => {
+    const processIndex = processExecutions.findIndex(p => p.id === process.id);
+    const status = getBatchProcessStatus(batch, process);
+    return processIndex === 0 && status === 'pending' && userRole === 'supervisor';
+  };
+
+  // Check if batch can start in a process (must be verified first)
   const canStartBatchInProcess = (batch, process) => {
     const status = getBatchProcessStatus(batch, process);
-    return status === 'available' && userRole === 'supervisor';
+    return (status === 'verified' || status === 'available') && userRole === 'supervisor';
   };
 
   // Check if batch can be completed in a process
@@ -150,6 +167,16 @@ export default function BatchProcessFlowVisualization({
   // Get status color and icon
   const getStatusInfo = (status) => {
     const statusMap = {
+      pending: {
+        color: 'bg-yellow-100 text-yellow-700 border-yellow-300',
+        icon: ClockIcon,
+        bgColor: 'bg-yellow-50'
+      },
+      verified: {
+        color: 'bg-blue-100 text-blue-700 border-blue-300',
+        icon: CheckCircleIcon,
+        bgColor: 'bg-blue-50'
+      },
       available: {
         color: 'bg-blue-100 text-blue-700 border-blue-300',
         icon: PlayIcon,
@@ -208,51 +235,7 @@ export default function BatchProcessFlowVisualization({
   }
 
   return (
-    <div className="space-y-6">
-      {/* Batch Overview */}
-      <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 border border-slate-200/60">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-slate-800">Batch Production Flow</h3>
-          <div className="text-sm text-slate-600">
-            {batchData.batches.length} Batch{batchData.batches.length !== 1 ? 'es' : ''} • {processExecutions.length} Processes
-          </div>
-        </div>
-
-        {/* Batch Progress Summary */}
-        <div className="grid gap-4 mb-6">
-          {batchData.batches.map((batch) => (
-            <div key={batch.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-              <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 rounded-full bg-blue-100 border flex items-center justify-center text-xs font-medium text-blue-700">
-                  {batch.batch_id.slice(-2)}
-                </div>
-                <div>
-                  <div className="font-medium text-slate-800">{batch.batch_id}</div>
-                  <div className="text-xs text-slate-500">
-                    RM: {(batch.planned_quantity / 1000).toFixed(3)} kg
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center space-x-4">
-                <div className="text-right">
-                  <div className="text-sm font-medium text-slate-700">
-                    {calculateBatchProgress(batch)}% Complete
-                  </div>
-                  <div className="w-24 h-2 bg-slate-200 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-gradient-to-r from-blue-500 to-green-500 transition-all duration-300"
-                      style={{ width: `${calculateBatchProgress(batch)}%` }}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Process Flow with Batch Tracking */}
-      <div className="space-y-4">
+    <div className="space-y-4 text-slate-500">
         {processExecutions
           .sort((a, b) => a.sequence_order - b.sequence_order)
           .map((process, processIndex) => {
@@ -314,17 +297,24 @@ export default function BatchProcessFlowVisualization({
                   {/* Batch Status in This Process */}
                   {isExpanded && (
                     <div className="mt-6 border-t border-slate-200/60 pt-4">
-                      <h5 className="text-sm font-medium text-slate-700 mb-3">
-                        Batch Status in {process.process_name}
-                      </h5>
+                      <div className="flex items-center justify-between mb-3">
+                        <h5 className="text-sm font-medium text-slate-700">
+                          Batch Status in {process.process_name}
+                        </h5>
+                        <span className="text-xs text-slate-500">
+                          {batchData.batches.length} Batch{batchData.batches.length !== 1 ? 'es' : ''}
+                        </span>
+                      </div>
                       <div className="space-y-3">
                         {batchData.batches.map((batch) => {
                           const batchStatus = getBatchProcessStatus(batch, process);
                           const statusInfo = getStatusInfo(batchStatus);
                           const StatusIcon = statusInfo.icon;
+                          const canVerify = canVerifyBatch(batch, process);
                           const canStart = canStartBatchInProcess(batch, process);
                           const canComplete = canCompleteBatchInProcess(batch, process);
                           const isLoading = loadingStates[`${batch.id}_${process.id}`];
+                          const batchProgress = calculateBatchProgress(batch);
 
                           return (
                             <div
@@ -332,25 +322,39 @@ export default function BatchProcessFlowVisualization({
                               className={`flex items-center justify-between p-4 rounded-lg border-2 ${statusInfo.color}`}
                               style={{ background: `linear-gradient(135deg, ${statusInfo.bgColor} 0%, white 100%)` }}
                             >
-                              <div className="flex items-center space-x-3">
-                                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-white border flex items-center justify-center text-xs font-medium">
+                              <div className="flex items-center space-x-4 flex-1">
+                                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-white border-2 flex items-center justify-center text-xs font-bold">
                                   {batch.batch_id.slice(-2)}
                                 </div>
-                                <div>
-                                  <div className="font-medium text-slate-800">
+                                <div className="flex-1 min-w-0">
+                                  <div className="font-medium text-slate-800 truncate">
                                     {batch.batch_id}
                                   </div>
-                                  <div className="text-xs text-slate-500">
-                                    RM: {(batch.planned_quantity / 1000).toFixed(3)} kg
+                                  <div className="flex items-center space-x-4 mt-1">
+                                    <div className="text-xs text-slate-500">
+                                      RM: {(batch.planned_quantity / 1000).toFixed(3)} kg
+                                    </div>
+                                    {/* Overall Progress */}
+                                    <div className="flex items-center space-x-2">
+                                      <div className="w-20 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                                        <div 
+                                          className="h-full bg-gradient-to-r from-blue-500 to-green-500 transition-all duration-300"
+                                          style={{ width: `${batchProgress}%` }}
+                                        />
+                                      </div>
+                                      <span className="text-xs font-medium text-slate-600">
+                                        {batchProgress}%
+                                      </span>
+                                    </div>
                                   </div>
                                 </div>
                               </div>
 
-                              <div className="flex items-center space-x-3">
-                                {/* Status */}
-                                <div className="flex items-center space-x-2">
+                              <div className="flex items-center space-x-4">
+                                {/* Status Badge */}
+                                <div className="flex items-center space-x-2 px-3 py-1.5 bg-white/80 rounded-lg border border-slate-200">
                                   <StatusIcon className="h-4 w-4" />
-                                  <span className="text-sm font-medium capitalize">
+                                  <span className="text-sm font-medium capitalize whitespace-nowrap">
                                     {batchStatus.replace('_', ' ')}
                                   </span>
                                 </div>
@@ -358,16 +362,29 @@ export default function BatchProcessFlowVisualization({
                                 {/* Action Buttons */}
                                 <div className="flex space-x-2">
                                   {batchStatus === 'returned_to_rm' ? (
-                                    <span className="px-3 py-1 bg-red-50 text-red-700 text-xs rounded border border-red-200 font-medium">
+                                    <span className="px-3 py-1.5 bg-red-50 text-red-700 text-xs rounded border border-red-200 font-medium whitespace-nowrap">
                                       Batch Returned to RM
                                     </span>
                                   ) : (
                                     <>
+                                      {/* Verify button for pending batches in first process */}
+                                      {canVerify && (
+                                        <button
+                                          onClick={() => onVerifyBatch?.(batch, process)}
+                                          disabled={isLoading}
+                                          className="px-3 py-1.5 bg-yellow-600 text-white text-xs rounded hover:bg-yellow-700 transition-colors disabled:opacity-50 flex items-center space-x-1 whitespace-nowrap"
+                                        >
+                                          <CheckCircleIcon className="h-3 w-3" />
+                                          <span>{isLoading ? 'Verifying...' : 'Verify'}</span>
+                                        </button>
+                                      )}
+                                      
+                                      {/* Start button - only shown after verification */}
                                       {canStart && (
                                         <button
                                           onClick={() => onStartBatchProcess?.(batch, process)}
                                           disabled={isLoading}
-                                          className="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center space-x-1"
+                                          className="px-3 py-1.5 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center space-x-1 whitespace-nowrap"
                                         >
                                           <PlayIcon className="h-3 w-3" />
                                           <span>{isLoading ? 'Starting...' : 'Start'}</span>
@@ -378,21 +395,23 @@ export default function BatchProcessFlowVisualization({
                                         <button
                                           onClick={() => onCompleteBatchProcess?.(batch, process)}
                                           disabled={isLoading}
-                                          className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center space-x-1"
+                                          className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center space-x-1 whitespace-nowrap"
                                         >
                                           <CheckCircleIcon className="h-3 w-3" />
                                           <span>{isLoading ? 'Completing...' : 'Complete'}</span>
                                         </button>
                                       )}
 
-                                      {/* Return RM - allowed for batches that haven't been returned yet */}
-                                      <button
-                                        onClick={() => onReturnRM?.(batch, process)}
-                                        className="px-3 py-1 bg-orange-600 text-white text-xs rounded hover:bg-orange-700 transition-colors flex items-center space-x-1"
-                                      >
-                                        <ExclamationTriangleIcon className="h-3 w-3" />
-                                        <span>Return RM</span>
-                                      </button>
+                                      {/* Return RM - allowed for verified batches */}
+                                      {(batchStatus === 'verified' || batchStatus === 'available') && (
+                                        <button
+                                          onClick={() => onReturnRM?.(batch, process)}
+                                          className="px-3 py-1.5 bg-orange-600 text-white text-xs rounded hover:bg-orange-700 transition-colors flex items-center space-x-1 whitespace-nowrap"
+                                        >
+                                          <ExclamationTriangleIcon className="h-3 w-3" />
+                                          <span>Return RM</span>
+                                        </button>
+                                      )}
                                     </>
                                   )}
                                 </div>
@@ -407,7 +426,6 @@ export default function BatchProcessFlowVisualization({
               </div>
             );
           })}
-      </div>
     </div>
   );
 }

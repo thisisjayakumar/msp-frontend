@@ -100,6 +100,16 @@ export const batchAPI = {
     return true;
   },
 
+  // Verify batch (supervisor only)
+  verifyBatch: async (id) => {
+    const response = await apiRequest(`${MANUFACTURING_APIS.BATCH_DETAIL(id)}verify_batch/`, {
+      method: 'POST',
+      body: {},
+    });
+    
+    return handleResponse(response);
+  },
+
   // Start batch
   startBatch: async (id) => {
     const response = await apiRequest(MANUFACTURING_APIS.BATCH_START(id), {

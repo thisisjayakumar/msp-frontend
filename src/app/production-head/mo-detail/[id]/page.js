@@ -395,13 +395,15 @@ export default function MODetailPage() {
   };
 
   // Handle supervisor assignment success
-  const handleSupervisorAssignmentSuccess = (updatedProcessExecution) => {
-    // Update the MO with the new process execution data
-    if (mo && mo.process_executions) {
-      const updatedProcesses = mo.process_executions.map(pe => 
-        pe.id === updatedProcessExecution.id ? updatedProcessExecution : pe
-      );
-      setMO({ ...mo, process_executions: updatedProcesses });
+  const handleSupervisorAssignmentSuccess = async () => {
+    // Refresh the process tracking data to get updated supervisor information
+    try {
+      toast.success('Supervisor assigned successfully!');
+      // Refresh the MO data with process tracking to get updated supervisor names
+      await fetchMOData();
+    } catch (error) {
+      console.error('Error refreshing MO data after supervisor assignment:', error);
+      toast.error('Supervisor assigned but failed to refresh data. Please refresh the page.');
     }
   };
 

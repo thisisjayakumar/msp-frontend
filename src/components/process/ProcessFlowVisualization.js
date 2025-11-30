@@ -85,6 +85,37 @@ export default function ProcessFlowVisualization({
     return statusMap[status] || statusMap.pending;
   };
 
+  // Calculate process progress based on batch completion
+  const calculateProcessProgress = (execution) => {
+    // If we have batch data, calculate progress based on batch completion
+    if (batchData && batchData.batches && batchData.batches.length > 0) {
+      const batches = batchData.batches;
+      const processKey = `PROCESS_${execution.id}_STATUS`;
+      
+      // Count batches that have completed this process
+      let completedBatches = 0;
+      batches.forEach(batch => {
+        const notes = batch.notes || '';
+        if (notes.includes(`${processKey}:completed;`)) {
+          completedBatches++;
+        }
+      });
+      
+      // Calculate progress percentage
+      if (batches.length > 0) {
+        return Math.round((completedBatches / batches.length) * 100);
+      }
+    }
+    
+    // Fallback to backend progress_percentage if available
+    const progress = execution.progress_percentage;
+    if (progress !== null && progress !== undefined && !isNaN(progress) && progress >= 0) {
+      return Number(progress);
+    }
+    
+    return 0;
+  };
+
   // Calculate overall progress
   const calculateOverallProgress = () => {
     if (!processExecutions.length) return 0;
@@ -93,9 +124,9 @@ export default function ProcessFlowVisualization({
     let validProcesses = 0;
     
     processExecutions.forEach(exec => {
-      const progress = exec.progress_percentage;
-      if (progress !== null && progress !== undefined && !isNaN(progress) && progress >= 0) {
-        totalProgress += Number(progress);
+      const progress = calculateProcessProgress(exec);
+      if (progress >= 0) {
+        totalProgress += progress;
         validProcesses++;
       }
     });
@@ -337,11 +368,8 @@ export default function ProcessFlowVisualization({
                             fill="none"
                             strokeDasharray={`${2 * Math.PI * 28}`}
                             strokeDashoffset={`${2 * Math.PI * 28 * (1 - (() => {
-                              const progress = execution.progress_percentage;
-                              if (progress === null || progress === undefined || isNaN(progress)) {
-                                return 0;
-                              }
-                              return Number(progress) / 100;
+                              const progress = calculateProcessProgress(execution);
+                              return progress / 100;
                             })())}`}
                             className="transition-all duration-1000 ease-out"
                             style={{ color: statusInfo.color.includes('green') ? '#10b981' : statusInfo.color.includes('blue') ? '#3b82f6' : '#6b7280' }}
@@ -350,11 +378,8 @@ export default function ProcessFlowVisualization({
                         <div className="absolute inset-0 flex items-center justify-center">
                           <span className="text-xs font-bold text-slate-700">
                             {(() => {
-                              const progress = execution.progress_percentage;
-                              if (progress === null || progress === undefined || isNaN(progress)) {
-                                return '0%';
-                              }
-                              return `${Math.round(Number(progress))}%`;
+                              const progress = calculateProcessProgress(execution);
+                              return `${progress}%`;
                             })()}
                           </span>
                         </div>
